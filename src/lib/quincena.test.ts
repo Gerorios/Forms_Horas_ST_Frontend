@@ -1,0 +1,41 @@
+import { describe, it, expect } from 'vitest';
+import { rangoQuincena, quincenaDeFecha, enQuincena } from './quincena';
+
+describe('rangoQuincena', () => {
+  it('1ª quincena de julio 2026 = 1 al 15', () => {
+    const { desde, hasta } = rangoQuincena({ anio: 2026, mes: 7, parte: 1 });
+    expect(desde.getDate()).toBe(1);
+    expect(hasta.getDate()).toBe(15);
+    expect(desde.getMonth()).toBe(6); // julio = índice 6
+  });
+
+  it('2ª quincena de febrero 2026 termina el 28', () => {
+    const { desde, hasta } = rangoQuincena({ anio: 2026, mes: 2, parte: 2 });
+    expect(desde.getDate()).toBe(16);
+    expect(hasta.getDate()).toBe(28);
+  });
+
+  it('2ª quincena de febrero 2024 (bisiesto) termina el 29', () => {
+    const { hasta } = rangoQuincena({ anio: 2024, mes: 2, parte: 2 });
+    expect(hasta.getDate()).toBe(29);
+  });
+});
+
+describe('quincenaDeFecha', () => {
+  it('el día 15 cae en la 1ª quincena', () => {
+    expect(quincenaDeFecha(new Date(2026, 6, 15)).parte).toBe(1);
+  });
+  it('el día 16 cae en la 2ª quincena', () => {
+    expect(quincenaDeFecha(new Date(2026, 6, 16)).parte).toBe(2);
+  });
+});
+
+describe('enQuincena', () => {
+  const q = { anio: 2026, mes: 7, parte: 1 as const };
+  it('una fecha del 10/07/2026 está en la 1ª quincena de julio', () => {
+    expect(enQuincena('2026-07-10', q)).toBe(true);
+  });
+  it('una fecha del 20/07/2026 NO está en la 1ª quincena', () => {
+    expect(enQuincena('2026-07-20', q)).toBe(false);
+  });
+});
