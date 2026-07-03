@@ -14,24 +14,24 @@ export default function AprobacionesPage() {
 
   const grupos = agruparPorOperarioFecha(data ?? []);
 
-  async function aprobar(id: number) {
-    try {
-      await resolver.mutateAsync({ id, estado: 'aprobado' });
-      toast.success('Registro aprobado');
-    } catch {
-      toast.error('No se pudo aprobar');
-    }
+  function aprobar(id: number) {
+    toast.promise(resolver.mutateAsync({ id, estado: 'aprobado' }), {
+      loading: 'Aprobando registro…',
+      success: 'Registro aprobado',
+      error: 'No se pudo aprobar',
+    });
   }
 
-  async function confirmarDesaprobar(id: number, motivo: string) {
-    try {
-      await resolver.mutateAsync({ id, estado: 'desaprobado', motivoDesaprobacion: motivo });
-      toast.success('Registro desaprobado');
-    } catch {
-      toast.error('No se pudo desaprobar');
-    } finally {
-      setDesaprobandoId(null);
-    }
+  function confirmarDesaprobar(id: number, motivo: string) {
+    setDesaprobandoId(null);
+    toast.promise(
+      resolver.mutateAsync({ id, estado: 'desaprobado', motivoDesaprobacion: motivo }),
+      {
+        loading: 'Desaprobando registro…',
+        success: 'Registro desaprobado',
+        error: 'No se pudo desaprobar',
+      },
+    );
   }
 
   if (isLoading) return <p className="text-slate">Cargando…</p>;
@@ -81,15 +81,17 @@ export default function AprobacionesPage() {
                       <>
                         <button
                           type="button"
+                          disabled={resolver.isPending}
                           onClick={() => aprobar(f.id)}
-                          className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink transition hover:brightness-95"
+                          className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
                         >
                           Aprobar
                         </button>
                         <button
                           type="button"
+                          disabled={resolver.isPending}
                           onClick={() => setDesaprobandoId(f.id)}
-                          className="rounded-md border border-danger px-3 py-1 text-xs text-danger transition hover:bg-danger/10"
+                          className="rounded-md border border-danger px-3 py-1 text-xs text-danger transition hover:bg-danger/10 disabled:opacity-50"
                         >
                           Desaprobar
                         </button>

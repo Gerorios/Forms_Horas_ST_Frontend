@@ -12,13 +12,12 @@ export default function AusenciasPage() {
   const { data, isLoading } = useNovedadesPorEstado(estado);
   const resolver = useResolverHys();
 
-  async function resolverHys(id: number, estadoHys: 'aprobada' | 'desaprobada') {
-    try {
-      await resolver.mutateAsync({ id, estadoHys });
-      toast.success(estadoHys === 'aprobada' ? 'Ausencia aprobada' : 'Ausencia desaprobada');
-    } catch {
-      toast.error('No se pudo resolver');
-    }
+  function resolverHys(id: number, estadoHys: 'aprobada' | 'desaprobada') {
+    toast.promise(resolver.mutateAsync({ id, estadoHys }), {
+      loading: estadoHys === 'aprobada' ? 'Aprobando ausencia…' : 'Desaprobando ausencia…',
+      success: estadoHys === 'aprobada' ? 'Ausencia aprobada' : 'Ausencia desaprobada',
+      error: 'No se pudo resolver',
+    });
   }
 
   return (
@@ -65,15 +64,17 @@ export default function AusenciasPage() {
                 <span className="ml-auto flex gap-2">
                   <button
                     type="button"
+                    disabled={resolver.isPending}
                     onClick={() => resolverHys(n.id, 'aprobada')}
-                    className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink transition hover:brightness-95"
+                    className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
                   >
                     Aprobar
                   </button>
                   <button
                     type="button"
+                    disabled={resolver.isPending}
                     onClick={() => resolverHys(n.id, 'desaprobada')}
-                    className="rounded-md border border-danger px-3 py-1 text-xs text-danger transition hover:bg-danger/10"
+                    className="rounded-md border border-danger px-3 py-1 text-xs text-danger transition hover:bg-danger/10 disabled:opacity-50"
                   >
                     Desaprobar
                   </button>

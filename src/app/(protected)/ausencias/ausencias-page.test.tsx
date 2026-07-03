@@ -18,7 +18,7 @@ vi.mock('@/lib/api/novedades', () => ({
   useNovedadesPorEstado: () => ({ data: [nov(1)], isLoading: false }),
   useResolverHys: () => ({ mutateAsync: resolver, isPending: false }),
 }));
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), promise: vi.fn() } }));
 
 import AusenciasPage from './page';
 

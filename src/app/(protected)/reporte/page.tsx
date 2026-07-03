@@ -61,30 +61,35 @@ export default function ReportePage() {
 
   async function enviar() {
     if (!puedeEnviar || provinciaSel == null) return;
+    const promesa = crear.mutateAsync({
+      fecha,
+      provinciaId: provinciaSel,
+      gpsLat: coords?.lat,
+      gpsLng: coords?.lng,
+      movilIds: movilIds.length ? movilIds : undefined,
+      operarioCuils: operarios.map((o) => o.cuil),
+      lineas: lineasCompletas.map((l) => ({
+        contratoId: l.contratoId!,
+        horas: l.horas!,
+        tareaIds: l.tareaIds,
+      })),
+    });
+    setConfirmando(false);
+    toast.promise(promesa, {
+      loading: 'Cargando reporte…',
+      success: `Reporte cargado (${totalFilas} filas)`,
+      error: (e: unknown) =>
+        String(
+          (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+            'No se pudo cargar el reporte',
+        ),
+    });
     try {
-      await crear.mutateAsync({
-        fecha,
-        provinciaId: provinciaSel,
-        gpsLat: coords?.lat,
-        gpsLng: coords?.lng,
-        movilIds: movilIds.length ? movilIds : undefined,
-        operarioCuils: operarios.map((o) => o.cuil),
-        lineas: lineasCompletas.map((l) => ({
-          contratoId: l.contratoId!,
-          horas: l.horas!,
-          tareaIds: l.tareaIds,
-        })),
-      });
-      toast.success(`Reporte cargado (${totalFilas} filas)`);
+      await promesa;
       setOperarios([]);
       setLineas([{ contratoId: null, horas: null, tareaIds: [] }]);
-    } catch (e: unknown) {
-      const msg =
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'No se pudo cargar el reporte';
-      toast.error(String(msg));
-    } finally {
-      setConfirmando(false);
+    } catch {
+      // el toast.promise ya avisó el error
     }
   }
 

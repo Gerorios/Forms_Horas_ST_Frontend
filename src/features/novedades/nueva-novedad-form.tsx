@@ -19,15 +19,20 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
 
   async function enviar() {
     if (!puede || tipoNovedadId == null) return;
+    const promesa = crear.mutateAsync({
+      operarioCuil: operario[0].cuil,
+      tipoNovedadId,
+      fechaInicio,
+      fechaFin: fechaFin || undefined,
+      justificacionTexto: justificacion || undefined,
+    });
+    toast.promise(promesa, {
+      loading: 'Guardando novedad…',
+      success: 'Novedad cargada',
+      error: 'No se pudo cargar la novedad',
+    });
     try {
-      await crear.mutateAsync({
-        operarioCuil: operario[0].cuil,
-        tipoNovedadId,
-        fechaInicio,
-        fechaFin: fechaFin || undefined,
-        justificacionTexto: justificacion || undefined,
-      });
-      toast.success('Novedad cargada');
+      await promesa;
       setOperario([]);
       setTipoNovedadId(null);
       setFechaInicio('');
@@ -35,7 +40,7 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
       setJustificacion('');
       onCreada();
     } catch {
-      toast.error('No se pudo cargar la novedad');
+      // el toast.promise ya avisó el error
     }
   }
 
@@ -99,7 +104,7 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
         onClick={enviar}
         className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
       >
-        Cargar novedad
+        {crear.isPending ? 'Guardando…' : 'Cargar novedad'}
       </button>
     </div>
   );

@@ -20,7 +20,7 @@ vi.mock('@/lib/api/aprobaciones', () => ({
   useResolverRegistro: () => ({ mutateAsync: resolver, isPending: false }),
   useReabrirRegistro: () => ({ mutateAsync: reabrir, isPending: false }),
 }));
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), promise: vi.fn() } }));
 
 import AprobacionesPage from './page';
 

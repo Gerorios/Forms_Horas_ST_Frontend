@@ -24,7 +24,7 @@ vi.mock('@/lib/api/empleados', () => ({
   useBuscarEmpleados: () => ({ data: [{ cuil: '20169', apellido_nombre: 'GOMEZ', legajo: 1, cargo: 'OF' }] }),
 }));
 vi.mock('@/features/reporte/use-geolocation', () => ({ useGeolocation: () => ({ estado: 'denegado', coords: null }) }));
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), promise: vi.fn() } }));
 
 import ReportePage from './page';
 

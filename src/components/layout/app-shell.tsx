@@ -75,9 +75,13 @@ function UserFooter({
       <button
         type="button"
         onClick={onLogout}
-        className="mt-2 w-full rounded-md px-3 py-1.5 text-left text-sm text-slate transition-colors hover:bg-accent/60 hover:text-ink"
+        className="mt-2 flex w-full items-center gap-2 rounded-md border border-line px-3 py-2 text-sm font-medium text-slate transition-colors hover:border-danger/40 hover:bg-danger/5 hover:text-danger"
       >
-        Salir
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <path d="M13 7V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-2" strokeLinecap="round" />
+          <path d="M8 10h9m0 0-3-3m3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Cerrar sesión
       </button>
     </div>
   );
@@ -125,6 +129,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           </svg>
         </button>
         <Brand />
+        <button
+          type="button"
+          aria-label="Cerrar sesión"
+          onClick={salir}
+          className="ml-auto rounded-md p-1.5 text-slate hover:bg-danger/5 hover:text-danger"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+            <path d="M13 7V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-2" strokeLinecap="round" />
+            <path d="M8 10h9m0 0-3-3m3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </header>
 
       {/* Drawer (mobile) */}
