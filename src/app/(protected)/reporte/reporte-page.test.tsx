@@ -41,9 +41,9 @@ describe('ReportePage', () => {
     // elegir operario
     await userEvent.type(screen.getByPlaceholderText(/buscar operario/i), 'gomez');
     await userEvent.click(await screen.findByText(/GOMEZ/));
-    // completar línea
+    // completar línea: contrato, tarea (chip) y horas
     await userEvent.selectOptions(screen.getByLabelText('Contrato'), '1');
-    await userEvent.selectOptions(screen.getByLabelText('Tarea'), '9');
+    await userEvent.click(screen.getByRole('button', { name: 'Excavación' }));
     await userEvent.type(screen.getByLabelText('Horas'), '8');
     // enviar y confirmar
     await userEvent.click(screen.getByRole('button', { name: /reportar/i }));
@@ -51,7 +51,7 @@ describe('ReportePage', () => {
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
     const payload = mutateAsync.mock.calls[0][0];
     expect(payload.operarioCuils).toEqual(['20169']);
-    expect(payload.lineas).toEqual([{ contratoId: 1, tareaId: 9, horas: 8 }]);
+    expect(payload.lineas).toEqual([{ contratoId: 1, horas: 8, tareaIds: [9] }]);
     expect(payload.provinciaId).toBe(1);
   });
 });

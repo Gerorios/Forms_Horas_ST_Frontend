@@ -10,7 +10,7 @@ function fila(id: number, accionable: boolean, codigo = 'K5') {
     id, fecha: '2026-07-10', horas: '8', estado: 'pendiente', alertaHoras: false, motivoDesaprobacion: null,
     operario: { cuil: '20111', apellido_nombre: 'PEREZ JUAN' },
     contrato: { id: 1, codigo, nombre: codigo },
-    tarea: { id: 1, nombre: 'Excavación' },
+    tareas: [{ tarea: { id: 1, nombre: 'Excavación' } }],
     provincia: { id: 1, nombre: 'Córdoba' }, moviles: [], accionable,
   };
 }

@@ -6,6 +6,7 @@ import { useMisRegistros, useCargasQueHice } from '@/lib/api/registros';
 import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
 import { RegistrosTabla } from '@/features/mis-registros/registros-tabla';
 import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
+import { PageHeader } from '@/components/page-header';
 
 type Tab = 'mias' | 'cargadas';
 
@@ -21,25 +22,25 @@ export default function MisRegistrosPage() {
   const cargadas = useCargasQueHice(esJdC ? cuil : '');
 
   return (
-    <section className="space-y-4">
-      <h1 className="text-xl font-semibold text-neutral">Mis registros</h1>
+    <section className="space-y-5">
+      <PageHeader eyebrow="Historial" title="Mis registros" />
 
       {esJdC && (
-        <div className="flex gap-2 border-b border-neutral/20">
-          <button
-            type="button"
-            onClick={() => setTab('mias')}
-            className={`px-3 py-2 text-sm ${tab === 'mias' ? 'border-b-2 border-brand text-brand' : 'text-neutral'}`}
-          >
-            Mis horas
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('cargadas')}
-            className={`px-3 py-2 text-sm ${tab === 'cargadas' ? 'border-b-2 border-brand text-brand' : 'text-neutral'}`}
-          >
-            Cargas que hice
-          </button>
+        <div className="flex gap-1 border-b border-line">
+          {(['mias', 'cargadas'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`-mb-px border-b-2 px-3 py-2 text-sm transition ${
+                tab === t
+                  ? 'border-brand font-medium text-ink'
+                  : 'border-transparent text-slate hover:text-ink'
+              }`}
+            >
+              {t === 'mias' ? 'Mis horas' : 'Cargas que hice'}
+            </button>
+          ))}
         </div>
       )}
 

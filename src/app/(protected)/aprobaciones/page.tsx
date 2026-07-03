@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { usePorAprobar, useResolverRegistro } from '@/lib/api/aprobaciones';
 import { agruparPorOperarioFecha } from '@/lib/agrupar';
 import { DesaprobarDialog } from '@/features/aprobaciones/desaprobar-dialog';
+import { PageHeader } from '@/components/page-header';
 
 export default function AprobacionesPage() {
   const { data, isLoading } = usePorAprobar();
@@ -33,36 +34,45 @@ export default function AprobacionesPage() {
     }
   }
 
-  if (isLoading) return <p className="text-neutral">Cargando…</p>;
+  if (isLoading) return <p className="text-slate">Cargando…</p>;
 
   return (
-    <section className="space-y-4">
-      <h1 className="text-xl font-semibold text-neutral">Aprobaciones</h1>
+    <section className="space-y-5">
+      <PageHeader eyebrow="Jefe de contrato" title="Aprobaciones" />
       {grupos.length === 0 ? (
-        <p className="text-neutral/60">No hay registros pendientes.</p>
+        <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center text-sm text-slate">
+          No hay registros pendientes.
+        </div>
       ) : (
         grupos.map((g) => (
-          <div key={`${g.operarioCuil}-${g.fecha}`} className="rounded-lg border border-neutral/20 p-4">
-            <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="font-medium text-neutral">{g.operarioNombre}</h2>
-              <span className="text-sm text-neutral/60">{g.fecha}</span>
+          <div
+            key={`${g.operarioCuil}-${g.fecha}`}
+            className="overflow-hidden rounded-xl border border-line bg-surface"
+          >
+            <div className="flex items-baseline justify-between border-b border-line px-4 py-3">
+              <h2 className="font-display text-sm font-semibold text-ink">{g.operarioNombre}</h2>
+              <span className="text-sm tabular-nums text-slate">{g.fecha}</span>
             </div>
-            <div className="space-y-2">
+            <div className="divide-y divide-line">
               {g.filas.map((f) => (
                 <div
                   key={f.id}
-                  className={`flex flex-wrap items-center gap-3 rounded border p-2 text-sm ${
-                    f.accionable ? 'border-neutral/20' : 'border-neutral/10 bg-neutral/5 text-neutral/50'
+                  className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 text-sm ${
+                    f.accionable ? '' : 'bg-sand/60 text-slate'
                   }`}
                 >
-                  <span className="font-medium">{f.contrato.codigo}</span>
-                  <span>{f.tarea.nombre}</span>
+                  <span className="font-medium text-ink">{f.contrato.codigo}</span>
+                  <span className={f.accionable ? 'text-slate' : ''}>
+                    {f.tareas.map((t) => t.tarea.nombre).join(', ') || '—'}
+                  </span>
                   <span>
-                    {f.horas} hs
-                    {f.alertaHoras && <span className="ml-1 rounded bg-alert/15 px-1 text-xs text-alert">+16h</span>}
+                    <span className="tabular-nums text-ink">{f.horas}</span> hs
+                    {f.alertaHoras && (
+                      <span className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn">+16h</span>
+                    )}
                   </span>
                   {f.moviles.length > 0 && (
-                    <span className="text-neutral/60">
+                    <span className="text-slate">
                       {f.moviles.map((m) => m.movil.identificador).join(', ')}
                     </span>
                   )}
@@ -72,20 +82,20 @@ export default function AprobacionesPage() {
                         <button
                           type="button"
                           onClick={() => aprobar(f.id)}
-                          className="rounded bg-brand px-2 py-1 text-xs font-medium text-white"
+                          className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink transition hover:brightness-95"
                         >
                           Aprobar
                         </button>
                         <button
                           type="button"
                           onClick={() => setDesaprobandoId(f.id)}
-                          className="rounded border border-alert px-2 py-1 text-xs text-alert"
+                          className="rounded-md border border-danger px-3 py-1 text-xs text-danger transition hover:bg-danger/10"
                         >
                           Desaprobar
                         </button>
                       </>
                     ) : (
-                      <span className="text-xs italic">otro contrato</span>
+                      <span className="text-xs italic text-slate/70">otro contrato</span>
                     )}
                   </span>
                 </div>

@@ -7,7 +7,7 @@ function fila(id: number, cuil: string, nombre: string, fecha: string, accionabl
     id, fecha, horas: '8', estado: 'pendiente', alertaHoras: false, motivoDesaprobacion: null,
     operario: { cuil, apellido_nombre: nombre },
     contrato: { id: 1, codigo: 'K5', nombre: 'K5' },
-    tarea: { id: 1, nombre: 'Excavación' },
+    tareas: [{ tarea: { id: 1, nombre: 'Excavación' } }],
     provincia: { id: 1, nombre: 'Córdoba' },
     moviles: [],
     accionable,

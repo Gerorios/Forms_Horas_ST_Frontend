@@ -7,7 +7,7 @@ function reg(id: number, fecha: string, horas: string, apellido = 'X', estado = 
     id, fecha, horas, estado, alertaHoras: false, motivoDesaprobacion: null,
     operario: { cuil: '20111', apellido_nombre: apellido },
     contrato: { id: 1, codigo: 'K5', nombre: 'K5' },
-    tarea: { id: 9, nombre: 'Excavación' },
+    tareas: [{ tarea: { id: 9, nombre: 'Excavación' } }],
     provincia: { id: 1, nombre: 'Córdoba' },
     moviles: [],
   };
