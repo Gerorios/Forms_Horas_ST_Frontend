@@ -7,7 +7,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Carga masiva', href: '/carga', roles: ['Operario', 'JefeContrato'] },
+  { label: 'Reporte diario', href: '/reporte', roles: ['Operario', 'JefeContrato'] },
   { label: 'Mis registros', href: '/mis-registros', roles: ['Operario', 'JefeContrato'] },
   { label: 'Aprobaciones', href: '/aprobaciones', roles: ['JefeContrato'] },
   { label: 'Novedades', href: '/novedades', roles: ['Supervisor'] },

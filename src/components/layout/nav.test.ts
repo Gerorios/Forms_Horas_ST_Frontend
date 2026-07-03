@@ -3,9 +3,9 @@ import { navForRole } from './nav';
 import { canAccess } from '@/lib/auth/guards';
 
 describe('navForRole', () => {
-  it('Operario ve Carga masiva y Mis registros, no Admin', () => {
+  it('Operario ve Reporte diario y Mis registros, no Admin', () => {
     const hrefs = navForRole('Operario').map((i) => i.href);
-    expect(hrefs).toContain('/carga');
+    expect(hrefs).toContain('/reporte');
     expect(hrefs).toContain('/mis-registros');
     expect(hrefs).not.toContain('/admin');
   });
