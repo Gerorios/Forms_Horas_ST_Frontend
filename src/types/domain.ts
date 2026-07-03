@@ -85,3 +85,34 @@ export interface RegistroHoras {
   provincia: { id: number; nombre: string };
   moviles: { movil: { id: number; identificador: string } }[];
 }
+
+export type RegistroPorAprobar = RegistroHoras & { accionable: boolean };
+
+export type EstadoHys = 'pendiente' | 'aprobada' | 'desaprobada' | 'no_aplica';
+
+export interface TipoNovedad {
+  id: number;
+  nombre: string;
+  requiereAprobacionHys: boolean;
+}
+
+export interface Novedad {
+  id: number;
+  operarioCuil: string;
+  tipoNovedadId: number;
+  fechaInicio: string;
+  fechaFin: string | null;
+  justificacionTexto: string | null;
+  estadoHys: EstadoHys;
+  operario: { cuil: string; apellido_nombre: string };
+  tipoNovedad: { id: number; nombre: string; requiereAprobacionHys: boolean };
+  cargadoPor: { cuil: string; email: string };
+}
+
+export interface CrearNovedadInput {
+  operarioCuil: string;
+  tipoNovedadId: number;
+  fechaInicio: string;
+  fechaFin?: string;
+  justificacionTexto?: string;
+}
