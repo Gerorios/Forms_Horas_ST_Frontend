@@ -40,19 +40,19 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-neutral/20 p-4">
-      <h2 className="font-medium text-neutral">Nueva novedad</h2>
+    <div className="space-y-3 rounded-xl border border-line bg-surface p-5">
+      <h2 className="font-medium text-ink">Nueva novedad</h2>
       <div className="space-y-1">
-        <span className="text-sm text-neutral">Operario</span>
+        <span className="text-sm font-medium text-ink">Operario</span>
         <OperariosSelect value={operario} onChange={(v) => setOperario(v.slice(-1))} />
       </div>
-      <label className="flex flex-col text-sm text-neutral">
+      <label className="flex flex-col gap-1 text-sm font-medium text-ink">
         Tipo
         <select
           aria-label="Tipo"
           value={tipoNovedadId ?? ''}
           onChange={(e) => setTipoNovedadId(e.target.value ? Number(e.target.value) : null)}
-          className="rounded border border-neutral/40 px-3 py-2"
+          className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
         >
           <option value="">—</option>
           {(tipos ?? []).map((t) => (
@@ -63,24 +63,41 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
         </select>
       </label>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex flex-col text-sm text-neutral">
+        <label className="flex flex-col gap-1 text-sm font-medium text-ink">
           Fecha inicio
-          <input type="date" aria-label="Fecha inicio" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} className="rounded border border-neutral/40 px-3 py-2" />
+          <input
+            type="date"
+            aria-label="Fecha inicio"
+            value={fechaInicio}
+            onChange={(e) => setFechaInicio(e.target.value)}
+            className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+          />
         </label>
-        <label className="flex flex-col text-sm text-neutral">
+        <label className="flex flex-col gap-1 text-sm font-medium text-ink">
           Fecha fin (opcional)
-          <input type="date" aria-label="Fecha fin" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} className="rounded border border-neutral/40 px-3 py-2" />
+          <input
+            type="date"
+            aria-label="Fecha fin"
+            value={fechaFin}
+            onChange={(e) => setFechaFin(e.target.value)}
+            className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+          />
         </label>
       </div>
-      <label className="flex flex-col text-sm text-neutral">
+      <label className="flex flex-col gap-1 text-sm font-medium text-ink">
         Justificación (opcional)
-        <textarea value={justificacion} onChange={(e) => setJustificacion(e.target.value)} className="rounded border border-neutral/40 px-3 py-2" rows={2} />
+        <textarea
+          value={justificacion}
+          onChange={(e) => setJustificacion(e.target.value)}
+          className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+          rows={2}
+        />
       </label>
       <button
         type="button"
         disabled={!puede || crear.isPending}
         onClick={enviar}
-        className="rounded bg-brand px-4 py-2 font-medium text-white disabled:opacity-50"
+        className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
       >
         Cargar novedad
       </button>
