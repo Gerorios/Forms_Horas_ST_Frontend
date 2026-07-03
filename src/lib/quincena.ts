@@ -26,7 +26,10 @@ export function quincenaDeFecha(d: Date): Quincena {
 
 /** fechaISO: 'YYYY-MM-DD' o ISO completo. Compara por rango de la quincena. */
 export function enQuincena(fechaISO: string, q: Quincena): boolean {
-  const d = new Date(fechaISO);
+  // Se parsea solo la parte YYYY-MM-DD como fecha LOCAL, para no correrse de día
+  // por zona horaria (p. ej. "2026-07-16T00:00:00.000Z" en UTC-3 sería el 15 local).
+  const [y, m, d] = fechaISO.slice(0, 10).split('-').map(Number);
+  const fecha = new Date(y, m - 1, d);
   const { desde, hasta } = rangoQuincena(q);
-  return d >= desde && d <= hasta;
+  return fecha >= desde && fecha <= hasta;
 }

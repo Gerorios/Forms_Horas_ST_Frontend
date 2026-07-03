@@ -38,4 +38,8 @@ describe('enQuincena', () => {
   it('una fecha del 20/07/2026 NO está en la 1ª quincena', () => {
     expect(enQuincena('2026-07-20', q)).toBe(false);
   });
+  it('el borde 15 está en la 1ª y el 16 NO (aunque venga en ISO UTC)', () => {
+    expect(enQuincena('2026-07-15T00:00:00.000Z', q)).toBe(true);
+    expect(enQuincena('2026-07-16T00:00:00.000Z', q)).toBe(false);
+  });
 });
