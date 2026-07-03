@@ -13,7 +13,7 @@ const CHIP: Record<string, string> = {
 
 export default function NovedadesPage() {
   const { data, isLoading } = useNovedades();
-  const [mostrarForm, setMostrarForm] = useState(true);
+  const [mostrarForm, setMostrarForm] = useState(false);
 
   return (
     <section className="space-y-4">

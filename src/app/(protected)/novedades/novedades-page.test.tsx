@@ -21,6 +21,7 @@ describe('NovedadesPage', () => {
 
   it('crea una novedad con operario, tipo y fecha inicio', async () => {
     render(<NovedadesPage />);
+    await userEvent.click(screen.getByRole('button', { name: /nueva novedad/i }));
     await userEvent.type(screen.getByPlaceholderText(/buscar operario/i), 'gomez');
     await userEvent.click(await screen.findByText(/GOMEZ/));
     await userEvent.selectOptions(screen.getByLabelText('Tipo'), '5');
