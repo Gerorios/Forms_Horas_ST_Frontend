@@ -14,7 +14,11 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
   }, [loading, perfil, router]);
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center text-neutral">Cargando…</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-sand text-slate">
+        Cargando…
+      </div>
+    );
   }
   if (!perfil) return null; // redirigiendo
 

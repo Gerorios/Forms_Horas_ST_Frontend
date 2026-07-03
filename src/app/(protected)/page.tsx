@@ -3,30 +3,42 @@
 import Link from 'next/link';
 import { useSession } from '@/lib/auth/session';
 import { navForRole } from '@/components/layout/nav';
+import { PageHeader } from '@/components/page-header';
+
+const DESCRIPCION: Record<string, string> = {
+  '/reporte': 'Cargar las horas trabajadas del día por operario, tarea y contrato.',
+  '/mis-registros': 'Consultar tus horas registradas, por quincena.',
+  '/aprobaciones': 'Revisar y aprobar las horas pendientes de tus contratos.',
+  '/novedades': 'Cargar y ver novedades: ausencias, accidentes, francos.',
+  '/ausencias': 'Aprobar o rechazar las ausencias que requieren Higiene y Seguridad.',
+  '/admin': 'Administrar catálogos, usuarios y contratos.',
+};
 
 export default function HomePage() {
   const { perfil } = useSession();
   if (!perfil) return null;
 
   const items = navForRole(perfil.rol.nombre);
+  const nombre = perfil.empleado.apellido_nombre;
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-neutral">
-          Hola, {perfil.empleado.apellido_nombre}
-        </h1>
-        <p className="text-sm text-neutral/70">Rol: {perfil.rol.nombre}</p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <section className="space-y-6">
+      <PageHeader eyebrow={perfil.rol.nombre} title={`Hola, ${nombre}`} />
+
+      <div className="grid gap-4 sm:grid-cols-2">
         {items.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className="rounded-lg border border-neutral/20 p-4 hover:border-brand"
+            className="group rounded-xl border border-line bg-surface p-5 transition hover:border-brand hover:shadow-sm"
           >
-            <span className="font-medium text-neutral">{item.label}</span>
-            <p className="text-xs text-neutral/60">En construcción</p>
+            <div className="flex items-center justify-between">
+              <span className="font-display text-base font-semibold text-ink">{item.label}</span>
+              <span className="text-slate transition group-hover:translate-x-0.5 group-hover:text-brand-deep">
+                →
+              </span>
+            </div>
+            <p className="mt-1.5 text-sm text-slate">{DESCRIPCION[item.href] ?? ''}</p>
           </Link>
         ))}
       </div>

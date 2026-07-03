@@ -29,49 +29,60 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4">
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        noValidate
-        className="w-full max-w-sm space-y-4 rounded-lg border border-neutral/30 p-6"
-      >
-        <div className="flex justify-center">
-          <Image src="/logo.png" alt="Logo" width={96} height={96} priority />
-        </div>
-        <h1 className="text-center text-xl font-semibold text-neutral">Registro de Horas</h1>
-
-        <div className="space-y-1">
-          <label htmlFor="email" className="block text-sm text-neutral">Email</label>
-          <input
-            id="email"
-            type="email"
-            className="w-full rounded border border-neutral/40 px-3 py-2"
-            {...register('email')}
-          />
-          {errors.email && <p className="text-sm text-alert">{errors.email.message}</p>}
+    <main className="flex min-h-screen items-center justify-center bg-sand p-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <Image src="/logo.png" alt="" width={72} height={72} priority className="rounded-full" />
+          <h1 className="mt-4 font-display text-2xl font-semibold text-ink">Registro de Horas</h1>
+          <p className="mt-1 text-sm text-slate">Ingresá para reportar o aprobar horas</p>
         </div>
 
-        <div className="space-y-1">
-          <label htmlFor="password" className="block text-sm text-neutral">Contraseña</label>
-          <input
-            id="password"
-            type="password"
-            className="w-full rounded border border-neutral/40 px-3 py-2"
-            {...register('password')}
-          />
-          {errors.password && <p className="text-sm text-alert">{errors.password.message}</p>}
-        </div>
-
-        {errorMsg && <p className="text-sm text-alert">{errorMsg}</p>}
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded bg-brand py-2 font-medium text-white disabled:opacity-60"
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          noValidate
+          className="space-y-4 rounded-xl border border-line bg-surface p-6 shadow-sm"
         >
-          {isSubmitting ? 'Ingresando…' : 'Ingresar'}
-        </button>
-      </form>
+          <div className="space-y-1.5">
+            <label htmlFor="email" className="block text-sm font-medium text-ink">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="username"
+              className="w-full rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"
+              {...register('email')}
+            />
+            {errors.email && <p className="text-sm text-danger">{errors.email.message}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="password" className="block text-sm font-medium text-ink">
+              Contraseña
+            </label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              className="w-full rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"
+              {...register('password')}
+            />
+            {errors.password && <p className="text-sm text-danger">{errors.password.message}</p>}
+          </div>
+
+          {errorMsg && (
+            <p className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">{errorMsg}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full rounded-md bg-brand py-2.5 font-medium text-ink transition hover:brightness-95 focus-visible:ring-2 focus-visible:ring-brand/40 disabled:opacity-60"
+          >
+            {isSubmitting ? 'Ingresando…' : 'Ingresar'}
+          </button>
+        </form>
+      </div>
     </main>
   );
 }
