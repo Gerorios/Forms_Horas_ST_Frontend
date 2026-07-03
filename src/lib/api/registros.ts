@@ -10,7 +10,10 @@ export function useCrearReporteBatch() {
         '/registros-horas/batch',
         payload,
       )).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['mis-registros'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['mis-registros'] });
+      qc.invalidateQueries({ queryKey: ['cargas-que-hice'] });
+    },
   });
 }
 
@@ -20,5 +23,15 @@ export function useMisRegistros(operarioCuil: string) {
     enabled: !!operarioCuil,
     queryFn: async () =>
       (await api.get<RegistroHoras[]>('/registros-horas', { params: { operarioCuil } })).data,
+  });
+}
+
+/** Registros que este usuario cargó (para la vista "Cargas que hice" del JdC). */
+export function useCargasQueHice(cargadoPorCuil: string) {
+  return useQuery({
+    queryKey: ['cargas-que-hice', cargadoPorCuil],
+    enabled: !!cargadoPorCuil,
+    queryFn: async () =>
+      (await api.get<RegistroHoras[]>('/registros-horas', { params: { cargadoPorCuil } })).data,
   });
 }

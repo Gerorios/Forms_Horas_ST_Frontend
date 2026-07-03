@@ -1,86 +1,59 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useSession } from '@/lib/auth/session';
-import { useMisRegistros } from '@/lib/api/registros';
+import { useMisRegistros, useCargasQueHice } from '@/lib/api/registros';
 import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
-import { quincenaDeFecha, enQuincena, type Quincena } from '@/lib/quincena';
+import { RegistrosTabla } from '@/features/mis-registros/registros-tabla';
+import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
 
-const CHIP: Record<string, string> = {
-  pendiente: 'bg-neutral/15 text-neutral',
-  aprobado: 'bg-green-100 text-green-800',
-  desaprobado: 'bg-alert/15 text-alert',
-};
+type Tab = 'mias' | 'cargadas';
 
 export default function MisRegistrosPage() {
   const { perfil } = useSession();
-  const { data, isLoading } = useMisRegistros(perfil?.cuil ?? '');
-  const [q, setQ] = useState<Quincena>(() => quincenaDeFecha(new Date()));
+  const cuil = perfil?.cuil ?? '';
+  const esJdC = perfil?.rol?.nombre === 'JefeCuadrilla';
 
-  const registros = useMemo(
-    () => (data ?? []).filter((r) => enQuincena(r.fecha, q)),
-    [data, q],
-  );
-  const total = useMemo(
-    () => registros.reduce((s, r) => s + Number(r.horas), 0),
-    [registros],
-  );
+  const [q, setQ] = useState<Quincena>(() => quincenaDeFecha(new Date()));
+  const [tab, setTab] = useState<Tab>('mias');
+
+  const mias = useMisRegistros(cuil);
+  const cargadas = useCargasQueHice(esJdC ? cuil : '');
 
   return (
     <section className="space-y-4">
       <h1 className="text-xl font-semibold text-neutral">Mis registros</h1>
+
+      {esJdC && (
+        <div className="flex gap-2 border-b border-neutral/20">
+          <button
+            type="button"
+            onClick={() => setTab('mias')}
+            className={`px-3 py-2 text-sm ${tab === 'mias' ? 'border-b-2 border-brand text-brand' : 'text-neutral'}`}
+          >
+            Mis horas
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('cargadas')}
+            className={`px-3 py-2 text-sm ${tab === 'cargadas' ? 'border-b-2 border-brand text-brand' : 'text-neutral'}`}
+          >
+            Cargas que hice
+          </button>
+        </div>
+      )}
+
       <QuincenaSelect value={q} onChange={setQ} />
 
-      {isLoading ? (
-        <p className="text-neutral">Cargando…</p>
-      ) : registros.length === 0 ? (
-        <p className="text-neutral/60">Sin registros en esta quincena.</p>
+      {esJdC && tab === 'cargadas' ? (
+        <RegistrosTabla
+          registros={cargadas.data}
+          quincena={q}
+          isLoading={cargadas.isLoading}
+          mostrarOperario
+        />
       ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-neutral/20 text-left text-neutral/70">
-                  <th className="py-2">Fecha</th>
-                  <th>Contrato</th>
-                  <th>Tarea</th>
-                  <th>Horas</th>
-                  <th>Estado</th>
-                  <th>Móviles</th>
-                </tr>
-              </thead>
-              <tbody>
-                {registros.map((r) => (
-                  <tr key={r.id} className="border-b border-neutral/10">
-                    <td className="py-2">{r.fecha.slice(0, 10)}</td>
-                    <td>{r.contrato.codigo}</td>
-                    <td>{r.tarea.nombre}</td>
-                    <td>
-                      {r.horas}
-                      {r.alertaHoras && (
-                        <span className="ml-1 rounded bg-alert/15 px-1 text-xs text-alert">+16h</span>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`rounded px-2 py-0.5 text-xs ${CHIP[r.estado] ?? ''}`}>
-                        {r.estado}
-                      </span>
-                      {r.estado === 'desaprobado' && r.motivoDesaprobacion && (
-                        <span className="ml-1 text-xs text-alert" title={r.motivoDesaprobacion}>
-                          (motivo)
-                        </span>
-                      )}
-                    </td>
-                    <td>{r.moviles.map((m) => m.movil.identificador).join(', ')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-sm text-neutral">
-            Total de la quincena: <strong>{total}</strong> hs
-          </p>
-        </>
+        <RegistrosTabla registros={mias.data} quincena={q} isLoading={mias.isLoading} />
       )}
     </section>
   );

@@ -1,4 +1,10 @@
-export type Rol = 'Operario' | 'JefeContrato' | 'Supervisor' | 'HyS' | 'Admin';
+export type Rol =
+  | 'Operario'
+  | 'JefeCuadrilla'
+  | 'JefeContrato'
+  | 'Supervisor'
+  | 'HyS'
+  | 'Admin';
 
 export interface ContratoResumen {
   id: number;
