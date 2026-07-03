@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useSession } from '@/lib/auth/session';
 import { useProvincias, useMoviles } from '@/lib/api/catalogos';
@@ -35,11 +35,9 @@ export default function ReportePage() {
   ]);
   const [confirmando, setConfirmando] = useState(false);
 
-  useEffect(() => {
-    if (provinciaId == null && provincias && provincias.length > 0) {
-      setProvinciaId(provincias[0].id);
-    }
-  }, [provincias, provinciaId]);
+  // Provincia efectiva: la elegida por el usuario o, por defecto, la primera
+  // (el contexto define "provincia siempre 1"). Derivada, sin efecto.
+  const provinciaSel = provinciaId ?? provincias?.[0]?.id ?? null;
 
   const lineasCompletas = useMemo(
     () =>
@@ -49,15 +47,15 @@ export default function ReportePage() {
     [lineas],
   );
   const puedeEnviar =
-    operarios.length > 0 && lineasCompletas.length > 0 && provinciaId != null;
+    operarios.length > 0 && lineasCompletas.length > 0 && provinciaSel != null;
   const totalFilas = contarFilas(operarios.length, lineasCompletas.length);
 
   async function enviar() {
-    if (!puedeEnviar || provinciaId == null) return;
+    if (!puedeEnviar || provinciaSel == null) return;
     try {
       await crear.mutateAsync({
         fecha,
-        provinciaId,
+        provinciaId: provinciaSel,
         gpsLat: coords?.lat,
         gpsLng: coords?.lng,
         movilIds: movilIds.length ? movilIds : undefined,
@@ -103,7 +101,7 @@ export default function ReportePage() {
           Provincia
           <select
             aria-label="Provincia"
-            value={provinciaId ?? ''}
+            value={provinciaSel ?? ''}
             onChange={(e) => setProvinciaId(e.target.value ? Number(e.target.value) : null)}
             className="rounded border border-neutral/40 px-3 py-2"
           >
