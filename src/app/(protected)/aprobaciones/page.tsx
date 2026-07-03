@@ -2,14 +2,13 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { usePorAprobar, useResolverRegistro, useReabrirRegistro } from '@/lib/api/aprobaciones';
+import { usePorAprobar, useResolverRegistro } from '@/lib/api/aprobaciones';
 import { agruparPorOperarioFecha } from '@/lib/agrupar';
 import { DesaprobarDialog } from '@/features/aprobaciones/desaprobar-dialog';
 
 export default function AprobacionesPage() {
   const { data, isLoading } = usePorAprobar();
   const resolver = useResolverRegistro();
-  const reabrir = useReabrirRegistro();
   const [desaprobandoId, setDesaprobandoId] = useState<number | null>(null);
 
   const grupos = agruparPorOperarioFecha(data ?? []);
