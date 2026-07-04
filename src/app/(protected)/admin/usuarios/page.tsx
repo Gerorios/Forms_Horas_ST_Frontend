@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { AltaMasiva } from '@/features/admin/alta-masiva';
 import { PillActivo } from '@/features/admin/pill-activo';
+import { UsuarioEditRow } from '@/features/admin/usuario-edit-row';
 import { UsuarioForm } from '@/features/admin/usuario-form';
 import { useUsuariosAdmin, useEditarUsuario } from '@/lib/api/admin';
 
@@ -55,19 +56,22 @@ export default function UsuariosAdminPage() {
                 <th className="px-4 py-2.5 font-medium">Rol</th>
                 <th className="px-4 py-2.5 font-medium">Contratos</th>
                 <th className="px-4 py-2.5 font-medium">Estado</th>
+                <th className="px-4 py-2.5 font-medium">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {(data ?? []).map((u) => (
-                <tr key={u.cuil} className="border-b border-line last:border-0">
-                  <td className="px-4 py-2.5 text-ink">{u.empleado.apellido_nombre}</td>
-                  <td className="px-4 py-2.5 text-slate">{u.email}</td>
-                  <td className="px-4 py-2.5 text-ink">{u.rol.nombre}</td>
-                  <td className="px-4 py-2.5 text-slate">{u.contratosHabilitados.map((c) => c.contrato.codigo).join(', ') || '—'}</td>
-                  <td className="px-4 py-2.5">
-                    <PillActivo activo={u.activo} disabled={editar.isPending} onToggle={() => cambiarActivo(u.cuil, !u.activo)} />
-                  </td>
-                </tr>
+                <UsuarioEditRow
+                  key={u.cuil}
+                  usuario={u}
+                  estado={
+                    <PillActivo
+                      activo={u.activo}
+                      disabled={editar.isPending}
+                      onToggle={() => cambiarActivo(u.cuil, !u.activo)}
+                    />
+                  }
+                />
               ))}
             </tbody>
           </table>

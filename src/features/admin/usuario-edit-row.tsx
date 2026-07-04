@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useEditarUsuario, useRoles, useContratosAdmin, type UsuarioAdmin } from '@/lib/api/admin';
 
 const inputCls =
   'rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
 
-export function UsuarioEditRow({ usuario }: { usuario: UsuarioAdmin }) {
+export function UsuarioEditRow({ usuario, estado }: { usuario: UsuarioAdmin; estado: ReactNode }) {
   const editar = useEditarUsuario();
   const { data: roles } = useRoles();
   const { data: contratos } = useContratosAdmin();
@@ -79,6 +79,7 @@ export function UsuarioEditRow({ usuario }: { usuario: UsuarioAdmin }) {
         <td className="px-4 py-2.5 text-slate">
           {usuario.contratosHabilitados.map((c) => c.contrato.codigo).join(', ') || '—'}
         </td>
+        <td className="px-4 py-2.5">{estado}</td>
         <td className="px-4 py-2.5">
           <button
             type="button"
@@ -91,7 +92,7 @@ export function UsuarioEditRow({ usuario }: { usuario: UsuarioAdmin }) {
       </tr>
       {abierto && (
         <tr className="border-b border-line bg-accent/20">
-          <td colSpan={5} className="px-4 py-4">
+          <td colSpan={6} className="px-4 py-4">
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink">

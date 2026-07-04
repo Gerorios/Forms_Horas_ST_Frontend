@@ -27,7 +27,7 @@ const USUARIO: UsuarioAdmin = {
 // Helper: renderiza la fila dentro de una tabla válida.
 function renderRow(u: UsuarioAdmin = USUARIO) {
   return render(
-    <table><tbody><UsuarioEditRow usuario={u} /></tbody></table>,
+    <table><tbody><UsuarioEditRow usuario={u} estado={<span>estado</span>} /></tbody></table>,
   );
 }
 
