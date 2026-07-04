@@ -21,15 +21,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Al montar: si hay token, intentar recuperar el perfil.
-    if (!getToken()) {
-      setLoading(false);
-      return;
+    // Al montar: si hay token, intentar recuperar el perfil. El setState se
+    // hace en callbacks async (no en el cuerpo síncrono del effect) para no
+    // disparar cascading renders. loading arranca determinista en true.
+    let cancelado = false;
+    async function cargar() {
+      if (!getToken()) return;
+      try {
+        const p = await fetchPerfil();
+        if (!cancelado) setPerfil(p);
+      } catch {
+        clearToken();
+      }
     }
-    fetchPerfil()
-      .then(setPerfil)
-      .catch(() => clearToken())
-      .finally(() => setLoading(false));
+    cargar().finally(() => {
+      if (!cancelado) setLoading(false);
+    });
+    return () => {
+      cancelado = true;
+    };
   }, []);
 
   async function signIn(email: string, password: string) {
