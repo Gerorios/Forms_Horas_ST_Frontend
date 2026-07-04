@@ -1,0 +1,81 @@
+'use client';
+
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { PageHeader } from '@/components/page-header';
+import { PillActivo } from '@/features/admin/pill-activo';
+import { useTiposNovedadAdmin, useCrearTipoNovedad, useToggleTipoNovedad } from '@/lib/api/admin';
+
+export default function TiposNovedadAdminPage() {
+  const { data, isLoading } = useTiposNovedadAdmin();
+  const crear = useCrearTipoNovedad();
+  const toggle = useToggleTipoNovedad();
+  const [nombre, setNombre] = useState('');
+  const [requiereHys, setRequiereHys] = useState(false);
+  const [generaPlus, setGeneraPlus] = useState(false);
+
+  function agregar() {
+    if (!nombre.trim()) return;
+    toast.promise(
+      crear.mutateAsync({ nombre: nombre.trim(), requiereAprobacionHys: requiereHys, generaPlus }),
+      { loading: 'Guardando…', success: 'Tipo creado', error: 'No se pudo crear' },
+    );
+    setNombre('');
+    setRequiereHys(false);
+    setGeneraPlus(false);
+  }
+
+  return (
+    <section className="space-y-5">
+      <PageHeader eyebrow="Admin" title="Tipos de novedad" />
+      <div className="space-y-3 rounded-xl border border-line bg-surface p-4">
+        <input
+          aria-label="Nombre"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          placeholder="Nombre (ej. Ausencia)"
+          className="w-full rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+        />
+        <div className="flex flex-wrap gap-4 text-sm text-ink">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={requiereHys} onChange={(e) => setRequiereHys(e.target.checked)} />
+            Requiere aprobación de HyS
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={generaPlus} onChange={(e) => setGeneraPlus(e.target.checked)} />
+            Genera plus
+          </label>
+        </div>
+        <button
+          type="button"
+          disabled={crear.isPending}
+          onClick={agregar}
+          className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
+        >
+          Agregar tipo
+        </button>
+      </div>
+      {isLoading ? (
+        <p className="text-slate">Cargando…</p>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-line bg-surface divide-y divide-line">
+          {(data ?? []).map((t) => (
+            <div key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
+              <span className="font-medium text-ink">{t.nombre}</span>
+              {t.requiereAprobacionHys && <span className="rounded bg-accent px-1.5 py-0.5 text-xs text-brand-deep">HyS</span>}
+              {t.generaPlus && <span className="rounded bg-accent px-1.5 py-0.5 text-xs text-brand-deep">plus</span>}
+              <span className="ml-auto">
+                <PillActivo activo={t.activo} disabled={toggle.isPending} onToggle={() =>
+                  toast.promise(toggle.mutateAsync({ id: t.id, activo: !t.activo }), {
+                    loading: 'Actualizando…', success: 'Tipo actualizado', error: 'No se pudo actualizar',
+                  })
+                } />
+              </span>
+            </div>
+          ))}
+          {(data ?? []).length === 0 && <div className="px-4 py-2.5 text-sm text-slate">Sin tipos de novedad.</div>}
+        </div>
+      )}
+    </section>
+  );
+}
