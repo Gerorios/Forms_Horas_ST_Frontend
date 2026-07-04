@@ -16,11 +16,16 @@ const SessionContext = createContext<SessionValue | undefined>(undefined);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
-  const [loading, setLoading] = useState(() => Boolean(getToken()));
+  // Se inicializa determinista (igual en server y cliente) para evitar
+  // hydration mismatch: leer localStorage acá daría distinto en SSR.
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Al montar: si hay token, intentar recuperar el perfil.
-    if (!getToken()) return;
+    if (!getToken()) {
+      setLoading(false);
+      return;
+    }
     fetchPerfil()
       .then(setPerfil)
       .catch(() => clearToken())
