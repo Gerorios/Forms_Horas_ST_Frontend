@@ -1,0 +1,170 @@
+'use client';
+
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { useEditarUsuario, useRoles, useContratosAdmin, type UsuarioAdmin } from '@/lib/api/admin';
+
+const inputCls =
+  'rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
+
+export function UsuarioEditRow({ usuario }: { usuario: UsuarioAdmin }) {
+  const editar = useEditarUsuario();
+  const { data: roles } = useRoles();
+  const { data: contratos } = useContratosAdmin();
+
+  const [abierto, setAbierto] = useState(false);
+  const [email, setEmail] = useState(usuario.email);
+  const [rolId, setRolId] = useState<number>(usuario.rolId);
+  const [contratosIds, setContratosIds] = useState<number[]>(
+    usuario.contratosHabilitados.map((c) => c.contratoId),
+  );
+  const [password, setPassword] = useState('');
+
+  const origContratos = usuario.contratosHabilitados.map((c) => c.contratoId);
+
+  const emailValido = /^\S+@\S+\.\S+$/.test(email.trim());
+  const passwordValido = password === '' || password.length >= 8;
+
+  const contratosCambio =
+    contratosIds.length !== origContratos.length ||
+    contratosIds.some((id) => !origContratos.includes(id));
+  const huboCambios =
+    email.trim() !== usuario.email || rolId !== usuario.rolId || contratosCambio || password !== '';
+
+  const puedeGuardar = emailValido && passwordValido && huboCambios && !editar.isPending;
+
+  function toggleContrato(id: number) {
+    setContratosIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function cerrar() {
+    setAbierto(false);
+    setEmail(usuario.email);
+    setRolId(usuario.rolId);
+    setContratosIds(origContratos);
+    setPassword('');
+  }
+
+  async function guardar() {
+    if (!puedeGuardar) return;
+    const payload: {
+      cuil: string; email?: string; rolId?: number; contratosIds?: number[]; password?: string;
+    } = { cuil: usuario.cuil };
+    if (email.trim() !== usuario.email) payload.email = email.trim();
+    if (rolId !== usuario.rolId) payload.rolId = rolId;
+    if (contratosCambio) payload.contratosIds = contratosIds;
+    if (password !== '') payload.password = password;
+
+    const promesa = editar.mutateAsync(payload);
+    toast.promise(promesa, {
+      loading: 'Guardando…',
+      success: 'Usuario actualizado',
+      error: 'No se pudo actualizar',
+    });
+    try {
+      await promesa;
+      setAbierto(false);
+      setPassword('');
+    } catch {
+      // toast.promise ya avisó
+    }
+  }
+
+  return (
+    <>
+      <tr className="border-b border-line last:border-0">
+        <td className="px-4 py-2.5 text-ink">{usuario.empleado.apellido_nombre}</td>
+        <td className="px-4 py-2.5 text-slate">{usuario.email}</td>
+        <td className="px-4 py-2.5 text-ink">{usuario.rol.nombre}</td>
+        <td className="px-4 py-2.5 text-slate">
+          {usuario.contratosHabilitados.map((c) => c.contrato.codigo).join(', ') || '—'}
+        </td>
+        <td className="px-4 py-2.5">
+          <button
+            type="button"
+            onClick={() => (abierto ? cerrar() : setAbierto(true))}
+            className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60"
+          >
+            {abierto ? 'Cerrar' : 'Editar ▾'}
+          </button>
+        </td>
+      </tr>
+      {abierto && (
+        <tr className="border-b border-line bg-accent/20">
+          <td colSpan={5} className="px-4 py-4">
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 text-sm font-medium text-ink">
+                  Email
+                  <input aria-label="Email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium text-ink">
+                  Nueva contraseña
+                  <input
+                    aria-label="Nueva contraseña"
+                    type="text"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="vacío = no cambia (mín. 8)"
+                    className={inputCls}
+                  />
+                </label>
+              </div>
+              <label className="flex flex-col gap-1 text-sm font-medium text-ink sm:max-w-xs">
+                Rol
+                <select
+                  aria-label="Rol"
+                  value={rolId}
+                  onChange={(e) => setRolId(Number(e.target.value))}
+                  className={inputCls}
+                >
+                  {(roles ?? []).map((r) => (
+                    <option key={r.id} value={r.id}>{r.nombre}</option>
+                  ))}
+                </select>
+              </label>
+              <div>
+                <p className="text-sm font-medium text-ink">Contratos habilitados</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {(contratos ?? []).map((c) => {
+                    const on = contratosIds.includes(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => toggleContrato(c.id)}
+                        className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                          on ? 'border-brand bg-accent font-medium text-ink' : 'border-line text-slate hover:border-brand/50'
+                        }`}
+                      >
+                        {c.codigo}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={!puedeGuardar}
+                  onClick={guardar}
+                  className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
+                >
+                  {editar.isPending ? 'Guardando…' : 'Guardar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={cerrar}
+                  className="rounded-md border border-line px-4 py-2 text-sm font-medium text-slate transition hover:bg-accent/60"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
