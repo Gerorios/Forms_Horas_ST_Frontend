@@ -9,9 +9,10 @@ export interface ProvinciaAdmin { id: number; nombre: string }
 export interface TipoNovedadAdmin { id: number; nombre: string; requiereAprobacionHys: boolean; generaPlus: boolean; activo: boolean }
 export interface UsuarioAdmin {
   cuil: string; email: string; activo: boolean;
+  rolId: number;
   rol: { nombre: string };
   empleado: { apellido_nombre: string };
-  contratosHabilitados: { contrato: { codigo: string } }[];
+  contratosHabilitados: { contratoId: number; contrato: { codigo: string } }[];
 }
 export interface AltaMasivaResp {
   creados: { cuil: string; apellido_nombre: string; email: string; password: string }[];
