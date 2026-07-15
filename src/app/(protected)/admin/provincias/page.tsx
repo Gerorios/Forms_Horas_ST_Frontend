@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
+import { ProvinciaEditRow } from '@/features/admin/provincia-edit-row';
 import { useProvinciasAdmin, useCrearProvincia } from '@/lib/api/admin';
 
 export default function ProvinciasAdminPage() {
@@ -45,7 +46,7 @@ export default function ProvinciasAdminPage() {
       ) : (
         <ul className="overflow-hidden rounded-xl border border-line bg-surface divide-y divide-line">
           {(data ?? []).map((p) => (
-            <li key={p.id} className="px-4 py-2.5 text-sm text-ink">{p.nombre}</li>
+            <ProvinciaEditRow key={p.id} provincia={p} />
           ))}
           {(data ?? []).length === 0 && <li className="px-4 py-2.5 text-sm text-slate">Sin provincias.</li>}
         </ul>
