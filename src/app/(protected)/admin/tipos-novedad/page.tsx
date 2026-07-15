@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { PillActivo } from '@/features/admin/pill-activo';
+import { TipoNovedadEditRow } from '@/features/admin/tipo-novedad-edit-row';
 import { useTiposNovedadAdmin, useCrearTipoNovedad, useToggleTipoNovedad } from '@/lib/api/admin';
 
 export default function TiposNovedadAdminPage() {
@@ -60,18 +61,21 @@ export default function TiposNovedadAdminPage() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-surface divide-y divide-line">
           {(data ?? []).map((t) => (
-            <div key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
-              <span className="font-medium text-ink">{t.nombre}</span>
-              {t.requiereAprobacionHys && <span className="rounded bg-accent px-1.5 py-0.5 text-xs text-brand-deep">HyS</span>}
-              {t.generaPlus && <span className="rounded bg-accent px-1.5 py-0.5 text-xs text-brand-deep">plus</span>}
-              <span className="ml-auto">
-                <PillActivo activo={t.activo} disabled={toggle.isPending} onToggle={() =>
-                  toast.promise(toggle.mutateAsync({ id: t.id, activo: !t.activo }), {
-                    loading: 'Actualizando…', success: 'Tipo actualizado', error: 'No se pudo actualizar',
-                  })
-                } />
-              </span>
-            </div>
+            <TipoNovedadEditRow
+              key={t.id}
+              tipo={t}
+              pill={
+                <PillActivo
+                  activo={t.activo}
+                  disabled={toggle.isPending}
+                  onToggle={() =>
+                    toast.promise(toggle.mutateAsync({ id: t.id, activo: !t.activo }), {
+                      loading: 'Actualizando…', success: 'Tipo actualizado', error: 'No se pudo actualizar',
+                    })
+                  }
+                />
+              }
+            />
           ))}
           {(data ?? []).length === 0 && <div className="px-4 py-2.5 text-sm text-slate">Sin tipos de novedad.</div>}
         </div>

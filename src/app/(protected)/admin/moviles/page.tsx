@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { PillActivo } from '@/features/admin/pill-activo';
+import { MovilEditRow } from '@/features/admin/movil-edit-row';
 import { useMovilesAdmin, useCrearMovil, useToggleMovil } from '@/lib/api/admin';
 
 export default function MovilesAdminPage() {
@@ -63,13 +64,11 @@ export default function MovilesAdminPage() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-surface divide-y divide-line">
           {(data ?? []).map((m) => (
-            <div key={m.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-              <span className="font-medium text-ink">{m.identificador}</span>
-              <span className="text-slate">{m.descripcion ?? ''}</span>
-              <span className="ml-auto">
-                <PillActivo activo={m.activo} disabled={toggle.isPending} onToggle={() => cambiarActivo(m.id, !m.activo)} />
-              </span>
-            </div>
+            <MovilEditRow
+              key={m.id}
+              movil={m}
+              pill={<PillActivo activo={m.activo} disabled={toggle.isPending} onToggle={() => cambiarActivo(m.id, !m.activo)} />}
+            />
           ))}
           {(data ?? []).length === 0 && <div className="px-4 py-2.5 text-sm text-slate">Sin móviles.</div>}
         </div>

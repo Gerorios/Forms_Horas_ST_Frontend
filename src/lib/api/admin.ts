@@ -68,6 +68,14 @@ export function useToggleTarea() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'tareas'] }),
   });
 }
+export function useEditarTarea() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...dto }: { id: number; contratoId?: number; nombre?: string }) =>
+      api.patch(`/admin/tareas/${id}`, dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'tareas'] }),
+  });
+}
 
 export function useMovilesAdmin() {
   return useQuery({ queryKey: ['admin', 'moviles'], queryFn: () => get<MovilAdmin[]>('/admin/moviles') });
@@ -87,6 +95,14 @@ export function useToggleMovil() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'moviles'] }),
   });
 }
+export function useEditarMovil() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...dto }: { id: number; identificador?: string; descripcion?: string }) =>
+      api.patch(`/admin/moviles/${id}`, dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'moviles'] }),
+  });
+}
 
 export function useProvinciasAdmin() {
   return useQuery({ queryKey: ['admin', 'provincias'], queryFn: () => get<ProvinciaAdmin[]>('/admin/provincias') });
@@ -95,6 +111,14 @@ export function useCrearProvincia() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (dto: { nombre: string }) => api.post('/admin/provincias', dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'provincias'] }),
+  });
+}
+export function useEditarProvincia() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...dto }: { id: number; nombre?: string }) =>
+      api.patch(`/admin/provincias/${id}`, dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'provincias'] }),
   });
 }
@@ -115,6 +139,14 @@ export function useToggleTipoNovedad() {
   return useMutation({
     mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
       api.patch(`/admin/tipos-novedad/${id}/activo`, { activo }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'tipos-novedad'] }),
+  });
+}
+export function useEditarTipoNovedad() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...dto }: { id: number; nombre?: string; requiereAprobacionHys?: boolean; generaPlus?: boolean }) =>
+      api.patch(`/admin/tipos-novedad/${id}`, dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'tipos-novedad'] }),
   });
 }
