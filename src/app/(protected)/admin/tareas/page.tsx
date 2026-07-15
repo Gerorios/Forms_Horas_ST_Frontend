@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { PillActivo } from '@/features/admin/pill-activo';
+import { TareaEditRow } from '@/features/admin/tarea-edit-row';
 import { useContratosAdmin, useTareasAdmin, useCrearTarea, useToggleTarea } from '@/lib/api/admin';
 
 export default function TareasAdminPage() {
@@ -66,16 +67,22 @@ export default function TareasAdminPage() {
           ) : (
             <div className="overflow-hidden rounded-xl border border-line bg-surface divide-y divide-line">
               {(tareas ?? []).map((t) => (
-                <div key={t.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                  <span className="font-medium text-ink">{t.nombre}</span>
-                  <span className="ml-auto">
-                    <PillActivo activo={t.activo} disabled={toggle.isPending} onToggle={() =>
-                      toast.promise(toggle.mutateAsync({ id: t.id, activo: !t.activo }), {
-                        loading: 'Actualizando…', success: 'Tarea actualizada', error: 'No se pudo actualizar',
-                      })
-                    } />
-                  </span>
-                </div>
+                <TareaEditRow
+                  key={t.id}
+                  tarea={t}
+                  contratos={contratos ?? []}
+                  pill={
+                    <PillActivo
+                      activo={t.activo}
+                      disabled={toggle.isPending}
+                      onToggle={() =>
+                        toast.promise(toggle.mutateAsync({ id: t.id, activo: !t.activo }), {
+                          loading: 'Actualizando…', success: 'Tarea actualizada', error: 'No se pudo actualizar',
+                        })
+                      }
+                    />
+                  }
+                />
               ))}
               {(tareas ?? []).length === 0 && <div className="px-4 py-2.5 text-sm text-slate">Este contrato no tiene tareas.</div>}
             </div>
