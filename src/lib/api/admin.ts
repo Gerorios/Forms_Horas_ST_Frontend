@@ -146,3 +146,11 @@ export function useCrearUsuariosMasivo() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'usuarios'] }),
   });
 }
+export function useResetearPassword() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cuil: string) =>
+      api.post(`/admin/usuarios/${cuil}/resetear-password`, {}).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'usuarios'] }),
+  });
+}
