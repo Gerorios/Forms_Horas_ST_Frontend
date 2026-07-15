@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { UsuarioAdmin } from '@/lib/api/admin';
 
 const editar = vi.fn().mockResolvedValue({});
+const onResetearPassword = vi.fn();
 
 vi.mock('@/lib/api/admin', () => ({
   useEditarUsuario: () => ({ mutateAsync: editar, isPending: false }),
@@ -27,12 +28,12 @@ const USUARIO: UsuarioAdmin = {
 // Helper: renderiza la fila dentro de una tabla válida.
 function renderRow(u: UsuarioAdmin = USUARIO) {
   return render(
-    <table><tbody><UsuarioEditRow usuario={u} estado={<span>estado</span>} /></tbody></table>,
+    <table><tbody><UsuarioEditRow usuario={u} estado={<span>estado</span>} onResetearPassword={onResetearPassword} /></tbody></table>,
   );
 }
 
 describe('UsuarioEditRow', () => {
-  beforeEach(() => { editar.mockClear(); });
+  beforeEach(() => { editar.mockClear(); onResetearPassword.mockClear(); });
 
   it('precarga los valores actuales al expandir', async () => {
     renderRow();
@@ -79,5 +80,12 @@ describe('UsuarioEditRow', () => {
     await userEvent.click(screen.getByRole('button', { name: /cancelar/i }));
     expect(screen.queryByLabelText('Email')).not.toBeInTheDocument();
     expect(editar).not.toHaveBeenCalled();
+  });
+
+  it('click en "Resetear contraseña" llama a onResetearPassword', async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    await userEvent.click(screen.getByRole('button', { name: /resetear contraseña/i }));
+    expect(onResetearPassword).toHaveBeenCalledTimes(1);
   });
 });

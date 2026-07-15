@@ -5,9 +5,10 @@ import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { AltaMasiva } from '@/features/admin/alta-masiva';
 import { PillActivo } from '@/features/admin/pill-activo';
+import { ResetearPasswordDialog } from '@/features/admin/resetear-password-dialog';
 import { UsuarioEditRow } from '@/features/admin/usuario-edit-row';
 import { UsuarioForm } from '@/features/admin/usuario-form';
-import { useUsuariosAdmin, useEditarUsuario, useRoles } from '@/lib/api/admin';
+import { useUsuariosAdmin, useEditarUsuario, useRoles, useResetearPassword, type UsuarioAdmin } from '@/lib/api/admin';
 
 function normalizar(s: string) {
   return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
@@ -17,6 +18,8 @@ export default function UsuariosAdminPage() {
   const { data, isLoading } = useUsuariosAdmin();
   const { data: roles } = useRoles();
   const editar = useEditarUsuario();
+  const resetear = useResetearPassword();
+  const [reseteando, setReseteando] = useState<UsuarioAdmin | null>(null);
   const [modo, setModo] = useState<null | 'individual' | 'masiva'>(null);
   const [nombre, setNombre] = useState('');
   const [rolesFiltro, setRolesFiltro] = useState<number[]>([]);
@@ -27,6 +30,22 @@ export default function UsuariosAdminPage() {
       success: 'Usuario actualizado',
       error: 'No se pudo actualizar',
     });
+  }
+
+  async function confirmarReset() {
+    if (!reseteando) return;
+    const promesa = resetear.mutateAsync(reseteando.cuil);
+    toast.promise(promesa, {
+      loading: 'Reseteando…',
+      success: 'Contraseña reseteada',
+      error: 'No se pudo resetear',
+    });
+    setReseteando(null);
+    try {
+      await promesa;
+    } catch {
+      // toast.promise ya avisó
+    }
   }
 
   function toggleRolFiltro(id: number) {
@@ -118,6 +137,7 @@ export default function UsuariosAdminPage() {
                 <UsuarioEditRow
                   key={u.cuil}
                   usuario={u}
+                  onResetearPassword={() => setReseteando(u)}
                   estado={
                     <PillActivo
                       activo={u.activo}
@@ -137,6 +157,15 @@ export default function UsuariosAdminPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {reseteando && (
+        <ResetearPasswordDialog
+          apellidoNombre={reseteando.empleado.apellido_nombre}
+          cuil={reseteando.cuil}
+          onConfirm={confirmarReset}
+          onCancel={() => setReseteando(null)}
+        />
       )}
     </section>
   );
