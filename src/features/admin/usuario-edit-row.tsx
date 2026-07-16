@@ -7,7 +7,15 @@ import { useEditarUsuario, useRoles, useContratosAdmin, type UsuarioAdmin } from
 const inputCls =
   'rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
 
-export function UsuarioEditRow({ usuario, estado }: { usuario: UsuarioAdmin; estado: ReactNode }) {
+export function UsuarioEditRow({
+  usuario,
+  estado,
+  onResetearPassword,
+}: {
+  usuario: UsuarioAdmin;
+  estado: ReactNode;
+  onResetearPassword: () => void;
+}) {
   const editar = useEditarUsuario();
   const { data: roles } = useRoles();
   const { data: contratos } = useContratosAdmin();
@@ -160,6 +168,13 @@ export function UsuarioEditRow({ usuario, estado }: { usuario: UsuarioAdmin; est
                   className="rounded-md border border-line px-4 py-2 text-sm font-medium text-slate transition hover:bg-accent/60"
                 >
                   Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={onResetearPassword}
+                  className="ml-auto rounded-md border border-line px-4 py-2 text-sm font-medium text-slate transition hover:bg-accent/60"
+                >
+                  Resetear contraseña
                 </button>
               </div>
             </div>
