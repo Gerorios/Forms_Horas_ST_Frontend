@@ -48,7 +48,7 @@ export default function ContratosAdminPage() {
           className="w-32 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
         />
         <input
-          aria-label="Nombre"
+          aria-label="Nombre del contrato"
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           placeholder="Nombre del contrato"
