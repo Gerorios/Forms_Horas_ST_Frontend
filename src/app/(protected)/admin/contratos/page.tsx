@@ -3,15 +3,19 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
+import { ContratoEditRow } from '@/features/admin/contrato-edit-row';
 import { PillActivo } from '@/features/admin/pill-activo';
-import { useContratosAdmin, useCrearContrato, useEditarContrato } from '@/lib/api/admin';
+import { useContratosAdmin, useCrearContrato, useEditarContrato, useUsuariosAdmin } from '@/lib/api/admin';
 
 export default function ContratosAdminPage() {
   const { data, isLoading } = useContratosAdmin();
+  const { data: usuarios } = useUsuariosAdmin();
   const crear = useCrearContrato();
   const editar = useEditarContrato();
   const [codigo, setCodigo] = useState('');
   const [nombre, setNombre] = useState('');
+
+  const jefes = (usuarios ?? []).filter((u) => u.rol.nombre === 'JefeContrato');
 
   function agregar() {
     if (!codigo.trim() || !nombre.trim()) return;
@@ -64,14 +68,18 @@ export default function ContratosAdminPage() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-surface divide-y divide-line">
           {(data ?? []).map((c) => (
-            <div key={c.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
-              <span className="font-medium text-ink">{c.codigo}</span>
-              <span className="text-slate">{c.nombre}</span>
-              {c.jefeContrato && <span className="text-xs text-slate">jefe: {c.jefeContrato.email}</span>}
-              <span className="ml-auto">
-                <PillActivo activo={c.activo} disabled={editar.isPending} onToggle={() => cambiarActivo(c.id, !c.activo)} />
-              </span>
-            </div>
+            <ContratoEditRow
+              key={c.id}
+              contrato={c}
+              jefes={jefes}
+              pill={
+                <PillActivo
+                  activo={c.activo}
+                  disabled={editar.isPending}
+                  onToggle={() => cambiarActivo(c.id, !c.activo)}
+                />
+              }
+            />
           ))}
           {(data ?? []).length === 0 && <div className="px-4 py-2.5 text-sm text-slate">Sin contratos.</div>}
         </div>
