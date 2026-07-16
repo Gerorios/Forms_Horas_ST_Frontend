@@ -40,7 +40,7 @@ export function useCrearContrato() {
 export function useEditarContrato() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...dto }: { id: number; nombre?: string; jefeContratoCuil?: string; activo?: boolean }) =>
+    mutationFn: ({ id, ...dto }: { id: number; nombre?: string; jefeContratoCuil?: string | null; activo?: boolean }) =>
       api.patch(`/admin/contratos/${id}`, dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'contratos'] }),
   });
