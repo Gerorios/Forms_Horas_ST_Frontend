@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 function reg(id: number, fecha: string, horas: string, apellido = 'X', estado = 'aprobado') {
   return {
-    id, fecha, horas, estado, alertaHoras: false, motivoDesaprobacion: null,
+    id, loteId: `lote-${id}`, fecha, horas, estado, alertaHoras: false, motivoDesaprobacion: null,
     operario: { cuil: '20111', apellido_nombre: apellido },
     contrato: { id: 1, codigo: 'K5', nombre: 'K5' },
     tareas: [{ tarea: { id: 9, nombre: 'Excavación' } }],
@@ -27,6 +27,14 @@ vi.mock('@/lib/api/registros', () => ({
 
 import MisRegistrosPage from './page';
 
+/** Fuerza la quincena a Julio 2026, 1ª — independiente de la fecha real del día que corre el test. */
+async function irAJulio1ra2026() {
+  await userEvent.selectOptions(screen.getByLabelText('Mes'), '7');
+  await userEvent.clear(screen.getByLabelText('Año'));
+  await userEvent.type(screen.getByLabelText('Año'), '2026');
+  await userEvent.selectOptions(screen.getByLabelText('Quincena'), '1');
+}
+
 describe('MisRegistrosPage', () => {
   beforeEach(() => {
     h.perfil = { cuil: '20111', rol: { nombre: 'Operario' } };
@@ -34,9 +42,10 @@ describe('MisRegistrosPage', () => {
     h.cargadas = [];
   });
 
-  it('Operario: muestra sus registros de la quincena y NO ve pestañas', () => {
+  it('Operario: muestra sus registros de la quincena seleccionada y NO ve pestañas', async () => {
     render(<MisRegistrosPage />);
-    expect(screen.getByText('Excavación')).toBeInTheDocument();
+    await irAJulio1ra2026();
+    expect(screen.getByText(/Excavación/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /cargas que hice/i })).toBeNull();
   });
 
@@ -46,6 +55,7 @@ describe('MisRegistrosPage', () => {
     render(<MisRegistrosPage />);
     expect(screen.getByRole('button', { name: /mis horas/i })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /cargas que hice/i }));
+    await irAJulio1ra2026();
     expect(screen.getByText('GOMEZ SEGUNDO ALBERTO')).toBeInTheDocument();
   });
 });

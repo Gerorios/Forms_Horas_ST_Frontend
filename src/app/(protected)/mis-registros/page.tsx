@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSession } from '@/lib/auth/session';
 import { useMisRegistros, useCargasQueHice } from '@/lib/api/registros';
 import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
-import { RegistrosTabla } from '@/features/mis-registros/registros-tabla';
+import { RegistrosCards } from '@/features/mis-registros/registros-cards';
 import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
 import { PageHeader } from '@/components/page-header';
 
@@ -47,14 +47,14 @@ export default function MisRegistrosPage() {
       <QuincenaSelect value={q} onChange={setQ} />
 
       {esJdC && tab === 'cargadas' ? (
-        <RegistrosTabla
+        <RegistrosCards
           registros={cargadas.data}
           quincena={q}
           isLoading={cargadas.isLoading}
           mostrarOperario
         />
       ) : (
-        <RegistrosTabla registros={mias.data} quincena={q} isLoading={mias.isLoading} />
+        <RegistrosCards registros={mias.data} quincena={q} isLoading={mias.isLoading} />
       )}
     </section>
   );
