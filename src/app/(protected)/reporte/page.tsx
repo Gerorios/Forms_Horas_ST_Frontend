@@ -7,8 +7,9 @@ import { useProvincias, useMoviles } from '@/lib/api/catalogos';
 import { useCrearReporteBatch } from '@/lib/api/registros';
 import { OperariosSelect } from '@/features/reporte/operarios-select';
 import { LineasField, type LineaBorrador } from '@/features/reporte/lineas-field';
+import { MovilesSelect } from '@/features/reporte/moviles-select';
+import { CargandoModal } from '@/features/reporte/cargando-modal';
 import { useGeolocation } from '@/features/reporte/use-geolocation';
-import { contarFilas } from '@/lib/reporte-preview';
 import { PageHeader } from '@/components/page-header';
 import type { EmpleadoBusqueda } from '@/types/domain';
 
@@ -45,7 +46,6 @@ export default function ReportePage() {
   const [lineas, setLineas] = useState<LineaBorrador[]>([
     { contratoId: null, horas: null, tareaIds: [] },
   ]);
-  const [confirmando, setConfirmando] = useState(false);
 
   const provinciaSel = provinciaId ?? provincias?.[0]?.id ?? null;
 
@@ -57,7 +57,6 @@ export default function ReportePage() {
     [lineas],
   );
   const puedeEnviar = operarios.length > 0 && lineasCompletas.length > 0 && provinciaSel != null;
-  const totalFilas = contarFilas(operarios.length, lineasCompletas.length);
 
   async function enviar() {
     if (!puedeEnviar || provinciaSel == null) return;
@@ -74,10 +73,9 @@ export default function ReportePage() {
         tareaIds: l.tareaIds,
       })),
     });
-    setConfirmando(false);
     toast.promise(promesa, {
       loading: 'Cargando reporte…',
-      success: `Reporte cargado (${totalFilas} filas)`,
+      success: 'Reporte cargado',
       error: (e: unknown) =>
         String(
           (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -91,10 +89,6 @@ export default function ReportePage() {
     } catch {
       // el toast.promise ya avisó el error
     }
-  }
-
-  function toggleMovil(id: number) {
-    setMovilIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   const gpsLabel =
@@ -145,30 +139,9 @@ export default function ReportePage() {
 
         <div className="mt-4">
           <p className="text-sm font-medium text-ink">Móviles</p>
-          {(moviles ?? []).length === 0 ? (
-            <p className="mt-1 text-xs text-slate/70">No hay móviles cargados.</p>
-          ) : (
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {(moviles ?? []).map((m) => {
-                const activo = movilIds.includes(m.id);
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    aria-pressed={activo}
-                    onClick={() => toggleMovil(m.id)}
-                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                      activo
-                        ? 'border-brand bg-accent font-medium text-ink'
-                        : 'border-line text-slate hover:border-brand/50'
-                    }`}
-                  >
-                    {m.identificador}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <div className="mt-1.5">
+            <MovilesSelect moviles={moviles ?? []} value={movilIds} onChange={setMovilIds} />
+          </div>
         </div>
       </Card>
 
@@ -180,48 +153,18 @@ export default function ReportePage() {
         <LineasField contratos={contratos} value={lineas} onChange={setLineas} />
       </Card>
 
-      <div className="sticky bottom-0 -mx-4 flex items-center justify-between gap-4 border-t border-line bg-sand/80 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-        <span className="text-sm text-slate">
-          Se generarán <strong className="tabular-nums text-ink">{totalFilas}</strong> filas
-        </span>
+      <div className="sticky bottom-0 -mx-4 flex items-center justify-end border-t border-line bg-sand/80 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
         <button
           type="button"
           disabled={!puedeEnviar || crear.isPending}
-          onClick={() => setConfirmando(true)}
+          onClick={enviar}
           className="rounded-md bg-brand px-5 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
         >
           Reportar
         </button>
       </div>
 
-      {confirmando && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
-          <div className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-surface p-6 shadow-lg">
-            <h3 className="font-display font-semibold text-ink">Confirmar reporte</h3>
-            <p className="text-sm text-slate">
-              Fecha <span className="tabular-nums text-ink">{fecha}</span> ·{' '}
-              {operarios.length} operario(s) · {lineasCompletas.length} contrato(s) ={' '}
-              <strong className="tabular-nums text-ink">{totalFilas} filas</strong>.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmando(false)}
-                className="rounded-md px-3 py-2 text-sm text-slate hover:bg-accent/60"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={enviar}
-                className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95"
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {crear.isPending && <CargandoModal />}
     </div>
   );
 }
