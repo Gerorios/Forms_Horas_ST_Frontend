@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const mutateAsync = vi.fn().mockResolvedValue({ creados: 1, registros: [] });
+const h = vi.hoisted(() => ({ isPending: false }));
 
 vi.mock('@/lib/auth/session', () => ({
   useSession: () => ({
@@ -16,10 +17,12 @@ vi.mock('@/lib/auth/session', () => ({
 }));
 vi.mock('@/lib/api/catalogos', () => ({
   useProvincias: () => ({ data: [{ id: 1, nombre: 'Córdoba' }] }),
-  useMoviles: () => ({ data: [] }),
+  useMoviles: () => ({ data: [{ id: 1, identificador: 'M-01', descripcion: null }] }),
   useTareas: () => ({ data: [{ id: 9, nombre: 'Excavación' }] }),
 }));
-vi.mock('@/lib/api/registros', () => ({ useCrearReporteBatch: () => ({ mutateAsync, isPending: false }) }));
+vi.mock('@/lib/api/registros', () => ({
+  useCrearReporteBatch: () => ({ mutateAsync, isPending: h.isPending }),
+}));
 vi.mock('@/lib/api/empleados', () => ({
   useBuscarEmpleados: () => ({ data: [{ cuil: '20169', apellido_nombre: 'GOMEZ', legajo: 1, cargo: 'OF' }] }),
 }));
@@ -29,29 +32,39 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), promise: v
 import ReportePage from './page';
 
 describe('ReportePage', () => {
-  beforeEach(() => mutateAsync.mockClear());
+  beforeEach(() => {
+    mutateAsync.mockClear();
+    h.isPending = false;
+  });
 
   it('no envía si no hay operarios ni líneas completas', () => {
     render(<ReportePage />);
     expect(screen.getByRole('button', { name: /reportar/i })).toBeDisabled();
   });
 
-  it('con 1 operario y 1 línea completa envía el batch', async () => {
+  it('con 1 operario y 1 línea completa envía el batch directo, sin modal de confirmación', async () => {
     render(<ReportePage />);
-    // elegir operario
     await userEvent.type(screen.getByPlaceholderText(/buscar operario/i), 'gomez');
     await userEvent.click(await screen.findByText(/GOMEZ/));
-    // completar línea: contrato, tarea (chip) y horas
     await userEvent.selectOptions(screen.getByLabelText('Contrato'), '1');
     await userEvent.click(screen.getByRole('button', { name: 'Excavación' }));
     await userEvent.type(screen.getByLabelText('Horas'), '8');
-    // enviar y confirmar
     await userEvent.click(screen.getByRole('button', { name: /reportar/i }));
-    await userEvent.click(await screen.findByRole('button', { name: /confirmar/i }));
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
     const payload = mutateAsync.mock.calls[0][0];
     expect(payload.operarioCuils).toEqual(['20169']);
     expect(payload.lineas).toEqual([{ contratoId: 1, horas: 8, tareaIds: [9] }]);
     expect(payload.provinciaId).toBe(1);
+  });
+
+  it('muestra el modal de carga mientras la mutación está pendiente', () => {
+    h.isPending = true;
+    render(<ReportePage />);
+    expect(screen.getByText('Cargando reporte…')).toBeInTheDocument();
+  });
+
+  it('el selector de móviles reemplaza los chips por un desplegable', () => {
+    render(<ReportePage />);
+    expect(screen.getByRole('button', { name: /móviles/i })).toBeInTheDocument();
   });
 });

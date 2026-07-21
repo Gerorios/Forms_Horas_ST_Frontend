@@ -26,6 +26,24 @@ export function useResolverRegistro() {
   });
 }
 
+export function useResolverLote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      loteId: string;
+      estado: 'aprobado' | 'desaprobado';
+      ids?: number[];
+      motivoDesaprobacion?: string;
+    }) =>
+      (await api.patch(`/registros-horas/lote/${input.loteId}/resolver`, {
+        estado: input.estado,
+        ids: input.ids,
+        motivoDesaprobacion: input.motivoDesaprobacion,
+      })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['por-aprobar'] }),
+  });
+}
+
 export function useReabrirRegistro() {
   const qc = useQueryClient();
   return useMutation({

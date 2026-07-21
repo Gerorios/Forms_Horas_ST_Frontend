@@ -1,38 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { toast } from 'sonner';
-import { usePorAprobar, useResolverRegistro } from '@/lib/api/aprobaciones';
-import { agruparPorOperarioFecha } from '@/lib/agrupar';
-import { DesaprobarDialog } from '@/features/aprobaciones/desaprobar-dialog';
+import { useMemo } from 'react';
+import { usePorAprobar } from '@/lib/api/aprobaciones';
+import { agruparPorLote } from '@/lib/agrupar';
+import { LoteCard } from '@/features/aprobaciones/lote-card';
 import { PageHeader } from '@/components/page-header';
 
 export default function AprobacionesPage() {
   const { data, isLoading } = usePorAprobar();
-  const resolver = useResolverRegistro();
-  const [desaprobandoId, setDesaprobandoId] = useState<number | null>(null);
-
-  const grupos = agruparPorOperarioFecha(data ?? []);
-
-  function aprobar(id: number) {
-    toast.promise(resolver.mutateAsync({ id, estado: 'aprobado' }), {
-      loading: 'Aprobando registro…',
-      success: 'Registro aprobado',
-      error: 'No se pudo aprobar',
-    });
-  }
-
-  function confirmarDesaprobar(id: number, motivo: string) {
-    setDesaprobandoId(null);
-    toast.promise(
-      resolver.mutateAsync({ id, estado: 'desaprobado', motivoDesaprobacion: motivo }),
-      {
-        loading: 'Desaprobando registro…',
-        success: 'Registro desaprobado',
-        error: 'No se pudo desaprobar',
-      },
-    );
-  }
+  // useMemo: agruparPorLote() arma arrays nuevos en cada llamada. Sin memoizar,
+  // grupo.accionables cambiaría de referencia en cada render del padre y
+  // resetearía la selección de checkboxes de LoteCard sin necesidad.
+  const grupos = useMemo(() => agruparPorLote(data ?? []), [data]);
 
   if (isLoading) return <p className="text-slate">Cargando…</p>;
 
@@ -44,74 +23,7 @@ export default function AprobacionesPage() {
           No hay registros pendientes.
         </div>
       ) : (
-        grupos.map((g) => (
-          <div
-            key={`${g.operarioCuil}-${g.fecha}`}
-            className="overflow-hidden rounded-xl border border-line bg-surface"
-          >
-            <div className="flex items-baseline justify-between border-b border-line px-4 py-3">
-              <h2 className="font-display text-sm font-semibold text-ink">{g.operarioNombre}</h2>
-              <span className="text-sm tabular-nums text-slate">{g.fecha}</span>
-            </div>
-            <div className="divide-y divide-line">
-              {g.filas.map((f) => (
-                <div
-                  key={f.id}
-                  className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 text-sm ${
-                    f.accionable ? '' : 'bg-sand/60 text-slate'
-                  }`}
-                >
-                  <span className="font-medium text-ink">{f.contrato.codigo}</span>
-                  <span className={f.accionable ? 'text-slate' : ''}>
-                    {f.tareas.map((t) => t.tarea.nombre).join(', ') || '—'}
-                  </span>
-                  <span>
-                    <span className="tabular-nums text-ink">{f.horas}</span> hs
-                    {f.alertaHoras && (
-                      <span className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn">+16h</span>
-                    )}
-                  </span>
-                  {f.moviles.length > 0 && (
-                    <span className="text-slate">
-                      {f.moviles.map((m) => m.movil.identificador).join(', ')}
-                    </span>
-                  )}
-                  <span className="ml-auto flex gap-2">
-                    {f.accionable ? (
-                      <>
-                        <button
-                          type="button"
-                          disabled={resolver.isPending}
-                          onClick={() => aprobar(f.id)}
-                          className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-                        >
-                          Aprobar
-                        </button>
-                        <button
-                          type="button"
-                          disabled={resolver.isPending}
-                          onClick={() => setDesaprobandoId(f.id)}
-                          className="rounded-md border border-danger px-3 py-1 text-xs text-danger transition hover:bg-danger/10 disabled:opacity-50"
-                        >
-                          Desaprobar
-                        </button>
-                      </>
-                    ) : (
-                      <span className="text-xs italic text-slate/70">otro contrato</span>
-                    )}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))
-      )}
-
-      {desaprobandoId != null && (
-        <DesaprobarDialog
-          onCancel={() => setDesaprobandoId(null)}
-          onConfirm={(motivo) => confirmarDesaprobar(desaprobandoId, motivo)}
-        />
+        grupos.map((g) => <LoteCard key={g.loteId} grupo={g} />)
       )}
     </section>
   );

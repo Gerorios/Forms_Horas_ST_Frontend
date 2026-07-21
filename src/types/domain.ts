@@ -74,6 +74,7 @@ export type EstadoRegistro = 'pendiente' | 'aprobado' | 'desaprobado';
 
 export interface RegistroHoras {
   id: number;
+  loteId: string;
   fecha: string;
   horas: string; // Decimal serializado como string por Prisma
   estado: EstadoRegistro;
