@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useResolverLote } from '@/lib/api/aprobaciones';
 import { DesaprobarDialog } from './desaprobar-dialog';
+import { ResumenCarga } from '@/components/resumen-carga';
 import type { GrupoLote } from '@/lib/agrupar';
 
 export function LoteCard({ grupo }: { grupo: GrupoLote }) {
@@ -60,12 +61,7 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
 
   return (
     <div className="overflow-hidden rounded-xl border border-line bg-surface">
-      <div className="flex items-baseline justify-between border-b border-line px-4 py-3">
-        <h2 className="font-display text-sm font-semibold text-ink">
-          {grupo.accionables.length} operario(s)
-        </h2>
-        <span className="text-sm tabular-nums text-slate">{grupo.fecha}</span>
-      </div>
+      <ResumenCarga grupo={grupo} />
 
       <div className="flex flex-wrap items-center gap-2 px-4 py-3">
         <button
@@ -95,40 +91,49 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
 
       {expandido && (
         <div className="divide-y divide-line">
-          {grupo.filas.map((f) => (
-            <div
-              key={f.id}
-              className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 text-sm ${
-                f.accionable ? '' : 'bg-sand/60 text-slate'
-              }`}
-            >
-              {f.accionable && (
-                <input
-                  type="checkbox"
-                  aria-label={`Incluir a ${f.operario.apellido_nombre}`}
-                  checked={seleccionados.has(f.id)}
-                  onChange={() => toggleSeleccion(f.id)}
-                />
-              )}
-              <span className="font-medium text-ink">{f.operario.apellido_nombre}</span>
-              <span className="font-medium text-ink">{f.contrato.codigo}</span>
-              <span className={f.accionable ? 'text-slate' : ''}>
-                {f.tareas.map((t) => t.tarea.nombre).join(', ') || '—'}
-              </span>
-              <span>
-                <span className="tabular-nums text-ink">{f.horas}</span> hs
-                {f.alertaHoras && (
-                  <span className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn">+16h</span>
+          {grupo.contratos.map((c) => (
+            <div key={c.contrato.id} className={c.accionable ? '' : 'bg-sand/60'}>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
+                <span className="font-medium text-ink">{c.contrato.codigo}</span>
+                <span className="tabular-nums text-ink">{c.subtotalHoras} hs</span>
+                <span className="text-slate">{c.tareas.join(', ') || '—'}</span>
+                {!c.accionable && (
+                  <span className="ml-auto text-xs italic text-slate/70">otro contrato</span>
                 )}
-              </span>
-              {f.moviles.length > 0 && (
-                <span className="text-slate">
-                  {f.moviles.map((m) => m.movil.identificador).join(', ')}
-                </span>
+              </div>
+              {c.observacion && (
+                <p className="px-4 pb-2.5 text-xs text-slate">
+                  <span className="font-medium text-ink">Observación:</span> {c.observacion}
+                </p>
               )}
-              {!f.accionable && (
-                <span className="ml-auto text-xs italic text-slate/70">otro contrato</span>
-              )}
+              <div className="divide-y divide-line/60 border-t border-line/60">
+                {c.filas.map((f) => (
+                  <div
+                    key={f.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2 pr-4 pl-8 text-sm"
+                  >
+                    {f.accionable && (
+                      <input
+                        type="checkbox"
+                        aria-label={`Incluir a ${f.operario.apellido_nombre}`}
+                        checked={seleccionados.has(f.id)}
+                        onChange={() => toggleSeleccion(f.id)}
+                      />
+                    )}
+                    <span className={f.accionable ? 'font-medium text-ink' : 'text-slate'}>
+                      {f.operario.apellido_nombre}
+                    </span>
+                    <span>
+                      <span className="tabular-nums text-ink">{f.horas}</span> hs
+                      {f.alertaHoras && (
+                        <span className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn">
+                          +16h
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>

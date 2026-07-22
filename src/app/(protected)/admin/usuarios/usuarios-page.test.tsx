@@ -10,12 +10,12 @@ const USUARIOS: UsuarioAdmin[] = [
   {
     cuil: '20111111111', email: 'jose@st.local', activo: true, rolId: 1,
     rol: { nombre: 'Operario' }, empleado: { apellido_nombre: 'JOSÉ TORRES' },
-    contratosHabilitados: [],
+    contratosHabilitados: [], contratosComoJefe: [],
   },
   {
     cuil: '20222222222', email: 'maria@st.local', activo: true, rolId: 2,
     rol: { nombre: 'Admin' }, empleado: { apellido_nombre: 'MARIA GOMEZ' },
-    contratosHabilitados: [],
+    contratosHabilitados: [], contratosComoJefe: [],
   },
 ];
 

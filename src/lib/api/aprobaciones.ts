@@ -1,12 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import type { RegistroPorAprobar } from '@/types/domain';
+import type { EstadoRegistro, RegistroPorAprobar } from '@/types/domain';
 
-export function usePorAprobar() {
+export function usePorAprobar(estado: EstadoRegistro = 'pendiente') {
   return useQuery({
-    queryKey: ['por-aprobar'],
+    queryKey: ['por-aprobar', estado],
     queryFn: async () =>
-      (await api.get<RegistroPorAprobar[]>('/registros-horas/por-aprobar')).data,
+      (
+        await api.get<RegistroPorAprobar[]>('/registros-horas/por-aprobar', {
+          params: { estado },
+        })
+      ).data,
   });
 }
 

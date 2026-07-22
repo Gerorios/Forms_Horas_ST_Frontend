@@ -15,11 +15,16 @@ export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
   const [password, setPassword] = useState('');
   const [rolId, setRolId] = useState<number | null>(null);
   const [contratosIds, setContratosIds] = useState<number[]>([]);
+  const [contratosJefeIds, setContratosJefeIds] = useState<number[]>([]);
 
   const puede = empleado.length === 1 && email.trim() !== '' && password.length >= 8 && rolId != null;
+  const esJefeContrato = (roles ?? []).find((r) => r.id === rolId)?.nombre === 'JefeContrato';
 
   function toggleContrato(id: number) {
     setContratosIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+  function toggleContratoJefe(id: number) {
+    setContratosJefeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   async function enviar() {
@@ -30,11 +35,12 @@ export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
       password,
       rolId,
       contratosIds: contratosIds.length ? contratosIds : undefined,
+      contratosJefeIds: contratosJefeIds.length ? contratosJefeIds : undefined,
     });
     toast.promise(promesa, { loading: 'Creando usuario…', success: 'Usuario creado', error: 'No se pudo crear el usuario' });
     try {
       await promesa;
-      setEmpleado([]); setEmail(''); setPassword(''); setRolId(null); setContratosIds([]);
+      setEmpleado([]); setEmail(''); setPassword(''); setRolId(null); setContratosIds([]); setContratosJefeIds([]);
       onCreado();
     } catch {
       // toast.promise ya avisó
@@ -83,6 +89,22 @@ export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
           })}
         </div>
       </div>
+      {esJefeContrato && (
+        <div>
+          <p className="text-sm font-medium text-ink">Contratos de los que es Jefe (aprueba/desaprueba)</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {(contratos ?? []).map((c) => {
+              const on = contratosJefeIds.includes(c.id);
+              return (
+                <button key={c.id} type="button" onClick={() => toggleContratoJefe(c.id)}
+                  className={`rounded-full border px-2.5 py-1 text-xs transition ${on ? 'border-brand bg-accent font-medium text-ink' : 'border-line text-slate hover:border-brand/50'}`}>
+                  {c.codigo}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <button type="button" disabled={!puede || crear.isPending} onClick={enviar}
         className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50">
         {crear.isPending ? 'Creando…' : 'Crear usuario'}

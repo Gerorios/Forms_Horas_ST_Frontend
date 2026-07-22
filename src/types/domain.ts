@@ -58,6 +58,7 @@ export interface LineaReporte {
   contratoId: number;
   horas: number;
   tareaIds: number[];
+  observacion?: string;
 }
 
 export interface ReporteBatch {
@@ -80,6 +81,7 @@ export interface RegistroHoras {
   estado: EstadoRegistro;
   alertaHoras: boolean;
   motivoDesaprobacion: string | null;
+  observacion: string | null;
   operario: { cuil: string; apellido_nombre: string };
   contrato: { id: number; codigo: string; nombre: string };
   tareas: { tarea: { id: number; nombre: string } }[];

@@ -8,7 +8,9 @@ const onResetearPassword = vi.fn();
 
 vi.mock('@/lib/api/admin', () => ({
   useEditarUsuario: () => ({ mutateAsync: editar, isPending: false }),
-  useRoles: () => ({ data: [ { id: 1, nombre: 'Operario' }, { id: 2, nombre: 'Admin' } ] }),
+  useRoles: () => ({
+    data: [{ id: 1, nombre: 'Operario' }, { id: 2, nombre: 'Admin' }, { id: 3, nombre: 'JefeContrato' }],
+  }),
   useContratosAdmin: () => ({ data: [ { id: 10, codigo: 'K5' }, { id: 11, codigo: 'K8' } ] }),
 }));
 vi.mock('sonner', () => ({ toast: { promise: vi.fn() } }));
@@ -23,6 +25,18 @@ const USUARIO: UsuarioAdmin = {
   rol: { nombre: 'Operario' },
   empleado: { apellido_nombre: 'TORRES RAMON' },
   contratosHabilitados: [{ contratoId: 10, contrato: { codigo: 'K5' } }],
+  contratosComoJefe: [],
+};
+
+const JEFE_CONTRATO: UsuarioAdmin = {
+  cuil: '20222222222',
+  email: 'jefe@serytec.com',
+  activo: true,
+  rolId: 3,
+  rol: { nombre: 'JefeContrato' },
+  empleado: { apellido_nombre: 'SALAS MARIA' },
+  contratosHabilitados: [],
+  contratosComoJefe: [{ id: 10, codigo: 'K5' }],
 };
 
 // Helper: renderiza la fila dentro de una tabla válida.
@@ -87,5 +101,27 @@ describe('UsuarioEditRow', () => {
     await userEvent.click(screen.getByRole('button', { name: /editar/i }));
     await userEvent.click(screen.getByRole('button', { name: /resetear contraseña/i }));
     expect(onResetearPassword).toHaveBeenCalledTimes(1);
+  });
+
+  it('el rol Operario no muestra "Contratos de los que es Jefe"', async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    expect(screen.queryByText(/contratos de los que es jefe/i)).not.toBeInTheDocument();
+  });
+
+  it('un JefeContrato precarga sus contratos como jefe, y editarlos envía contratosJefeIds', async () => {
+    renderRow(JEFE_CONTRATO);
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    expect(screen.getByText(/contratos de los que es jefe/i)).toBeInTheDocument();
+
+    const botonesK8 = screen.getAllByRole('button', { name: 'K8' });
+    // El segundo grupo de botones "K8" es el de "contratos de los que es jefe".
+    await userEvent.click(botonesK8[botonesK8.length - 1]);
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    await waitFor(() =>
+      expect(editar).toHaveBeenCalledWith(
+        expect.objectContaining({ cuil: '20222222222', contratosJefeIds: [10, 11] }),
+      ),
+    );
   });
 });
