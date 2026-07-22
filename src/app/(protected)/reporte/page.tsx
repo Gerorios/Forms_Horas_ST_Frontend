@@ -44,7 +44,7 @@ export default function ReportePage() {
   const [movilIds, setMovilIds] = useState<number[]>([]);
   const [operarios, setOperarios] = useState<EmpleadoBusqueda[]>([]);
   const [lineas, setLineas] = useState<LineaBorrador[]>([
-    { contratoId: null, horas: null, tareaIds: [] },
+    { contratoId: null, horas: null, tareaIds: [], observacion: '' },
   ]);
 
   const provinciaSel = provinciaId ?? provincias?.[0]?.id ?? null;
@@ -71,6 +71,7 @@ export default function ReportePage() {
         contratoId: l.contratoId!,
         horas: l.horas!,
         tareaIds: l.tareaIds,
+        observacion: l.observacion.trim() || undefined,
       })),
     });
     toast.promise(promesa, {
@@ -85,7 +86,7 @@ export default function ReportePage() {
     try {
       await promesa;
       setOperarios([]);
-      setLineas([{ contratoId: null, horas: null, tareaIds: [] }]);
+      setLineas([{ contratoId: null, horas: null, tareaIds: [], observacion: '' }]);
     } catch {
       // el toast.promise ya avisó el error
     }

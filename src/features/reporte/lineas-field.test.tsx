@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LineasField } from './lineas-field';
 import * as catApi from '@/lib/api/catalogos';
@@ -13,7 +13,7 @@ describe('LineasField', () => {
     render(
       <LineasField
         contratos={CONTRATOS}
-        value={[{ contratoId: null, horas: null, tareaIds: [] }]}
+        value={[{ contratoId: null, horas: null, tareaIds: [], observacion: '' }]}
         onChange={onChange}
       />,
     );
@@ -26,7 +26,7 @@ describe('LineasField', () => {
     render(
       <LineasField
         contratos={CONTRATOS}
-        value={[{ contratoId: null, horas: null, tareaIds: [] }]}
+        value={[{ contratoId: null, horas: null, tareaIds: [], observacion: '' }]}
         onChange={() => {}}
       />,
     );
@@ -38,10 +38,24 @@ describe('LineasField', () => {
     render(
       <LineasField
         contratos={CONTRATOS}
-        value={[{ contratoId: 1, horas: 8, tareaIds: [] }]}
+        value={[{ contratoId: 1, horas: 8, tareaIds: [], observacion: '' }]}
         onChange={() => {}}
       />,
     );
     expect(screen.getByRole('button', { name: 'Excavación' })).toBeInTheDocument();
+  });
+
+  it('escribir en Observación llama a onChange con el texto de esa línea', async () => {
+    vi.spyOn(catApi, 'useTareas').mockReturnValue({ data: [] } as never);
+    const onChange = vi.fn();
+    render(
+      <LineasField
+        contratos={CONTRATOS}
+        value={[{ contratoId: 1, horas: 8, tareaIds: [], observacion: '' }]}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('Observación'), { target: { value: 'viajó a otra localidad' } });
+    expect(onChange.mock.calls[0][0][0].observacion).toBe('viajó a otra localidad');
   });
 });

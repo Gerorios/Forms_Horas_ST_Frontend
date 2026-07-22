@@ -13,6 +13,8 @@ export interface UsuarioAdmin {
   rol: { nombre: string };
   empleado: { apellido_nombre: string };
   contratosHabilitados: { contratoId: number; contrato: { codigo: string } }[];
+  /** Contratos de los que este usuario es Jefe de Contrato (aprueba/desaprueba). */
+  contratosComoJefe: { id: number; codigo: string }[];
 }
 export interface AltaMasivaResp {
   creados: { cuil: string; apellido_nombre: string; email: string; password: string }[];
@@ -157,17 +159,24 @@ export function useUsuariosAdmin() {
 export function useCrearUsuario() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dto: { cuil: string; email: string; password: string; rolId: number; contratosIds?: number[] }) =>
-      api.post('/admin/usuarios', dto).then((r) => r.data),
+    mutationFn: (dto: {
+      cuil: string; email: string; password: string; rolId: number;
+      contratosIds?: number[]; contratosJefeIds?: number[];
+    }) => api.post('/admin/usuarios', dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'usuarios'] }),
   });
 }
 export function useEditarUsuario() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ cuil, ...dto }: { cuil: string; email?: string; password?: string; rolId?: number; activo?: boolean; contratosIds?: number[] }) =>
-      api.patch(`/admin/usuarios/${cuil}`, dto).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'usuarios'] }),
+    mutationFn: ({ cuil, ...dto }: {
+      cuil: string; email?: string; password?: string; rolId?: number; activo?: boolean;
+      contratosIds?: number[]; contratosJefeIds?: number[];
+    }) => api.patch(`/admin/usuarios/${cuil}`, dto).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'usuarios'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'contratos'] });
+    },
   });
 }
 export function useCrearUsuariosMasivo() {

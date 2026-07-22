@@ -21,12 +21,12 @@ const JEFES: UsuarioAdmin[] = [
   {
     cuil: '20111111111', email: 'jefe1@serytec.com', activo: true, rolId: 3,
     rol: { nombre: 'JefeContrato' }, empleado: { apellido_nombre: 'PEREZ JUAN' },
-    contratosHabilitados: [],
+    contratosHabilitados: [], contratosComoJefe: [],
   },
   {
     cuil: '20222222222', email: 'jefe2@serytec.com', activo: true, rolId: 3,
     rol: { nombre: 'JefeContrato' }, empleado: { apellido_nombre: 'GOMEZ ANA' },
-    contratosHabilitados: [],
+    contratosHabilitados: [], contratosComoJefe: [],
   },
 ];
 

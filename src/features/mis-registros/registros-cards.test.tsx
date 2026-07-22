@@ -12,7 +12,7 @@ function reg(
   codigo = 'K5',
 ): RegistroHoras {
   return {
-    id, loteId: `lote-${id}`, fecha, horas, estado, alertaHoras: false, motivoDesaprobacion: null,
+    id, loteId: `lote-${id}`, fecha, horas, estado, alertaHoras: false, motivoDesaprobacion: null, observacion: null,
     operario: { cuil: '20111', apellido_nombre: 'PEREZ JUAN' },
     contrato: { id: 1, codigo, nombre: codigo },
     tareas: [{ tarea: { id: 1, nombre: 'Excavación' } }],
@@ -47,15 +47,23 @@ describe('RegistrosCards', () => {
     expect(screen.getByText('Sin registros en esta quincena.')).toBeInTheDocument();
   });
 
-  it('mostrarOperario agrega el nombre del operario en la tarjeta', () => {
-    render(<RegistrosCards registros={[reg(1, '2026-07-05', '8')]} quincena={QUINCENA_1} isLoading={false} mostrarOperario />);
-    expect(screen.getByText('PEREZ JUAN')).toBeInTheDocument();
-  });
-
   it('muestra el motivo de desaprobación visible (no oculto en tooltip)', () => {
     const r = { ...reg(1, '2026-07-05', '8', 'desaprobado'), motivoDesaprobacion: 'faltan datos' };
     render(<RegistrosCards registros={[r]} quincena={QUINCENA_1} isLoading={false} />);
     expect(screen.getByText(/faltan datos/)).toBeInTheDocument();
+  });
+
+  it('no suma lo desaprobado en el total a cobrar, aunque la tarjeta siga visible', () => {
+    render(
+      <RegistrosCards
+        registros={[reg(1, '2026-07-05', '8', 'aprobado'), reg(2, '2026-07-06', '5', 'desaprobado')]}
+        quincena={QUINCENA_1}
+        isLoading={false}
+      />,
+    );
+    const total = screen.getAllByText('8 hs').find((el) => el.className.includes('text-4xl'));
+    expect(total).toBeTruthy();
+    expect(screen.getAllByText('2026-07-06')).toHaveLength(1);
   });
 
   it('isLoading muestra el estado de carga', () => {

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { GrupoLote } from '@/lib/agrupar';
+import { agruparPorLote } from '@/lib/agrupar';
+import type { RegistroPorAprobar } from '@/types/domain';
 
 const resolverLote = vi.fn().mockResolvedValue({});
 
@@ -12,36 +13,43 @@ vi.mock('sonner', () => ({ toast: { promise: vi.fn() } }));
 
 import { LoteCard } from './lote-card';
 
-function fila(id: number, apellido: string, accionable = true, codigo = 'K5') {
+function fila(
+  id: number,
+  apellido: string,
+  accionable = true,
+  codigo = 'K5',
+): RegistroPorAprobar {
   return {
     id, loteId: 'lote-1', fecha: '2026-07-10', horas: '8', estado: 'pendiente',
-    alertaHoras: false, motivoDesaprobacion: null,
+    alertaHoras: false, motivoDesaprobacion: null, observacion: null,
     operario: { cuil: `2011${id}`, apellido_nombre: apellido },
-    contrato: { id: 1, codigo, nombre: codigo },
+    contrato: { id: codigo === 'K5' ? 1 : 2, codigo, nombre: codigo },
     tareas: [{ tarea: { id: 1, nombre: 'Excavación' } }],
     provincia: { id: 1, nombre: 'Córdoba' },
-    moviles: [],
+    moviles: [{ movil: { id: 1, identificador: 'M-01' } }],
     accionable,
   };
 }
 
-function grupo(filas = [fila(1, 'PEREZ'), fila(2, 'GOMEZ')]): GrupoLote {
-  return {
-    loteId: 'lote-1',
-    fecha: '2026-07-10',
-    filas,
-    accionables: filas.filter((f) => f.accionable),
-  };
+function grupo(filas = [fila(1, 'PEREZ'), fila(2, 'GOMEZ')]) {
+  return agruparPorLote(filas)[0];
 }
 
 describe('LoteCard', () => {
   beforeEach(() => resolverLote.mockClear());
 
-  it('muestra el resumen de operarios accionables y la fecha, colapsado por default', () => {
+  it('muestra el resumen de la carga (día, operarios, vehículos, total de horas) siempre visible', () => {
     render(<LoteCard grupo={grupo()} />);
-    expect(screen.getByText('2 operario(s)')).toBeInTheDocument();
-    expect(screen.getByText('2026-07-10')).toBeInTheDocument();
-    expect(screen.queryByText('PEREZ')).not.toBeInTheDocument();
+    expect(screen.getByText(/2026-07-10/)).toBeInTheDocument();
+    expect(screen.getByText(/PEREZ, GOMEZ/)).toBeInTheDocument();
+    expect(screen.getByText(/M-01/)).toBeInTheDocument();
+    expect(screen.getByText('8 hs totales')).toBeInTheDocument();
+  });
+
+  it('no muestra el detalle por contrato colapsado por default', () => {
+    render(<LoteCard grupo={grupo()} />);
+    expect(screen.queryByText('K5')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Incluir a PEREZ')).not.toBeInTheDocument();
   });
 
   it('Aprobar todo (colapsado) resuelve sin ids (todo lo accionable)', async () => {
@@ -52,9 +60,12 @@ describe('LoteCard', () => {
     );
   });
 
-  it('al expandir, muestra checkboxes tildados para accionables y filas de otro contrato en gris sin checkbox', async () => {
+  it('al expandir, agrupa por contrato con subtotal de horas y tareas, y checkboxes por operario', async () => {
     render(<LoteCard grupo={grupo([fila(1, 'PEREZ'), fila(2, 'GOMEZ', false, 'K8')])} />);
     await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+
+    expect(screen.getByText('K5')).toBeInTheDocument();
+    expect(screen.getByText('K8')).toBeInTheDocument();
     expect(screen.getByLabelText('Incluir a PEREZ')).toBeChecked();
     expect(screen.queryByLabelText('Incluir a GOMEZ')).not.toBeInTheDocument();
     expect(screen.getByText('GOMEZ')).toBeInTheDocument();

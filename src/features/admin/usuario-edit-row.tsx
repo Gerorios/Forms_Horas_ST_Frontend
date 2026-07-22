@@ -26,9 +26,13 @@ export function UsuarioEditRow({
   const [contratosIds, setContratosIds] = useState<number[]>(
     usuario.contratosHabilitados.map((c) => c.contratoId),
   );
+  const [contratosJefeIds, setContratosJefeIds] = useState<number[]>(
+    usuario.contratosComoJefe.map((c) => c.id),
+  );
   const [password, setPassword] = useState('');
 
   const origContratos = usuario.contratosHabilitados.map((c) => c.contratoId);
+  const origContratosJefe = usuario.contratosComoJefe.map((c) => c.id);
 
   const emailValido = /^\S+@\S+\.\S+$/.test(email.trim());
   const passwordValido = password === '' || password.length >= 8;
@@ -36,13 +40,24 @@ export function UsuarioEditRow({
   const contratosCambio =
     contratosIds.length !== origContratos.length ||
     contratosIds.some((id) => !origContratos.includes(id));
+  const contratosJefeCambio =
+    contratosJefeIds.length !== origContratosJefe.length ||
+    contratosJefeIds.some((id) => !origContratosJefe.includes(id));
   const huboCambios =
-    email.trim() !== usuario.email || rolId !== usuario.rolId || contratosCambio || password !== '';
+    email.trim() !== usuario.email ||
+    rolId !== usuario.rolId ||
+    contratosCambio ||
+    contratosJefeCambio ||
+    password !== '';
 
   const puedeGuardar = emailValido && passwordValido && huboCambios && !editar.isPending;
+  const esJefeContrato = (roles ?? []).find((r) => r.id === rolId)?.nombre === 'JefeContrato';
 
   function toggleContrato(id: number) {
     setContratosIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+  function toggleContratoJefe(id: number) {
+    setContratosJefeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   function cerrar() {
@@ -50,17 +65,20 @@ export function UsuarioEditRow({
     setEmail(usuario.email);
     setRolId(usuario.rolId);
     setContratosIds(origContratos);
+    setContratosJefeIds(origContratosJefe);
     setPassword('');
   }
 
   async function guardar() {
     if (!puedeGuardar) return;
     const payload: {
-      cuil: string; email?: string; rolId?: number; contratosIds?: number[]; password?: string;
+      cuil: string; email?: string; rolId?: number; contratosIds?: number[];
+      contratosJefeIds?: number[]; password?: string;
     } = { cuil: usuario.cuil };
     if (email.trim() !== usuario.email) payload.email = email.trim();
     if (rolId !== usuario.rolId) payload.rolId = rolId;
     if (contratosCambio) payload.contratosIds = contratosIds;
+    if (contratosJefeCambio) payload.contratosJefeIds = contratosJefeIds;
     if (password !== '') payload.password = password;
 
     const promesa = editar.mutateAsync(payload);
@@ -153,6 +171,31 @@ export function UsuarioEditRow({
                   })}
                 </div>
               </div>
+              {esJefeContrato && (
+                <div>
+                  <p className="text-sm font-medium text-ink">
+                    Contratos de los que es Jefe (aprueba/desaprueba)
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {(contratos ?? []).map((c) => {
+                      const on = contratosJefeIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => toggleContratoJefe(c.id)}
+                          className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                            on ? 'border-brand bg-accent font-medium text-ink' : 'border-line text-slate hover:border-brand/50'
+                          }`}
+                        >
+                          {c.codigo}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="flex gap-2">
                 <button
                   type="button"

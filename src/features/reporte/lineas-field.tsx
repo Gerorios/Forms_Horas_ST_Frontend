@@ -7,6 +7,7 @@ export type LineaBorrador = {
   contratoId: number | null;
   horas: number | null;
   tareaIds: number[];
+  observacion: string;
 };
 
 function LineaRow({
@@ -121,6 +122,18 @@ function LineaRow({
           </div>
         )}
       </div>
+
+      <label className="mt-3 flex flex-col text-xs font-medium text-slate">
+        Observación (opcional)
+        <textarea
+          aria-label="Observación"
+          rows={2}
+          placeholder="Productividad, tareas ejecutadas, viajes a otra localidad, etc."
+          className="mt-1 rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+          value={linea.observacion}
+          onChange={(e) => onChange({ ...linea, observacion: e.target.value })}
+        />
+      </label>
     </div>
   );
 }
@@ -151,7 +164,7 @@ export function LineasField({
       ))}
       <button
         type="button"
-        onClick={() => onChange([...value, { contratoId: null, horas: null, tareaIds: [] }])}
+        onClick={() => onChange([...value, { contratoId: null, horas: null, tareaIds: [], observacion: '' }])}
         className="rounded-md border border-brand px-3 py-1.5 text-sm font-medium text-brand-deep transition hover:bg-accent"
       >
         Agregar contrato

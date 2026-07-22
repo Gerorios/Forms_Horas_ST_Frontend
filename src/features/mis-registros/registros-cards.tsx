@@ -9,19 +9,21 @@ export function RegistrosCards({
   registros,
   quincena,
   isLoading,
-  mostrarOperario = false,
 }: {
   registros: RegistroHoras[] | undefined;
   quincena: Quincena;
   isLoading: boolean;
-  mostrarOperario?: boolean;
 }) {
   const filtrados = useMemo(
     () => (registros ?? []).filter((r) => enQuincena(r.fecha, quincena)),
     [registros, quincena],
   );
   const total = useMemo(
-    () => filtrados.reduce((s, r) => s + Number(r.horas), 0),
+    // Lo desaprobado no cuenta como hora a cobrar: fue rechazado.
+    () =>
+      filtrados
+        .filter((r) => r.estado !== 'desaprobado')
+        .reduce((s, r) => s + Number(r.horas), 0),
     [filtrados],
   );
 
@@ -48,7 +50,6 @@ export function RegistrosCards({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="font-medium text-ink">{r.fecha.slice(0, 10)}</div>
-                {mostrarOperario && <div className="text-sm text-slate">{r.operario.apellido_nombre}</div>}
                 <div className="text-sm text-slate">
                   <span>{r.contrato.codigo}</span> · {r.tareas.map((t) => t.tarea.nombre).join(', ') || '—'}
                 </div>
