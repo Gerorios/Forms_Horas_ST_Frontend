@@ -15,10 +15,17 @@ export interface UsuarioAdmin {
   contratosHabilitados: { contratoId: number; contrato: { codigo: string } }[];
   /** Contratos de los que este usuario es Jefe de Contrato (aprueba/desaprueba). */
   contratosComoJefe: { id: number; codigo: string }[];
+  /** Tipos de novedad que puede cargar (solo aplica a JefeCuadrilla; ver ADR-007). */
+  tiposNovedadHabilitados: { tipoNovedadId: number; tipoNovedad: { nombre: string } }[];
 }
 export interface AltaMasivaResp {
   creados: { cuil: string; apellido_nombre: string; email: string; password: string }[];
   omitidos: { cuil: string; motivo: string }[];
+}
+
+export interface AltaMovilesMasivaResp {
+  creados: string[];
+  omitidos: string[];
 }
 
 const get = async <T>(url: string, params?: Record<string, unknown>) =>
@@ -86,6 +93,14 @@ export function useCrearMovil() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (dto: { identificador: string; descripcion?: string }) => api.post('/admin/moviles', dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'moviles'] }),
+  });
+}
+export function useCrearMovilesMasivo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (identificadores: string[]) =>
+      api.post<AltaMovilesMasivaResp>('/admin/moviles/masivo', { identificadores }).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'moviles'] }),
   });
 }
@@ -161,7 +176,7 @@ export function useCrearUsuario() {
   return useMutation({
     mutationFn: (dto: {
       cuil: string; email: string; password: string; rolId: number;
-      contratosIds?: number[]; contratosJefeIds?: number[];
+      contratosIds?: number[]; contratosJefeIds?: number[]; tiposNovedadIds?: number[];
     }) => api.post('/admin/usuarios', dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'usuarios'] }),
   });
@@ -171,7 +186,7 @@ export function useEditarUsuario() {
   return useMutation({
     mutationFn: ({ cuil, ...dto }: {
       cuil: string; email?: string; password?: string; rolId?: number; activo?: boolean;
-      contratosIds?: number[]; contratosJefeIds?: number[];
+      contratosIds?: number[]; contratosJefeIds?: number[]; tiposNovedadIds?: number[];
     }) => api.patch(`/admin/usuarios/${cuil}`, dto).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'usuarios'] });

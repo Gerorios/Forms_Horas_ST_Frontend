@@ -25,6 +25,8 @@ export interface Perfil {
   rol: { nombre: Rol };
   empleado: EmpleadoResumen;
   contratosHabilitados: { contrato: ContratoResumen }[];
+  /** Tipos de novedad que puede cargar (solo aplica a JefeCuadrilla; ver ADR-007). */
+  tiposNovedadHabilitados: { tipoNovedad: { id: number; nombre: string } }[];
 }
 
 export interface LoginResponse {
@@ -82,6 +84,8 @@ export interface RegistroHoras {
   alertaHoras: boolean;
   motivoDesaprobacion: string | null;
   observacion: string | null;
+  /** Si esta fila viene de una corrección de horas, el loteId rechazado que reemplaza. Ver ADR-006. */
+  loteIdOrigen: string | null;
   operario: { cuil: string; apellido_nombre: string };
   contrato: { id: number; codigo: string; nombre: string };
   tareas: { tarea: { id: number; nombre: string } }[];

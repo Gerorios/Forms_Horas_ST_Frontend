@@ -63,8 +63,11 @@ describe('ReportePage', () => {
     expect(screen.getByText('Cargando reporte…')).toBeInTheDocument();
   });
 
-  it('el selector de móviles reemplaza los chips por un desplegable', () => {
+  it('el selector de móviles es un buscador con autocompletar, no una lista de chips fija', async () => {
     render(<ReportePage />);
-    expect(screen.getByRole('button', { name: /móviles/i })).toBeInTheDocument();
+    expect(screen.getByText('Buscar móvil…')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Buscar móvil…'));
+    expect(screen.getByPlaceholderText(/buscar por identificador/i)).toBeInTheDocument();
+    expect(screen.getByText('M-01')).toBeInTheDocument();
   });
 });
