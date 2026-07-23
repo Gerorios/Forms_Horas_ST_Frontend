@@ -3,28 +3,39 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { OperariosSelect } from '@/features/reporte/operarios-select';
-import { useCrearUsuario, useRoles, useContratosAdmin } from '@/lib/api/admin';
+import { useCrearUsuario, useRoles, useContratosAdmin, useTiposNovedadAdmin } from '@/lib/api/admin';
 import type { EmpleadoBusqueda } from '@/types/domain';
 
 export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
   const crear = useCrearUsuario();
   const { data: roles } = useRoles();
   const { data: contratos } = useContratosAdmin();
+  const { data: tiposNovedad } = useTiposNovedadAdmin();
   const [empleado, setEmpleado] = useState<EmpleadoBusqueda[]>([]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rolId, setRolId] = useState<number | null>(null);
   const [contratosIds, setContratosIds] = useState<number[]>([]);
   const [contratosJefeIds, setContratosJefeIds] = useState<number[]>([]);
+  const [cargaNovedades, setCargaNovedades] = useState(false);
+  const [tiposNovedadIds, setTiposNovedadIds] = useState<number[]>([]);
 
   const puede = empleado.length === 1 && email.trim() !== '' && password.length >= 8 && rolId != null;
   const esJefeContrato = (roles ?? []).find((r) => r.id === rolId)?.nombre === 'JefeContrato';
+  const esJefeCuadrilla = (roles ?? []).find((r) => r.id === rolId)?.nombre === 'JefeCuadrilla';
 
   function toggleContrato(id: number) {
     setContratosIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
   function toggleContratoJefe(id: number) {
     setContratosJefeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+  function toggleTipoNovedad(id: number) {
+    setTiposNovedadIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+  function cambiarCargaNovedades(checked: boolean) {
+    setCargaNovedades(checked);
+    if (!checked) setTiposNovedadIds([]);
   }
 
   async function enviar() {
@@ -36,11 +47,13 @@ export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
       rolId,
       contratosIds: contratosIds.length ? contratosIds : undefined,
       contratosJefeIds: contratosJefeIds.length ? contratosJefeIds : undefined,
+      tiposNovedadIds: tiposNovedadIds.length ? tiposNovedadIds : undefined,
     });
     toast.promise(promesa, { loading: 'Creando usuario…', success: 'Usuario creado', error: 'No se pudo crear el usuario' });
     try {
       await promesa;
       setEmpleado([]); setEmail(''); setPassword(''); setRolId(null); setContratosIds([]); setContratosJefeIds([]);
+      setCargaNovedades(false); setTiposNovedadIds([]);
       onCreado();
     } catch {
       // toast.promise ya avisó
@@ -103,6 +116,34 @@ export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
               );
             })}
           </div>
+        </div>
+      )}
+      {esJefeCuadrilla && (
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-ink">
+            <input
+              type="checkbox"
+              checked={cargaNovedades}
+              onChange={(e) => cambiarCargaNovedades(e.target.checked)}
+            />
+            ¿Carga novedades?
+          </label>
+          {cargaNovedades && (
+            <div>
+              <p className="text-sm font-medium text-ink">Tipos de novedad habilitados</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {(tiposNovedad ?? []).map((t) => {
+                  const on = tiposNovedadIds.includes(t.id);
+                  return (
+                    <button key={t.id} type="button" onClick={() => toggleTipoNovedad(t.id)}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition ${on ? 'border-brand bg-accent font-medium text-ink' : 'border-line text-slate hover:border-brand/50'}`}>
+                      {t.nombre}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
       <button type="button" disabled={!puede || crear.isPending} onClick={enviar}

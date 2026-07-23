@@ -1,14 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useCrearNovedad, useTiposNovedad } from '@/lib/api/novedades';
+import { useSession } from '@/lib/auth/session';
 import { OperariosSelect } from '@/features/reporte/operarios-select';
 import type { EmpleadoBusqueda } from '@/types/domain';
 
 export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
-  const { data: tipos } = useTiposNovedad();
+  const { perfil } = useSession();
+  const { data: tiposCatalogo } = useTiposNovedad();
   const crear = useCrearNovedad();
+
+  // JefeCuadrilla solo ve los tipos que le habilitaron desde Admin (ver
+  // ADR-007); Supervisor/JefeContrato/Admin ven el catálogo completo.
+  const tipos = useMemo(() => {
+    if (perfil?.rol.nombre !== 'JefeCuadrilla') return tiposCatalogo ?? [];
+    const habilitados = new Set(perfil.tiposNovedadHabilitados.map((t) => t.tipoNovedad.id));
+    return (tiposCatalogo ?? []).filter((t) => habilitados.has(t.id));
+  }, [tiposCatalogo, perfil]);
   const [operario, setOperario] = useState<EmpleadoBusqueda[]>([]);
   const [tipoNovedadId, setTipoNovedadId] = useState<number | null>(null);
   const [fechaInicio, setFechaInicio] = useState('');
@@ -60,7 +70,7 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
           className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
         >
           <option value="">—</option>
-          {(tipos ?? []).map((t) => (
+          {tipos.map((t) => (
             <option key={t.id} value={t.id}>
               {t.nombre}
             </option>

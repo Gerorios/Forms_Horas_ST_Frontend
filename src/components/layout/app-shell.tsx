@@ -94,7 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [drawerAbierto, setDrawerAbierto] = useState(false);
   if (!perfil) return null;
 
-  const items = navForRole(perfil.rol.nombre);
+  const items = navForRole(perfil);
   const nombre = perfil.empleado.apellido_nombre;
   const rol = perfil.rol.nombre;
 
