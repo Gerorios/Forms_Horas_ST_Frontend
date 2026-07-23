@@ -48,6 +48,24 @@ export function useResolverLote() {
   });
 }
 
+export function useCorregirLote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      loteId: string;
+      contratoId: number;
+      horasCorregidas: number;
+      motivo: string;
+    }) =>
+      (await api.patch(`/registros-horas/lote/${input.loteId}/corregir`, {
+        contratoId: input.contratoId,
+        horasCorregidas: input.horasCorregidas,
+        motivo: input.motivo,
+      })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['por-aprobar'] }),
+  });
+}
+
 export function useReabrirRegistro() {
   const qc = useQueryClient();
   return useMutation({

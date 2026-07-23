@@ -5,14 +5,26 @@ import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { PillActivo } from '@/features/admin/pill-activo';
 import { MovilEditRow } from '@/features/admin/movil-edit-row';
-import { useMovilesAdmin, useCrearMovil, useToggleMovil } from '@/lib/api/admin';
+import { useMovilesAdmin, useCrearMovil, useCrearMovilesMasivo, useToggleMovil } from '@/lib/api/admin';
+
+/** Separa por salto de línea o coma (CSV en una fila o una lista, cualquiera
+ * de las dos), recorta espacios y saca vacíos/duplicados. */
+function parsearIdentificadores(texto: string): string[] {
+  const partes = texto
+    .split(/[\n,]+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return [...new Set(partes)];
+}
 
 export default function MovilesAdminPage() {
   const { data, isLoading } = useMovilesAdmin();
   const crear = useCrearMovil();
+  const crearMasivo = useCrearMovilesMasivo();
   const toggle = useToggleMovil();
   const [identificador, setIdentificador] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [listado, setListado] = useState('');
 
   function agregar() {
     if (!identificador.trim()) return;
@@ -22,6 +34,22 @@ export default function MovilesAdminPage() {
     );
     setIdentificador('');
     setDescripcion('');
+  }
+
+  async function cargarListado() {
+    const identificadores = parsearIdentificadores(listado);
+    if (identificadores.length === 0) return;
+    try {
+      const { creados, omitidos } = await crearMasivo.mutateAsync(identificadores);
+      toast.success(
+        omitidos.length > 0
+          ? `${creados.length} móvil(es) cargado(s), ${omitidos.length} ya existían (omitidos)`
+          : `${creados.length} móvil(es) cargado(s)`,
+      );
+      setListado('');
+    } catch {
+      toast.error('No se pudo cargar el listado');
+    }
   }
 
   function cambiarActivo(id: number, activo: boolean) {
@@ -59,6 +87,34 @@ export default function MovilesAdminPage() {
           Agregar
         </button>
       </div>
+
+      <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
+        <p className="text-sm font-medium text-ink">Cargar listado (CSV o uno por línea)</p>
+        <textarea
+          aria-label="Listado de identificadores"
+          rows={4}
+          value={listado}
+          onChange={(e) => setListado(e.target.value)}
+          placeholder={'M-01\nM-02\nM-03  (o separados por coma: M-01, M-02, M-03)'}
+          className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+        />
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            disabled={crearMasivo.isPending || parsearIdentificadores(listado).length === 0}
+            onClick={cargarListado}
+            className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
+          >
+            {crearMasivo.isPending ? 'Cargando…' : 'Cargar listado'}
+          </button>
+          {listado.trim() !== '' && (
+            <span className="text-xs text-slate">
+              {parsearIdentificadores(listado).length} identificador(es) detectado(s) — se omiten los que ya existan.
+            </span>
+          )}
+        </div>
+      </div>
+
       {isLoading ? (
         <p className="text-slate">Cargando…</p>
       ) : (

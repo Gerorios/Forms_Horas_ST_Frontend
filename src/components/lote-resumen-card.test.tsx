@@ -12,7 +12,7 @@ function fila(
 ): RegistroPorAprobar {
   return {
     id, loteId: 'lote-1', fecha: '2026-07-10', horas: '8', estado: 'aprobado',
-    alertaHoras: false, motivoDesaprobacion: null, observacion: null,
+    alertaHoras: false, motivoDesaprobacion: null, observacion: null, loteIdOrigen: null,
     operario: { cuil: `2011${id}`, apellido_nombre: apellido },
     contrato: { id: 1, codigo: 'K5', nombre: 'K5' },
     tareas: [{ tarea: { id: 1, nombre: 'Excavación' } }],
@@ -25,6 +25,12 @@ function fila(
 
 function grupo(filas: RegistroPorAprobar[]) {
   return agruparPorLote(filas)[0];
+}
+
+/** El texto queda partido entre <span> anidados; getByText con string/regex
+ * no cruza elementos, así que se busca por el textContent normalizado. */
+function porTexto(regex: RegExp) {
+  return (_: string, el: Element | null) => !!el && el.tagName === 'P' && regex.test(el.textContent ?? '');
 }
 
 describe('LoteResumenCard', () => {
@@ -84,6 +90,42 @@ describe('LoteResumenCard', () => {
     render(<LoteResumenCard grupo={grupo([fila(1, 'PEREZ')])} />);
     await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
     expect(screen.queryByText(/observación/i)).not.toBeInTheDocument();
+  });
+
+  it('con infoCorreccionPorContrato tipo "reemplazada", muestra las horas nuevas', async () => {
+    const nueva = {
+      id: 2, loteId: 'lote-2', loteIdOrigen: 'lote-1', contrato: { id: 1 }, horas: 6, motivoDesaprobacion: null,
+    };
+    render(
+      <LoteResumenCard
+        grupo={grupo([fila(1, 'PEREZ')])}
+        infoCorreccionPorContrato={{ 1: { tipo: 'reemplazada', nueva } }}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.getByText(/reemplazada por una corrección/i)).toBeInTheDocument();
+  });
+
+  it('con infoCorreccionPorContrato tipo "corrige", muestra antes/después y el motivo', async () => {
+    const original = {
+      id: 1, loteId: 'lote-1', loteIdOrigen: null, contrato: { id: 1 }, horas: 12,
+      motivoDesaprobacion: 'según recorrido son 8hs',
+    };
+    render(
+      <LoteResumenCard
+        grupo={grupo([fila(1, 'PEREZ')])}
+        infoCorreccionPorContrato={{ 1: { tipo: 'corrige', original } }}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.getByText(porTexto(/corregido de 12 a 8 hs/i))).toBeInTheDocument();
+    expect(screen.getByText(/según recorrido son 8hs/)).toBeInTheDocument();
+  });
+
+  it('sin infoCorreccionPorContrato para ese contrato, no muestra nada', async () => {
+    render(<LoteResumenCard grupo={grupo([fila(1, 'PEREZ')])} infoCorreccionPorContrato={{}} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.queryByText(/corrección/i)).not.toBeInTheDocument();
   });
 
   it('sin onReabrir, no muestra ningún botón de reabrir', async () => {

@@ -4,12 +4,43 @@ import { useState } from 'react';
 import { ResumenCarga } from './resumen-carga';
 import { StatusBadge } from './status-badge';
 import type { GrupoLote } from '@/lib/agrupar';
+import type { InfoCorreccion } from '@/lib/correccion';
+
+function InfoCorreccionTexto({
+  info,
+  horasActuales,
+}: {
+  info: InfoCorreccion | null | undefined;
+  horasActuales: number;
+}) {
+  if (!info) return null;
+  if (info.tipo === 'reemplazada') {
+    return (
+      <p className="px-4 pb-2.5 text-xs font-medium text-approved">
+        Reemplazada por una corrección: <span className="tabular-nums">{info.nueva.horas}</span> hs
+      </p>
+    );
+  }
+  return (
+    <div className="px-4 pb-2.5">
+      <p className="text-xs font-medium text-approved">
+        Corregido de{' '}
+        <span className="tabular-nums text-slate/60 line-through">{info.original.horas}</span> a{' '}
+        <span className="tabular-nums">{horasActuales}</span> hs
+      </p>
+      {info.original.motivoDesaprobacion && (
+        <p className="mt-0.5 text-xs text-slate">Motivo: {info.original.motivoDesaprobacion}</p>
+      )}
+    </div>
+  );
+}
 
 export function LoteResumenCard({
   grupo,
   mostrarEstado = false,
   onReabrir,
   reabrirPending = false,
+  infoCorreccionPorContrato,
 }: {
   grupo: GrupoLote;
   /** Muestra el estado (pendiente/aprobado/desaprobado) de cada fila individual.
@@ -18,6 +49,9 @@ export function LoteResumenCard({
   /** Si se pasa, agrega un botón "Reabrir" en las filas accionables. */
   onReabrir?: (id: number, nombre: string) => void;
   reabrirPending?: boolean;
+  /** Relación de corrección (ver ADR-006) de cada contrato de este lote,
+   * calculada por quien renderiza (necesita ver todos los lotes a la vez). */
+  infoCorreccionPorContrato?: Record<number, InfoCorreccion | null>;
 }) {
   const [expandido, setExpandido] = useState(false);
 
@@ -52,6 +86,10 @@ export function LoteResumenCard({
                   <span className="font-medium text-ink">Observación:</span> {c.observacion}
                 </p>
               )}
+              <InfoCorreccionTexto
+                info={infoCorreccionPorContrato?.[c.contrato.id]}
+                horasActuales={c.subtotalHoras}
+              />
               <div className="divide-y divide-line/60 border-t border-line/60">
                 {c.filas.map((f) => (
                   <div

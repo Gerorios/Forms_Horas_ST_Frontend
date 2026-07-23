@@ -2,18 +2,21 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useResolverLote } from '@/lib/api/aprobaciones';
+import { useResolverLote, useCorregirLote } from '@/lib/api/aprobaciones';
 import { DesaprobarDialog } from './desaprobar-dialog';
+import { CorregirHorasDialog } from './corregir-horas-dialog';
 import { ResumenCarga } from '@/components/resumen-carga';
-import type { GrupoLote } from '@/lib/agrupar';
+import type { GrupoContrato, GrupoLote } from '@/lib/agrupar';
 
 export function LoteCard({ grupo }: { grupo: GrupoLote }) {
   const resolverLote = useResolverLote();
+  const corregirLote = useCorregirLote();
   const [expandido, setExpandido] = useState(false);
   const [seleccionados, setSeleccionados] = useState<Set<number>>(
     () => new Set(grupo.accionables.map((f) => f.id)),
   );
   const [desaprobando, setDesaprobando] = useState(false);
+  const [corrigiendo, setCorrigiendo] = useState<GrupoContrato | null>(null);
 
   // Reajusta la selección cuando cambia el grupo (patrón "adjust state during
   // rendering" de React: evita el efecto de setState síncrono en useEffect).
@@ -53,6 +56,24 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
         motivoDesaprobacion: motivo,
       }),
       { loading: 'Desaprobando…', success: 'Carga desaprobada', error: 'No se pudo desaprobar' },
+    );
+  }
+
+  function confirmarCorreccion(horasCorregidas: number, motivo: string) {
+    if (!corrigiendo) return;
+    setCorrigiendo(null);
+    toast.promise(
+      corregirLote.mutateAsync({
+        loteId: grupo.loteId,
+        contratoId: corrigiendo.contrato.id,
+        horasCorregidas,
+        motivo,
+      }),
+      {
+        loading: 'Corrigiendo…',
+        success: 'Horas corregidas y aprobadas',
+        error: 'No se pudo corregir',
+      },
     );
   }
 
@@ -97,7 +118,15 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
                 <span className="font-medium text-ink">{c.contrato.codigo}</span>
                 <span className="tabular-nums text-ink">{c.subtotalHoras} hs</span>
                 <span className="text-slate">{c.tareas.join(', ') || '—'}</span>
-                {!c.accionable && (
+                {c.accionable ? (
+                  <button
+                    type="button"
+                    onClick={() => setCorrigiendo(c)}
+                    className="ml-auto rounded-md border border-line px-2.5 py-1 text-xs font-medium text-slate transition hover:bg-accent/60"
+                  >
+                    Corregir horas
+                  </button>
+                ) : (
                   <span className="ml-auto text-xs italic text-slate/70">otro contrato</span>
                 )}
               </div>
@@ -141,6 +170,14 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
 
       {desaprobando && (
         <DesaprobarDialog onCancel={() => setDesaprobando(false)} onConfirm={confirmarDesaprobar} />
+      )}
+
+      {corrigiendo && (
+        <CorregirHorasDialog
+          horasActuales={corrigiendo.subtotalHoras}
+          onCancel={() => setCorrigiendo(null)}
+          onConfirm={confirmarCorreccion}
+        />
       )}
     </div>
   );

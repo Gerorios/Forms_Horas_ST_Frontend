@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 const resolverLote = vi.fn().mockResolvedValue({});
 const reabrirRegistro = vi.fn().mockResolvedValue({});
+const corregirLote = vi.fn().mockResolvedValue({});
 
 function fila(id: number, loteId: string, accionable: boolean, estado = 'pendiente', codigo = 'K5') {
   return {
@@ -25,6 +26,7 @@ vi.mock('@/lib/api/aprobaciones', () => ({
   usePorAprobar: (estado: string) => ({ data: datosPorEstado[estado] ?? [], isLoading: false }),
   useResolverLote: () => ({ mutateAsync: resolverLote, isPending: false }),
   useReabrirRegistro: () => ({ mutateAsync: reabrirRegistro, isPending: false }),
+  useCorregirLote: () => ({ mutateAsync: corregirLote, isPending: false }),
 }));
 vi.mock('sonner', () => ({ toast: { promise: vi.fn() } }));
 
@@ -34,6 +36,7 @@ describe('AprobacionesPage', () => {
   beforeEach(() => {
     resolverLote.mockClear();
     reabrirRegistro.mockClear();
+    corregirLote.mockClear();
   });
 
   it('por default muestra la pestaña Pendientes, agrupada por lote, sin filtro de quincena', () => {

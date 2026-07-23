@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import type { Movil } from '@/types/domain';
 
 export function MovilesSelect({
@@ -12,47 +14,64 @@ export function MovilesSelect({
   value: number[];
   onChange: (ids: number[]) => void;
 }) {
-  const [abierto, setAbierto] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onClickFuera(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false);
-    }
-    document.addEventListener('mousedown', onClickFuera);
-    return () => document.removeEventListener('mousedown', onClickFuera);
-  }, []);
+  const [open, setOpen] = useState(false);
+  const seleccionados = moviles.filter((m) => value.includes(m.id));
 
   function toggle(id: number) {
     onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
   }
 
-  const etiqueta = value.length > 0 ? `Móviles (${value.length} seleccionados) ▾` : 'Móviles ▾';
+  if (moviles.length === 0) {
+    return <p className="mt-1 text-xs text-slate/70">No hay móviles cargados.</p>;
+  }
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setAbierto((v) => !v)}
-        className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-      >
-        {etiqueta}
-      </button>
-      {abierto && (
-        <div className="absolute z-10 mt-1 max-h-56 w-56 overflow-auto rounded-md border border-line bg-surface p-2 shadow-lg">
-          {moviles.length === 0 ? (
-            <p className="px-1 py-1 text-xs text-slate/70">No hay móviles cargados.</p>
-          ) : (
-            moviles.map((m) => (
-              <label
-                key={m.id}
-                className="flex items-center gap-2 rounded px-1 py-1.5 text-sm text-ink hover:bg-accent/60"
-              >
-                <input type="checkbox" checked={value.includes(m.id)} onChange={() => toggle(m.id)} />
-                {m.identificador}
-              </label>
-            ))
-          )}
+    <div className="space-y-2">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger className="flex w-full items-center justify-between rounded-md border border-line bg-surface px-3 py-2 text-left text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/30">
+          <span className={seleccionados.length ? 'text-ink' : 'text-slate/70'}>
+            {seleccionados.length
+              ? `${seleccionados.length} móvil(es) seleccionado(s)`
+              : 'Buscar móvil…'}
+          </span>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-(--anchor-width) p-0">
+          <Command>
+            <CommandInput placeholder="Buscar por identificador…" />
+            <CommandList>
+              <CommandEmpty>Sin coincidencias.</CommandEmpty>
+              {moviles.map((m) => {
+                const activo = value.includes(m.id);
+                return (
+                  <CommandItem
+                    key={m.id}
+                    value={`${m.identificador} ${m.descripcion ?? ''}`}
+                    data-checked={activo}
+                    onSelect={() => toggle(m.id)}
+                  >
+                    {m.identificador}
+                    {m.descripcion && <span className="ml-1 text-slate/60">· {m.descripcion}</span>}
+                  </CommandItem>
+                );
+              })}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      {seleccionados.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {seleccionados.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => toggle(m.id)}
+              className="inline-flex items-center gap-1 rounded-full border border-brand bg-accent px-2.5 py-1 text-xs font-medium text-ink"
+            >
+              {m.identificador}
+              <span aria-hidden>×</span>
+            </button>
+          ))}
         </div>
       )}
     </div>

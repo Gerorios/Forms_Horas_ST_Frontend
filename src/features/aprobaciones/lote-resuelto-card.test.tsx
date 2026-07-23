@@ -16,7 +16,7 @@ import { LoteResueltoCard } from './lote-resuelto-card';
 function fila(id: number, apellido: string): RegistroPorAprobar {
   return {
     id, loteId: 'lote-1', fecha: '2026-07-10', horas: '8', estado: 'aprobado',
-    alertaHoras: false, motivoDesaprobacion: null, observacion: null,
+    alertaHoras: false, motivoDesaprobacion: null, observacion: null, loteIdOrigen: null,
     operario: { cuil: `2011${id}`, apellido_nombre: apellido },
     contrato: { id: 1, codigo: 'K5', nombre: 'K5' },
     tareas: [{ tarea: { id: 1, nombre: 'Excavación' } }],

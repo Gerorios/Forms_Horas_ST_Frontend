@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { agruparPorLote } from '@/lib/agrupar';
 import { enQuincena, type Quincena } from '@/lib/quincena';
+import { infoCorreccion, type CorreccionInput, type InfoCorreccion } from '@/lib/correccion';
 import { LoteResumenCard } from '@/components/lote-resumen-card';
 import type { RegistroHoras } from '@/types/domain';
 
@@ -25,6 +26,48 @@ export function CargasAgrupadas({
 
   const total = useMemo(() => grupos.reduce((s, g) => s + g.totalHoras, 0), [grupos]);
 
+  // Para detectar corrección (ADR-006) hace falta ver todos los lotes de la
+  // quincena a la vez: la carga rechazada y la que la corrige son lotes
+  // distintos que solo se enlazan por loteIdOrigen.
+  const paraCorreccion: CorreccionInput[] = useMemo(
+    () =>
+      grupos.flatMap((g) =>
+        g.contratos.map((c) => ({
+          id: c.filas[0]?.id ?? 0,
+          loteId: g.loteId,
+          loteIdOrigen: c.filas[0]?.loteIdOrigen ?? null,
+          contrato: c.contrato,
+          // Horas declaradas de la línea (no el subtotal "real" que ya
+          // excluye lo desaprobado): acá interesa qué se declaró, aunque
+          // haya sido rechazado.
+          horas: Number(c.filas[0]?.horas ?? 0),
+          motivoDesaprobacion: c.filas[0]?.motivoDesaprobacion ?? null,
+        })),
+      ),
+    [grupos],
+  );
+  const infoCorreccionPorLote = useMemo(() => {
+    const mapa = new Map<string, Record<number, InfoCorreccion | null>>();
+    for (const item of paraCorreccion) {
+      const porContrato = mapa.get(item.loteId) ?? {};
+      porContrato[item.contrato.id] = infoCorreccion(item, paraCorreccion);
+      mapa.set(item.loteId, porContrato);
+    }
+    return mapa;
+  }, [paraCorreccion]);
+
+  // Una carga totalmente reemplazada por una corrección ya se ve fusionada
+  // dentro de la tarjeta que la corrige — no hace falta mostrarla aparte.
+  const gruposVisibles = useMemo(
+    () =>
+      grupos.filter((g) => {
+        const porContrato = infoCorreccionPorLote.get(g.loteId);
+        if (!porContrato) return true;
+        return !g.contratos.every((c) => porContrato[c.contrato.id]?.tipo === 'reemplazada');
+      }),
+    [grupos, infoCorreccionPorLote],
+  );
+
   if (isLoading) return <p className="text-slate">Cargando…</p>;
   if (grupos.length === 0)
     return (
@@ -43,8 +86,13 @@ export function CargasAgrupadas({
       </div>
 
       <div className="space-y-4">
-        {grupos.map((g) => (
-          <LoteResumenCard key={g.loteId} grupo={g} mostrarEstado />
+        {gruposVisibles.map((g) => (
+          <LoteResumenCard
+            key={g.loteId}
+            grupo={g}
+            mostrarEstado
+            infoCorreccionPorContrato={infoCorreccionPorLote.get(g.loteId)}
+          />
         ))}
       </div>
     </div>

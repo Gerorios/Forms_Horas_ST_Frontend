@@ -9,7 +9,7 @@ function fila(
   overrides: Partial<RegistroPorAprobar> = {},
 ): RegistroPorAprobar {
   return {
-    id, loteId, fecha, horas: '8', estado: 'pendiente', alertaHoras: false, motivoDesaprobacion: null, observacion: null,
+    id, loteId, fecha, horas: '8', estado: 'pendiente', alertaHoras: false, motivoDesaprobacion: null, observacion: null, loteIdOrigen: null,
     operario: { cuil: '20111', apellido_nombre: 'PEREZ' },
     contrato: { id: 1, codigo: 'K5', nombre: 'K5' },
     tareas: [{ tarea: { id: 1, nombre: 'Excavación' } }],

@@ -5,9 +5,11 @@ import { agruparPorLote } from '@/lib/agrupar';
 import type { RegistroPorAprobar } from '@/types/domain';
 
 const resolverLote = vi.fn().mockResolvedValue({});
+const corregirLote = vi.fn().mockResolvedValue({});
 
 vi.mock('@/lib/api/aprobaciones', () => ({
   useResolverLote: () => ({ mutateAsync: resolverLote, isPending: false }),
+  useCorregirLote: () => ({ mutateAsync: corregirLote, isPending: false }),
 }));
 vi.mock('sonner', () => ({ toast: { promise: vi.fn() } }));
 
@@ -21,7 +23,7 @@ function fila(
 ): RegistroPorAprobar {
   return {
     id, loteId: 'lote-1', fecha: '2026-07-10', horas: '8', estado: 'pendiente',
-    alertaHoras: false, motivoDesaprobacion: null, observacion: null,
+    alertaHoras: false, motivoDesaprobacion: null, observacion: null, loteIdOrigen: null,
     operario: { cuil: `2011${id}`, apellido_nombre: apellido },
     contrato: { id: codigo === 'K5' ? 1 : 2, codigo, nombre: codigo },
     tareas: [{ tarea: { id: 1, nombre: 'Excavación' } }],
@@ -36,7 +38,10 @@ function grupo(filas = [fila(1, 'PEREZ'), fila(2, 'GOMEZ')]) {
 }
 
 describe('LoteCard', () => {
-  beforeEach(() => resolverLote.mockClear());
+  beforeEach(() => {
+    resolverLote.mockClear();
+    corregirLote.mockClear();
+  });
 
   it('muestra el resumen de la carga (día, operarios, vehículos, total de horas) siempre visible', () => {
     render(<LoteCard grupo={grupo()} />);
@@ -100,5 +105,42 @@ describe('LoteCard', () => {
     await userEvent.click(screen.getByLabelText('Incluir a PEREZ'));
     expect(screen.getByRole('button', { name: /^aprobar seleccionados/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /^desaprobar seleccionados/i })).toBeDisabled();
+  });
+
+  it('"Corregir horas" solo aparece en contratos accionables, precarga el subtotal actual', async () => {
+    render(<LoteCard grupo={grupo([fila(1, 'PEREZ'), fila(2, 'GOMEZ', false, 'K8')])} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+
+    expect(screen.getAllByRole('button', { name: /corregir horas/i })).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: /corregir horas/i }));
+    expect(screen.getByLabelText('Horas corregidas')).toHaveValue(8);
+  });
+
+  it('confirmar la corrección llama a corregirLote con loteId, contratoId, horas y motivo', async () => {
+    render(<LoteCard grupo={grupo([fila(1, 'PEREZ'), fila(2, 'GOMEZ')])} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    await userEvent.click(screen.getByRole('button', { name: /corregir horas/i }));
+
+    const horas = screen.getByLabelText('Horas corregidas');
+    await userEvent.clear(horas);
+    await userEvent.type(horas, '6');
+    await userEvent.type(screen.getByLabelText('Motivo'), 'según recorrido registrado son 6hs');
+    await userEvent.click(screen.getByRole('button', { name: /confirmar corrección/i }));
+
+    await waitFor(() =>
+      expect(corregirLote).toHaveBeenCalledWith({
+        loteId: 'lote-1',
+        contratoId: 1,
+        horasCorregidas: 6,
+        motivo: 'según recorrido registrado son 6hs',
+      }),
+    );
+  });
+
+  it('el botón de confirmar corrección está deshabilitado sin motivo', async () => {
+    render(<LoteCard grupo={grupo()} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    await userEvent.click(screen.getByRole('button', { name: /corregir horas/i }));
+    expect(screen.getByRole('button', { name: /confirmar corrección/i })).toBeDisabled();
   });
 });
