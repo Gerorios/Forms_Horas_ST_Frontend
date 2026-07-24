@@ -54,11 +54,9 @@ function NavLinks({
 
 function UserFooter({
   nombre,
-  rol,
   onLogout,
 }: {
   nombre: string;
-  rol: string;
   onLogout: () => void;
 }) {
   return (
@@ -69,7 +67,6 @@ function UserFooter({
         </span>
         <div className="min-w-0 flex-1 leading-tight">
           <p className="truncate text-sm font-medium text-ink">{nombre}</p>
-          <p className="text-[11px] text-slate">{rol}</p>
         </div>
       </div>
       <button
@@ -96,7 +93,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const items = navForRole(perfil);
   const nombre = perfil.empleado.apellido_nombre;
-  const rol = perfil.rol.nombre;
 
   function salir() {
     signOut();
@@ -113,7 +109,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mt-6 flex-1">
           <NavLinks items={items} pathname={pathname} />
         </div>
-        <UserFooter nombre={nombre} rol={rol} onLogout={salir} />
+        <UserFooter nombre={nombre} onLogout={salir} />
       </aside>
 
       {/* Top bar (mobile) */}
@@ -163,7 +159,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="mt-6 flex-1">
               <NavLinks items={items} pathname={pathname} onNavigate={() => setDrawerAbierto(false)} />
             </div>
-            <UserFooter nombre={nombre} rol={rol} onLogout={salir} />
+            <UserFooter nombre={nombre} onLogout={salir} />
           </div>
         </div>
       )}

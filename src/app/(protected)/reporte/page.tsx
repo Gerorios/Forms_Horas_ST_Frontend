@@ -48,30 +48,40 @@ export default function ReportePage() {
   ]);
 
   const provinciaSel = provinciaId ?? provincias?.[0]?.id ?? null;
+  const [intentoEnviar, setIntentoEnviar] = useState(false);
 
-  const lineasCompletas = useMemo(
+  const lineasValidas = useMemo(
     () =>
-      lineas.filter(
-        (l) => l.contratoId != null && l.horas != null && l.horas > 0 && l.tareaIds.length > 0,
+      lineas.length > 0 &&
+      lineas.every(
+        (l) =>
+          l.contratoId != null &&
+          l.horas != null &&
+          l.horas > 0 &&
+          l.tareaIds.length > 0 &&
+          l.observacion.trim() !== '',
       ),
     [lineas],
   );
-  const puedeEnviar = operarios.length > 0 && lineasCompletas.length > 0 && provinciaSel != null;
+  const movilesValidos = movilIds.length > 0;
+  const operariosValidos = operarios.length > 0;
+  const formularioValido =
+    operariosValidos && movilesValidos && lineasValidas && provinciaSel != null;
 
   async function enviar() {
-    if (!puedeEnviar || provinciaSel == null) return;
+    if (provinciaSel == null) return;
     const promesa = crear.mutateAsync({
       fecha,
       provinciaId: provinciaSel,
       gpsLat: coords?.lat,
       gpsLng: coords?.lng,
-      movilIds: movilIds.length ? movilIds : undefined,
+      movilIds,
       operarioCuils: operarios.map((o) => o.cuil),
-      lineas: lineasCompletas.map((l) => ({
+      lineas: lineas.map((l) => ({
         contratoId: l.contratoId!,
         horas: l.horas!,
         tareaIds: l.tareaIds,
-        observacion: l.observacion.trim() || undefined,
+        observacion: l.observacion.trim(),
       })),
     });
     toast.promise(promesa, {
@@ -86,10 +96,18 @@ export default function ReportePage() {
     try {
       await promesa;
       setOperarios([]);
+      setMovilIds([]);
       setLineas([{ contratoId: null, horas: null, tareaIds: [], observacion: '' }]);
+      setIntentoEnviar(false);
     } catch {
       // el toast.promise ya avisó el error
     }
+  }
+
+  function intentarEnviar() {
+    setIntentoEnviar(true);
+    if (!formularioValido) return;
+    enviar();
   }
 
   const gpsLabel =
@@ -143,22 +161,33 @@ export default function ReportePage() {
           <div className="mt-1.5">
             <MovilesSelect moviles={moviles ?? []} value={movilIds} onChange={setMovilIds} />
           </div>
+          {intentoEnviar && !movilesValidos && (
+            <p className="mt-1 text-[11px] text-danger">Elegí al menos un móvil.</p>
+          )}
         </div>
       </Card>
 
       <Card title="Operarios">
         <OperariosSelect value={operarios} onChange={setOperarios} />
+        {intentoEnviar && !operariosValidos && (
+          <p className="mt-1 text-[11px] text-danger">Agregá al menos un operario.</p>
+        )}
       </Card>
 
       <Card title="Contratos y tareas">
-        <LineasField contratos={contratos} value={lineas} onChange={setLineas} />
+        <LineasField
+          contratos={contratos}
+          value={lineas}
+          onChange={setLineas}
+          mostrarErrores={intentoEnviar}
+        />
       </Card>
 
       <div className="sticky bottom-0 -mx-4 flex items-center justify-end border-t border-line bg-sand/80 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
         <button
           type="button"
-          disabled={!puedeEnviar || crear.isPending}
-          onClick={enviar}
+          disabled={crear.isPending}
+          onClick={intentarEnviar}
           className="rounded-md bg-brand px-5 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
         >
           Reportar

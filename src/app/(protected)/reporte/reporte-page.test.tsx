@@ -37,23 +37,35 @@ describe('ReportePage', () => {
     h.isPending = false;
   });
 
-  it('no envía si no hay operarios ni líneas completas', () => {
+  it('no envía si faltan campos obligatorios, y marca los errores al intentar', async () => {
     render(<ReportePage />);
-    expect(screen.getByRole('button', { name: /reportar/i })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: /reportar/i }));
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText('Elegí al menos un móvil.')).toBeInTheDocument();
+    expect(screen.getByText('Agregá al menos un operario.')).toBeInTheDocument();
+    expect(screen.getByText('Elegí un contrato.')).toBeInTheDocument();
+    expect(screen.getByText('Ingresá las horas.')).toBeInTheDocument();
+    expect(screen.getByText('Agregá una descripción de la tarea.')).toBeInTheDocument();
   });
 
-  it('con 1 operario y 1 línea completa envía el batch directo, sin modal de confirmación', async () => {
+  it('con todos los campos completos (incluido móvil y observación) envía el batch', async () => {
     render(<ReportePage />);
     await userEvent.type(screen.getByPlaceholderText(/buscar operario/i), 'gomez');
     await userEvent.click(await screen.findByText(/GOMEZ/));
+    await userEvent.click(screen.getByText('Buscar móvil…'));
+    await userEvent.click(screen.getByText('M-01'));
     await userEvent.selectOptions(screen.getByLabelText('Contrato'), '1');
     await userEvent.click(screen.getByRole('button', { name: 'Excavación' }));
     await userEvent.type(screen.getByLabelText('Horas'), '8');
+    await userEvent.type(screen.getByLabelText('Observación'), 'Tarea de excavación');
     await userEvent.click(screen.getByRole('button', { name: /reportar/i }));
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
     const payload = mutateAsync.mock.calls[0][0];
     expect(payload.operarioCuils).toEqual(['20169']);
-    expect(payload.lineas).toEqual([{ contratoId: 1, horas: 8, tareaIds: [9] }]);
+    expect(payload.movilIds).toEqual([1]);
+    expect(payload.lineas).toEqual([
+      { contratoId: 1, horas: 8, tareaIds: [9], observacion: 'Tarea de excavación' },
+    ]);
     expect(payload.provinciaId).toBe(1);
   });
 
