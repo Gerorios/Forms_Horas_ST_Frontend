@@ -17,6 +17,7 @@ function LineaRow({
   onChange,
   onRemove,
   removable,
+  mostrarErrores,
 }: {
   contratos: ContratoResumen[];
   usados: number[];
@@ -24,8 +25,14 @@ function LineaRow({
   onChange: (l: LineaBorrador) => void;
   onRemove: () => void;
   removable: boolean;
+  mostrarErrores: boolean;
 }) {
   const { data: tareas } = useTareas(linea.contratoId);
+
+  const contratoInvalido = mostrarErrores && linea.contratoId == null;
+  const horasInvalido = mostrarErrores && (linea.horas == null || linea.horas <= 0);
+  const tareasInvalido = mostrarErrores && linea.tareaIds.length === 0;
+  const observacionInvalido = mostrarErrores && linea.observacion.trim() === '';
 
   function toggleTarea(id: number) {
     const yaEsta = linea.tareaIds.includes(id);
@@ -44,7 +51,7 @@ function LineaRow({
           Contrato
           <select
             aria-label="Contrato"
-            className="mt-1 rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+            className={`mt-1 rounded-md border bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 ${contratoInvalido ? 'border-danger' : 'border-line'}`}
             value={linea.contratoId ?? ''}
             onChange={(e) =>
               onChange({
@@ -65,6 +72,7 @@ function LineaRow({
               </option>
             ))}
           </select>
+          {contratoInvalido && <span className="mt-1 text-[11px] text-danger">Elegí un contrato.</span>}
         </label>
 
         <label className="flex flex-col text-xs font-medium text-slate">
@@ -74,12 +82,13 @@ function LineaRow({
             type="number"
             min="0"
             step="0.5"
-            className="mt-1 w-24 rounded-md border border-line bg-surface px-2 py-1.5 text-sm tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+            className={`mt-1 w-24 rounded-md border bg-surface px-2 py-1.5 text-sm tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 ${horasInvalido ? 'border-danger' : 'border-line'}`}
             value={linea.horas ?? ''}
             onChange={(e) =>
               onChange({ ...linea, horas: e.target.value ? Number(e.target.value) : null })
             }
           />
+          {horasInvalido && <span className="mt-1 text-[11px] text-danger">Ingresá las horas.</span>}
         </label>
 
         {removable && (
@@ -100,7 +109,9 @@ function LineaRow({
         ) : (tareas ?? []).length === 0 ? (
           <p className="mt-1 text-xs text-slate/70">Este contrato no tiene tareas cargadas.</p>
         ) : (
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <div
+            className={`mt-1.5 flex flex-wrap gap-1.5 rounded-md ${tareasInvalido ? 'ring-1 ring-danger' : ''}`}
+          >
             {(tareas ?? []).map((t) => {
               const activa = linea.tareaIds.includes(t.id);
               return (
@@ -121,18 +132,22 @@ function LineaRow({
             })}
           </div>
         )}
+        {tareasInvalido && <p className="mt-1 text-[11px] text-danger">Elegí al menos una tarea.</p>}
       </div>
 
       <label className="mt-3 flex flex-col text-xs font-medium text-slate">
-        Observación (opcional)
+        Observación (descripción de la tarea)
         <textarea
           aria-label="Observación"
           rows={2}
           placeholder="Productividad, tareas ejecutadas, viajes a otra localidad, etc."
-          className="mt-1 rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+          className={`mt-1 rounded-md border bg-surface px-2 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 ${observacionInvalido ? 'border-danger' : 'border-line'}`}
           value={linea.observacion}
           onChange={(e) => onChange({ ...linea, observacion: e.target.value })}
         />
+        {observacionInvalido && (
+          <span className="mt-1 text-[11px] text-danger">Agregá una descripción de la tarea.</span>
+        )}
       </label>
     </div>
   );
@@ -142,10 +157,12 @@ export function LineasField({
   contratos,
   value,
   onChange,
+  mostrarErrores = false,
 }: {
   contratos: ContratoResumen[];
   value: LineaBorrador[];
   onChange: (v: LineaBorrador[]) => void;
+  mostrarErrores?: boolean;
 }) {
   const usados = value.map((l) => l.contratoId).filter((x): x is number => x != null);
 
@@ -158,6 +175,7 @@ export function LineasField({
           usados={usados}
           linea={linea}
           removable={value.length > 1}
+          mostrarErrores={mostrarErrores}
           onChange={(l) => onChange(value.map((x, j) => (j === i ? l : x)))}
           onRemove={() => onChange(value.filter((_, j) => j !== i))}
         />

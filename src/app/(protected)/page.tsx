@@ -23,7 +23,7 @@ export default function HomePage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader eyebrow={perfil.rol.nombre} title={`Hola, ${nombre}`} />
+      <PageHeader title={`Hola, ${nombre}`} />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {items.map((item) => (
