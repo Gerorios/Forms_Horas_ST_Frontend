@@ -9,9 +9,15 @@ const onResetearPassword = vi.fn();
 vi.mock('@/lib/api/admin', () => ({
   useEditarUsuario: () => ({ mutateAsync: editar, isPending: false }),
   useRoles: () => ({
-    data: [{ id: 1, nombre: 'Operario' }, { id: 2, nombre: 'Admin' }, { id: 3, nombre: 'JefeContrato' }],
+    data: [
+      { id: 1, nombre: 'Operario' },
+      { id: 2, nombre: 'Admin' },
+      { id: 3, nombre: 'JefeContrato' },
+      { id: 4, nombre: 'JefeCuadrilla' },
+    ],
   }),
   useContratosAdmin: () => ({ data: [ { id: 10, codigo: 'K5' }, { id: 11, codigo: 'K8' } ] }),
+  useTiposNovedadAdmin: () => ({ data: [ { id: 20, nombre: 'Ausencia' }, { id: 21, nombre: 'Viáticos' } ] }),
 }));
 vi.mock('sonner', () => ({ toast: { promise: vi.fn() } }));
 
@@ -26,6 +32,7 @@ const USUARIO: UsuarioAdmin = {
   empleado: { apellido_nombre: 'TORRES RAMON' },
   contratosHabilitados: [{ contratoId: 10, contrato: { codigo: 'K5' } }],
   contratosComoJefe: [],
+  tiposNovedadHabilitados: [],
 };
 
 const JEFE_CONTRATO: UsuarioAdmin = {
@@ -37,6 +44,19 @@ const JEFE_CONTRATO: UsuarioAdmin = {
   empleado: { apellido_nombre: 'SALAS MARIA' },
   contratosHabilitados: [],
   contratosComoJefe: [{ id: 10, codigo: 'K5' }],
+  tiposNovedadHabilitados: [],
+};
+
+const JEFE_CUADRILLA: UsuarioAdmin = {
+  cuil: '20333333333',
+  email: 'cuadrilla@serytec.com',
+  activo: true,
+  rolId: 4,
+  rol: { nombre: 'JefeCuadrilla' },
+  empleado: { apellido_nombre: 'DIAZ LUIS' },
+  contratosHabilitados: [],
+  contratosComoJefe: [],
+  tiposNovedadHabilitados: [{ tipoNovedadId: 21, tipoNovedad: { nombre: 'Viáticos' } }],
 };
 
 // Helper: renderiza la fila dentro de una tabla válida.
@@ -121,6 +141,44 @@ describe('UsuarioEditRow', () => {
     await waitFor(() =>
       expect(editar).toHaveBeenCalledWith(
         expect.objectContaining({ cuil: '20222222222', contratosJefeIds: [10, 11] }),
+      ),
+    );
+  });
+
+  it('un JefeCuadrilla sin tipos habilitados no muestra "¿Carga novedades?" tildado', async () => {
+    renderRow({ ...JEFE_CUADRILLA, tiposNovedadHabilitados: [] });
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    expect(screen.getByRole('checkbox', { name: /carga novedades/i })).not.toBeChecked();
+    expect(screen.queryByText(/tipos de novedad habilitados/i)).not.toBeInTheDocument();
+  });
+
+  it('un JefeCuadrilla con tipos habilitados precarga el toggle tildado y los tipos', async () => {
+    renderRow(JEFE_CUADRILLA);
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    expect(screen.getByRole('checkbox', { name: /carga novedades/i })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Viáticos' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('tildar un tipo de novedad y guardar envía tiposNovedadIds', async () => {
+    renderRow(JEFE_CUADRILLA);
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ausencia' }));
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    await waitFor(() =>
+      expect(editar).toHaveBeenCalledWith(
+        expect.objectContaining({ cuil: '20333333333', tiposNovedadIds: [21, 20] }),
+      ),
+    );
+  });
+
+  it('destildar "¿Carga novedades?" vacía los tipos elegidos', async () => {
+    renderRow(JEFE_CUADRILLA);
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /carga novedades/i }));
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    await waitFor(() =>
+      expect(editar).toHaveBeenCalledWith(
+        expect.objectContaining({ cuil: '20333333333', tiposNovedadIds: [] }),
       ),
     );
   });

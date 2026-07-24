@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { useEditarUsuario, useRoles, useContratosAdmin, type UsuarioAdmin } from '@/lib/api/admin';
+import { useEditarUsuario, useRoles, useContratosAdmin, useTiposNovedadAdmin, type UsuarioAdmin } from '@/lib/api/admin';
 
 const inputCls =
   'rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
@@ -19,6 +19,7 @@ export function UsuarioEditRow({
   const editar = useEditarUsuario();
   const { data: roles } = useRoles();
   const { data: contratos } = useContratosAdmin();
+  const { data: tiposNovedad } = useTiposNovedadAdmin();
 
   const [abierto, setAbierto] = useState(false);
   const [email, setEmail] = useState(usuario.email);
@@ -29,10 +30,15 @@ export function UsuarioEditRow({
   const [contratosJefeIds, setContratosJefeIds] = useState<number[]>(
     usuario.contratosComoJefe.map((c) => c.id),
   );
+  const [tiposNovedadIds, setTiposNovedadIds] = useState<number[]>(
+    usuario.tiposNovedadHabilitados.map((t) => t.tipoNovedadId),
+  );
+  const [cargaNovedades, setCargaNovedades] = useState(usuario.tiposNovedadHabilitados.length > 0);
   const [password, setPassword] = useState('');
 
   const origContratos = usuario.contratosHabilitados.map((c) => c.contratoId);
   const origContratosJefe = usuario.contratosComoJefe.map((c) => c.id);
+  const origTiposNovedad = usuario.tiposNovedadHabilitados.map((t) => t.tipoNovedadId);
 
   const emailValido = /^\S+@\S+\.\S+$/.test(email.trim());
   const passwordValido = password === '' || password.length >= 8;
@@ -43,21 +49,33 @@ export function UsuarioEditRow({
   const contratosJefeCambio =
     contratosJefeIds.length !== origContratosJefe.length ||
     contratosJefeIds.some((id) => !origContratosJefe.includes(id));
+  const tiposNovedadCambio =
+    tiposNovedadIds.length !== origTiposNovedad.length ||
+    tiposNovedadIds.some((id) => !origTiposNovedad.includes(id));
   const huboCambios =
     email.trim() !== usuario.email ||
     rolId !== usuario.rolId ||
     contratosCambio ||
     contratosJefeCambio ||
+    tiposNovedadCambio ||
     password !== '';
 
   const puedeGuardar = emailValido && passwordValido && huboCambios && !editar.isPending;
   const esJefeContrato = (roles ?? []).find((r) => r.id === rolId)?.nombre === 'JefeContrato';
+  const esJefeCuadrilla = (roles ?? []).find((r) => r.id === rolId)?.nombre === 'JefeCuadrilla';
 
   function toggleContrato(id: number) {
     setContratosIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
   function toggleContratoJefe(id: number) {
     setContratosJefeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+  function toggleTipoNovedad(id: number) {
+    setTiposNovedadIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+  function cambiarCargaNovedades(checked: boolean) {
+    setCargaNovedades(checked);
+    if (!checked) setTiposNovedadIds([]);
   }
 
   function cerrar() {
@@ -66,6 +84,8 @@ export function UsuarioEditRow({
     setRolId(usuario.rolId);
     setContratosIds(origContratos);
     setContratosJefeIds(origContratosJefe);
+    setTiposNovedadIds(origTiposNovedad);
+    setCargaNovedades(origTiposNovedad.length > 0);
     setPassword('');
   }
 
@@ -73,12 +93,13 @@ export function UsuarioEditRow({
     if (!puedeGuardar) return;
     const payload: {
       cuil: string; email?: string; rolId?: number; contratosIds?: number[];
-      contratosJefeIds?: number[]; password?: string;
+      contratosJefeIds?: number[]; tiposNovedadIds?: number[]; password?: string;
     } = { cuil: usuario.cuil };
     if (email.trim() !== usuario.email) payload.email = email.trim();
     if (rolId !== usuario.rolId) payload.rolId = rolId;
     if (contratosCambio) payload.contratosIds = contratosIds;
     if (contratosJefeCambio) payload.contratosJefeIds = contratosJefeIds;
+    if (tiposNovedadCambio) payload.tiposNovedadIds = tiposNovedadIds;
     if (password !== '') payload.password = password;
 
     const promesa = editar.mutateAsync(payload);
@@ -194,6 +215,41 @@ export function UsuarioEditRow({
                       );
                     })}
                   </div>
+                </div>
+              )}
+              {esJefeCuadrilla && (
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-ink">
+                    <input
+                      type="checkbox"
+                      checked={cargaNovedades}
+                      onChange={(e) => cambiarCargaNovedades(e.target.checked)}
+                    />
+                    ¿Carga novedades?
+                  </label>
+                  {cargaNovedades && (
+                    <div>
+                      <p className="text-sm font-medium text-ink">Tipos de novedad habilitados</p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {(tiposNovedad ?? []).map((t) => {
+                          const on = tiposNovedadIds.includes(t.id);
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              aria-pressed={on}
+                              onClick={() => toggleTipoNovedad(t.id)}
+                              className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                                on ? 'border-brand bg-accent font-medium text-ink' : 'border-line text-slate hover:border-brand/50'
+                              }`}
+                            >
+                              {t.nombre}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="flex gap-2">

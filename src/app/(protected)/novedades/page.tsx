@@ -2,18 +2,20 @@
 
 import { useState } from 'react';
 import { useNovedades } from '@/lib/api/novedades';
+import { useSession } from '@/lib/auth/session';
 import { NuevaNovedadForm } from '@/features/novedades/nueva-novedad-form';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 
 export default function NovedadesPage() {
+  const { perfil } = useSession();
   const { data, isLoading } = useNovedades();
   const [mostrarForm, setMostrarForm] = useState(false);
 
   return (
     <section className="space-y-4">
       <PageHeader
-        eyebrow="Supervisor"
+        eyebrow={perfil?.rol.nombre ?? ''}
         title="Novedades"
         action={
           <button

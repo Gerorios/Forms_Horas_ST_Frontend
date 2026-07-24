@@ -10,6 +10,7 @@ vi.mock('@/lib/api/admin', () => ({
     data: [{ id: 1, nombre: 'Operario' }, { id: 2, nombre: 'JefeCuadrilla' }, { id: 3, nombre: 'JefeContrato' }],
   }),
   useContratosAdmin: () => ({ data: [{ id: 5, codigo: 'K5', nombre: 'K5', activo: true, jefeContratoCuil: null, jefeContrato: null }] }),
+  useTiposNovedadAdmin: () => ({ data: [{ id: 8, nombre: 'Viáticos' }] }),
 }));
 vi.mock('@/lib/api/empleados', () => ({
   useBuscarEmpleados: () => ({ data: [{ cuil: '20169', apellido_nombre: 'GOMEZ', legajo: 1, cargo: 'OF' }] }),
@@ -57,6 +58,33 @@ describe('UsuarioForm', () => {
     await waitFor(() =>
       expect(crear).toHaveBeenCalledWith(
         expect.objectContaining({ rolId: 3, contratosJefeIds: [5] }),
+      ),
+    );
+  });
+
+  it('sin rol JefeCuadrilla, no muestra "¿Carga novedades?"', () => {
+    render(<UsuarioForm onCreado={() => {}} />);
+    expect(screen.queryByText(/carga novedades/i)).not.toBeInTheDocument();
+  });
+
+  it('al elegir rol JefeCuadrilla y tildar "¿Carga novedades?", se pueden elegir tipos y se mandan en el payload', async () => {
+    render(<UsuarioForm onCreado={() => {}} />);
+    await userEvent.type(screen.getByPlaceholderText(/buscar operario/i), 'gomez');
+    await userEvent.click(await screen.findByText(/GOMEZ/));
+    await userEvent.type(screen.getByLabelText('Email'), 'gomez@st.local');
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'secreto12');
+    await userEvent.selectOptions(screen.getByLabelText('Rol'), '2');
+
+    expect(screen.getByText(/carga novedades/i)).toBeInTheDocument();
+    expect(screen.queryByText('Viáticos')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /carga novedades/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'Viáticos' }));
+    await userEvent.click(screen.getByRole('button', { name: /crear usuario/i }));
+
+    await waitFor(() =>
+      expect(crear).toHaveBeenCalledWith(
+        expect.objectContaining({ rolId: 2, tiposNovedadIds: [8] }),
       ),
     );
   });

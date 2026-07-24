@@ -18,7 +18,7 @@ export default function HomePage() {
   const { perfil } = useSession();
   if (!perfil) return null;
 
-  const items = navForRole(perfil.rol.nombre);
+  const items = navForRole(perfil);
   const nombre = perfil.empleado.apellido_nombre;
 
   return (

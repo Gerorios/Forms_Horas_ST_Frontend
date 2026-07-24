@@ -11,6 +11,7 @@ const PERFIL_FAKE = {
   rol: { nombre: 'Operario' as const },
   empleado: { apellido_nombre: 'PEREZ JUAN', legajo: 10, cargo: 'Oficial' },
   contratosHabilitados: [],
+  tiposNovedadHabilitados: [],
 };
 
 function Probe() {
