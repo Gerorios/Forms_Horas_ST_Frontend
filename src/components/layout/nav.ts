@@ -13,6 +13,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Novedades', href: '/novedades', roles: ['Supervisor', 'JefeCuadrilla'] },
   { label: 'Ausencias', href: '/ausencias', roles: ['HyS'] },
   { label: 'Admin', href: '/admin', roles: ['Admin'] },
+  { label: 'Liquidación', href: '/liquidacion', roles: ['Liquidador', 'Admin'] },
 ];
 
 export function navForRole(perfil: Pick<Perfil, 'rol' | 'tiposNovedadHabilitados'>): NavItem[] {

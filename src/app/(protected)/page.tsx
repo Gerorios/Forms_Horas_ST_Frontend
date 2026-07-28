@@ -12,6 +12,7 @@ const DESCRIPCION: Record<string, string> = {
   '/novedades': 'Cargar y ver novedades: ausencias, accidentes, francos.',
   '/ausencias': 'Aprobar o rechazar las ausencias que requieren Higiene y Seguridad.',
   '/admin': 'Administrar catálogos, usuarios y contratos.',
+  '/liquidacion': 'Total a cobrar por empleado y quincena: horas, categoría, extras y plus.',
 };
 
 export default function HomePage() {
