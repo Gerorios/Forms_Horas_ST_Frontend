@@ -14,8 +14,10 @@ export interface ContratoResumen {
 
 export interface EmpleadoResumen {
   apellido_nombre: string;
-  legajo: number;
-  cargo: string;
+  /** null para usuarios fuera de nómina (sin fila en snuempleados, ver ADR-008). */
+  legajo: number | null;
+  /** null para usuarios fuera de nómina (sin fila en snuempleados, ver ADR-008). */
+  cargo: string | null;
 }
 
 export interface Perfil {

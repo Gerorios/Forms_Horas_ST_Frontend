@@ -37,6 +37,29 @@ describe('UsuarioForm', () => {
     );
   });
 
+  it('con "Fuera de nómina" permite cargar nombre/apellido/cuil a mano en vez de buscar empleado', async () => {
+    render(<UsuarioForm onCreado={() => {}} />);
+    await userEvent.click(screen.getByLabelText('Fuera de nómina'));
+    expect(screen.queryByPlaceholderText(/buscar operario/i)).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Nombre'), 'juan');
+    await userEvent.type(screen.getByLabelText('Apellido'), 'perez');
+    await userEvent.type(screen.getByLabelText('CUIL'), '20123456789');
+    await userEvent.type(screen.getByLabelText('Email'), 'juan@st.local');
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'secreto12');
+    await userEvent.selectOptions(screen.getByLabelText('Rol'), '1');
+    await userEvent.click(screen.getByRole('button', { name: /crear usuario/i }));
+    await waitFor(() =>
+      expect(crear).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cuil: '20123456789',
+          nombreFueraNomina: 'PEREZ JUAN',
+          email: 'juan@st.local',
+          rolId: 1,
+        }),
+      ),
+    );
+  });
+
   it('sin rol JefeContrato, no muestra "Contratos de los que es Jefe"', () => {
     render(<UsuarioForm onCreado={() => {}} />);
     expect(screen.queryByText(/contratos de los que es jefe/i)).not.toBeInTheDocument();

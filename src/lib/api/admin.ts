@@ -176,6 +176,8 @@ export function useCrearUsuario() {
   return useMutation({
     mutationFn: (dto: {
       cuil: string; email: string; password: string; rolId: number;
+      /** Nombre cargado a mano para usuarios sin fila en snuempleados (ver ADR-008). */
+      nombreFueraNomina?: string;
       contratosIds?: number[]; contratosJefeIds?: number[]; tiposNovedadIds?: number[];
     }) => api.post('/admin/usuarios', dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'usuarios'] }),
@@ -186,6 +188,7 @@ export function useEditarUsuario() {
   return useMutation({
     mutationFn: ({ cuil, ...dto }: {
       cuil: string; email?: string; password?: string; rolId?: number; activo?: boolean;
+      nombreFueraNomina?: string;
       contratosIds?: number[]; contratosJefeIds?: number[]; tiposNovedadIds?: number[];
     }) => api.patch(`/admin/usuarios/${cuil}`, dto).then((r) => r.data),
     onSuccess: () => {
