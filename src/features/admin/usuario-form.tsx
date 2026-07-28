@@ -11,7 +11,11 @@ export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
   const { data: roles } = useRoles();
   const { data: contratos } = useContratosAdmin();
   const { data: tiposNovedad } = useTiposNovedadAdmin();
+  const [enNomina, setEnNomina] = useState(true);
   const [empleado, setEmpleado] = useState<EmpleadoBusqueda[]>([]);
+  const [cuilManual, setCuilManual] = useState('');
+  const [nombreManual, setNombreManual] = useState('');
+  const [apellidoManual, setApellidoManual] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rolId, setRolId] = useState<number | null>(null);
@@ -20,9 +24,21 @@ export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
   const [cargaNovedades, setCargaNovedades] = useState(false);
   const [tiposNovedadIds, setTiposNovedadIds] = useState<number[]>([]);
 
-  const puede = empleado.length === 1 && email.trim() !== '' && password.length >= 8 && rolId != null;
+  const puedeNomina = enNomina && empleado.length === 1;
+  const puedeManual =
+    !enNomina && cuilManual.trim() !== '' && nombreManual.trim() !== '' && apellidoManual.trim() !== '';
+  const puede =
+    (puedeNomina || puedeManual) && email.trim() !== '' && password.length >= 8 && rolId != null;
   const esJefeContrato = (roles ?? []).find((r) => r.id === rolId)?.nombre === 'JefeContrato';
   const esJefeCuadrilla = (roles ?? []).find((r) => r.id === rolId)?.nombre === 'JefeCuadrilla';
+
+  function cambiarEnNomina(valor: boolean) {
+    setEnNomina(valor);
+    setEmpleado([]);
+    setCuilManual('');
+    setNombreManual('');
+    setApellidoManual('');
+  }
 
   function toggleContrato(id: number) {
     setContratosIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -41,7 +57,8 @@ export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
   async function enviar() {
     if (!puede || rolId == null) return;
     const promesa = crear.mutateAsync({
-      cuil: empleado[0].cuil,
+      cuil: enNomina ? empleado[0].cuil : cuilManual.trim(),
+      nombreFueraNomina: enNomina ? undefined : `${apellidoManual.trim().toUpperCase()} ${nombreManual.trim().toUpperCase()}`,
       email: email.trim(),
       password,
       rolId,
@@ -52,7 +69,8 @@ export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
     toast.promise(promesa, { loading: 'Creando usuario…', success: 'Usuario creado', error: 'No se pudo crear el usuario' });
     try {
       await promesa;
-      setEmpleado([]); setEmail(''); setPassword(''); setRolId(null); setContratosIds([]); setContratosJefeIds([]);
+      cambiarEnNomina(true);
+      setEmail(''); setPassword(''); setRolId(null); setContratosIds([]); setContratosJefeIds([]);
       setCargaNovedades(false); setTiposNovedadIds([]);
       onCreado();
     } catch {
@@ -63,10 +81,40 @@ export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
   return (
     <div className="space-y-3 rounded-xl border border-line bg-surface p-4">
       <h2 className="font-display text-sm font-semibold text-ink">Nuevo usuario</h2>
-      <div className="space-y-1">
-        <span className="text-sm font-medium text-ink">Empleado</span>
-        <OperariosSelect value={empleado} onChange={(v) => setEmpleado(v.slice(-1))} />
+      <div className="flex gap-4 text-sm font-medium text-ink">
+        <label className="flex items-center gap-1.5">
+          <input type="radio" name="en-nomina" checked={enNomina} onChange={() => cambiarEnNomina(true)} />
+          En nómina
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input type="radio" name="en-nomina" checked={!enNomina} onChange={() => cambiarEnNomina(false)} />
+          Fuera de nómina
+        </label>
       </div>
+      {enNomina ? (
+        <div className="space-y-1">
+          <span className="text-sm font-medium text-ink">Empleado</span>
+          <OperariosSelect value={empleado} onChange={(v) => setEmpleado(v.slice(-1))} />
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="flex flex-col gap-1 text-sm font-medium text-ink">
+            Nombre
+            <input aria-label="Nombre" value={nombreManual} onChange={(e) => setNombreManual(e.target.value)}
+              className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30" />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium text-ink">
+            Apellido
+            <input aria-label="Apellido" value={apellidoManual} onChange={(e) => setApellidoManual(e.target.value)}
+              className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30" />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium text-ink">
+            CUIL
+            <input aria-label="CUIL" value={cuilManual} onChange={(e) => setCuilManual(e.target.value)}
+              className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30" />
+          </label>
+        </div>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm font-medium text-ink">
           Email
