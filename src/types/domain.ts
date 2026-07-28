@@ -4,7 +4,8 @@ export type Rol =
   | 'JefeContrato'
   | 'Supervisor'
   | 'HyS'
-  | 'Admin';
+  | 'Admin'
+  | 'Liquidador';
 
 export interface ContratoResumen {
   id: number;
