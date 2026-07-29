@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
 export interface Rol { id: number; nombre: string }
-export interface ContratoAdmin { id: number; codigo: string; nombre: string; activo: boolean; jefeContratoCuil: string | null; jefeContrato: { cuil: string; email: string } | null }
+export interface ContratoAdmin { id: number; codigo: string; nombre: string; activo: boolean; jefesCuils: string[] }
 export interface TareaAdmin { id: number; nombre: string; contratoId: number; activo: boolean }
 export interface MovilAdmin { id: number; identificador: string; descripcion: string | null; activo: boolean }
 export interface ProvinciaAdmin { id: number; nombre: string }
@@ -41,7 +41,7 @@ export function useContratosAdmin() {
 export function useCrearContrato() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dto: { codigo: string; nombre: string; jefeContratoCuil?: string }) =>
+    mutationFn: (dto: { codigo: string; nombre: string; jefesCuils?: string[] }) =>
       api.post('/admin/contratos', dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'contratos'] }),
   });
@@ -49,7 +49,7 @@ export function useCrearContrato() {
 export function useEditarContrato() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...dto }: { id: number; nombre?: string; jefeContratoCuil?: string | null; activo?: boolean }) =>
+    mutationFn: ({ id, ...dto }: { id: number; nombre?: string; jefesCuils?: string[]; activo?: boolean }) =>
       api.patch(`/admin/contratos/${id}`, dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'contratos'] }),
   });
