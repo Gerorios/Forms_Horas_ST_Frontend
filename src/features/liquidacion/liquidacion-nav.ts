@@ -1,6 +1,6 @@
 export const LIQUIDACION_NAV = [
-  { label: 'Categorías UOCRA', href: '/liquidacion/categorias' },
+  { label: 'Liquidar quincena', href: '/liquidacion/quincena' },
   { label: 'Perfiles de empleados', href: '/liquidacion/perfiles' },
-  { label: 'Novedades con plus', href: '/liquidacion/novedades-plus' },
-  { label: 'Por tantos (km)', href: '/liquidacion/por-tantos' },
+  { label: 'Categorías UOCRA', href: '/liquidacion/categorias' },
+  { label: 'Tarifas', href: '/liquidacion/tarifas' },
 ];

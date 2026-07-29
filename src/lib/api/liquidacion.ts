@@ -7,40 +7,90 @@ export interface CategoriaUocra {
   activo: boolean;
 }
 
-export interface TarifaCategoria {
-  id: number;
-  categoriaUocraId: number;
-  vigenteDesde: string;
-  importeHora: string;
-  categoria: { nombre: string };
-}
-
-export interface MontoNovedadPlus {
-  id: number;
-  tipoNovedadId: number;
-  vigenteDesde: string;
-  montoPorDia: string;
-  tipoNovedad: { nombre: string };
-}
-
-export interface RangoKm {
-  id: number;
-  vigenteDesde: string;
-  kmDesde: string;
-  kmHasta: string | null;
-  precioPorKm: string;
-}
-
-export type RegimenLiquidacion = 'jornalizado' | 'fijo' | 'por_tantos';
-export type ModalidadHoraExtra = 'en_b' | 'con_descuentos';
+export type RegimenLiquidacion = 'jornalizado' | 'fijo' | 'mensualizado' | 'por_tantos' | 'administrativo';
+export type ModalidadPago = 'en_b' | 'con_descuentos';
+export type TipoBonoNoRemunerativo = 'monto_fijo' | 'porcentaje';
 
 export interface PerfilLiquidacion {
   cuil: string;
   regimen: RegimenLiquidacion;
   categoriaUocraId: number | null;
-  modalidadHoraExtra: ModalidadHoraExtra | null;
+  modalidadPago: ModalidadPago | null;
   empleado: { apellido_nombre: string; legajo: number; cargo: string };
   categoria: { id: number; nombre: string } | null;
+}
+
+// ---- Ronda mensual de tarifas (ver ADR-010 y ADR-011) ----
+export interface EstadoTarifas {
+  ultimoPeriodo: { anio: number; mes: number } | null;
+  categorias: {
+    id: number;
+    nombre: string;
+    importeHoraActual: string | null;
+    bonoNoRemunerativoActual: { tipo: TipoBonoNoRemunerativo; valor: string } | null;
+  }[];
+  tiposNovedad: { id: number; nombre: string; montoPorDiaActual: string | null }[];
+  rangosKm: { kmDesde: string; kmHasta: string | null; precioPorKmActual: string }[];
+}
+
+export interface CargarRondaTarifasInput {
+  mes: number;
+  anio: number;
+  categorias: { categoriaUocraId: number; importeHora: number }[];
+  tiposNovedad: { tipoNovedadId: number; montoPorDia: number }[];
+  rangosKm: { kmDesde: number; kmHasta?: number; precioPorKm: number }[];
+  bonosNoRemunerativos: { categoriaUocraId: number; tipo: TipoBonoNoRemunerativo; valor: number }[];
+}
+
+// ---- Datos variables por quincena ----
+export interface MontoMensualizadoItem {
+  cuil: string;
+  apellidoNombre: string;
+  monto: string | null;
+}
+export interface KmPorTantosItem {
+  cuil: string;
+  apellidoNombre: string;
+  kmTotal: string | null;
+}
+
+export interface CalculoQuincenaItem {
+  cuil: string;
+  apellidoNombre: string;
+  legajo: number;
+  categoria: string | null;
+  regimen: RegimenLiquidacion;
+  provincia: string;
+  precioBruto: number | null;
+  horasTotal: number;
+  horasCct: number;
+  totalBruto: number;
+  horasExtra: number;
+  montoHorasExtra: number;
+  tienePresentismo: boolean;
+  montoPresentismo: number;
+  plus: { tipoNovedadId: number; nombre: string; dias: number; monto: number }[];
+  noRemunerativo: number;
+  novedadesTexto: string;
+  total: number;
+  datoFaltante: string | null;
+}
+
+export interface AlertasQuincena {
+  sinPerfil: { cuil: string; apellidoNombre: string; horasAprobadas: number; horasPendientes: number }[];
+  perfilIncompleto: {
+    cuil: string;
+    apellidoNombre: string;
+    regimen: RegimenLiquidacion;
+    faltaCategoria: boolean;
+    faltaModalidad: boolean;
+  }[];
+  sinHorasAprobadas: {
+    cuil: string;
+    apellidoNombre: string;
+    motivo: 'pendientes' | 'sin_declarar';
+    horasPendientes: number;
+  }[];
 }
 
 const get = async <T>(url: string, params?: Record<string, unknown>) =>
@@ -66,42 +116,16 @@ export function useToggleCategoriaUocra() {
   });
 }
 
-// ---- Tarifas por categoría ----
-export function useTarifasCategoria() {
-  return useQuery({ queryKey: ['liquidacion', 'tarifas'], queryFn: () => get<TarifaCategoria[]>('/liquidacion/tarifas-categoria') });
+// ---- Ronda mensual de tarifas ----
+export function useEstadoTarifas() {
+  return useQuery({ queryKey: ['liquidacion', 'tarifas-estado'], queryFn: () => get<EstadoTarifas>('/liquidacion/tarifas/estado') });
 }
-export function useCrearTarifaCategoria() {
+export function useCargarRondaTarifas() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dto: { categoriaUocraId: number; vigenteDesde: string; importeHora: number }) =>
-      api.post('/liquidacion/tarifas-categoria', dto).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas'] }),
-  });
-}
-
-// ---- Monto por novedad con plus ----
-export function useMontosNovedadPlus() {
-  return useQuery({ queryKey: ['liquidacion', 'montos-plus'], queryFn: () => get<MontoNovedadPlus[]>('/liquidacion/montos-novedad-plus') });
-}
-export function useCrearMontoNovedadPlus() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (dto: { tipoNovedadId: number; vigenteDesde: string; montoPorDia: number }) =>
-      api.post('/liquidacion/montos-novedad-plus', dto).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'montos-plus'] }),
-  });
-}
-
-// ---- Rangos de km (por tantos) ----
-export function useRangosKm() {
-  return useQuery({ queryKey: ['liquidacion', 'rangos-km'], queryFn: () => get<RangoKm[]>('/liquidacion/rangos-km') });
-}
-export function useCrearRangoKm() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (dto: { vigenteDesde: string; kmDesde: number; kmHasta?: number; precioPorKm: number }) =>
-      api.post('/liquidacion/rangos-km', dto).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'rangos-km'] }),
+    mutationFn: (dto: CargarRondaTarifasInput) =>
+      api.post<{ mesesCompletados: { anio: number; mes: number }[] }>('/liquidacion/tarifas/ronda', dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-estado'] }),
   });
 }
 
@@ -109,18 +133,15 @@ export function useCrearRangoKm() {
 export function usePerfilesLiquidacion() {
   return useQuery({ queryKey: ['liquidacion', 'perfiles'], queryFn: () => get<PerfilLiquidacion[]>('/liquidacion/perfiles') });
 }
-export function useUpsertPerfilLiquidacion() {
+export function useUpsertPerfilesMasivo() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      cuil,
-      ...dto
-    }: {
-      cuil: string;
+    mutationFn: (dto: {
+      cuils: string[];
       regimen: RegimenLiquidacion;
       categoriaUocraId?: number;
-      modalidadHoraExtra?: ModalidadHoraExtra;
-    }) => api.post(`/liquidacion/perfiles/${cuil}`, dto).then((r) => r.data),
+      modalidadPago?: ModalidadPago;
+    }) => api.post<{ asignados: number; omitidos: string[] }>('/liquidacion/perfiles/masivo', dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'perfiles'] }),
   });
 }
@@ -129,5 +150,55 @@ export function useEliminarPerfilLiquidacion() {
   return useMutation({
     mutationFn: (cuil: string) => api.delete(`/liquidacion/perfiles/${cuil}`).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'perfiles'] }),
+  });
+}
+
+// ---- Datos variables por quincena (mensualizado / por tantos) ----
+export function useMontosMensualizados(anio: number, mes: number, quincena: number) {
+  return useQuery({
+    queryKey: ['liquidacion', 'montos-mensualizados', anio, mes, quincena],
+    queryFn: () => get<MontoMensualizadoItem[]>('/liquidacion/quincena/montos-mensualizados', { anio, mes, quincena }),
+  });
+}
+export function useCargarMontosMensualizados() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: { anio: number; mes: number; quincena: number; montos: { cuil: string; monto: number }[] }) =>
+      api.post('/liquidacion/quincena/montos-mensualizados', dto).then((r) => r.data),
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'montos-mensualizados', vars.anio, vars.mes, vars.quincena] }),
+  });
+}
+
+export function useKmPorTantos(anio: number, mes: number, quincena: number) {
+  return useQuery({
+    queryKey: ['liquidacion', 'km-por-tantos', anio, mes, quincena],
+    queryFn: () => get<KmPorTantosItem[]>('/liquidacion/quincena/km-por-tantos', { anio, mes, quincena }),
+  });
+}
+export function useCargarKmPorTantos() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: { anio: number; mes: number; quincena: number; kms: { cuil: string; kmTotal: number }[] }) =>
+      api.post('/liquidacion/quincena/km-por-tantos', dto).then((r) => r.data),
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'km-por-tantos', vars.anio, vars.mes, vars.quincena] }),
+  });
+}
+
+// ---- Cálculo de la quincena ----
+export function useCalculoQuincena(anio: number, mes: number, quincena: number, enabled = true) {
+  return useQuery({
+    queryKey: ['liquidacion', 'calculo', anio, mes, quincena],
+    queryFn: () => get<CalculoQuincenaItem[]>('/liquidacion/quincena/calculo', { anio, mes, quincena }),
+    enabled,
+  });
+}
+
+// ---- Alertas previas a liquidar ----
+export function useAlertasQuincena(anio: number, mes: number, quincena: number) {
+  return useQuery({
+    queryKey: ['liquidacion', 'alertas', anio, mes, quincena],
+    queryFn: () => get<AlertasQuincena>('/liquidacion/quincena/alertas', { anio, mes, quincena }),
   });
 }
