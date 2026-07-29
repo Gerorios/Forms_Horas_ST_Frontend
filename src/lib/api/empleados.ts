@@ -11,3 +11,11 @@ export function useBuscarEmpleados(q: string) {
       (await api.get<EmpleadoBusqueda[]>('/empleados', { params: { q: term } })).data,
   });
 }
+
+/** Todos los empleados activos, sin filtro — para listados completos (ej. asignación masiva). */
+export function useEmpleadosActivos() {
+  return useQuery({
+    queryKey: ['empleados', 'todos'],
+    queryFn: async () => (await api.get<EmpleadoBusqueda[]>('/empleados')).data,
+  });
+}
