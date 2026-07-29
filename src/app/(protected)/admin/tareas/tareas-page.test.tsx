@@ -7,7 +7,7 @@ const toggle = vi.fn().mockResolvedValue({});
 const editar = vi.fn().mockResolvedValue({});
 
 vi.mock('@/lib/api/admin', () => ({
-  useContratosAdmin: () => ({ data: [{ id: 10, codigo: 'K5', nombre: 'Contrato K5', activo: true, jefeContratoCuil: null, jefeContrato: null }] }),
+  useContratosAdmin: () => ({ data: [{ id: 10, codigo: 'K5', nombre: 'Contrato K5', activo: true, jefesCuils: [] }] }),
   useTareasAdmin: () => ({ data: [{ id: 1, nombre: 'Excavación', contratoId: 10, activo: true }], isLoading: false }),
   useCrearTarea: () => ({ mutateAsync: crear, isPending: false }),
   useToggleTarea: () => ({ mutateAsync: toggle, isPending: false }),
