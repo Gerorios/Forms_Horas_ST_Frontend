@@ -9,6 +9,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Reporte diario', href: '/reporte', roles: ['JefeCuadrilla', 'JefeContrato'] },
   { label: 'Mis registros', href: '/mis-registros', roles: ['Operario', 'JefeCuadrilla', 'JefeContrato'] },
+  { label: 'Combustible', href: '/combustible', roles: ['JefeCuadrilla', 'JefeContrato', 'Admin'] },
   { label: 'Aprobaciones', href: '/aprobaciones', roles: ['JefeContrato'] },
   { label: 'Novedades', href: '/novedades', roles: ['Supervisor', 'JefeCuadrilla'] },
   { label: 'Ausencias', href: '/ausencias', roles: ['HyS'] },
