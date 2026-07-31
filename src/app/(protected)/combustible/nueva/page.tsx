@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useSession } from '@/lib/auth/session';
@@ -105,6 +105,7 @@ export default function NuevaCargaCombustiblePage() {
   const [foto, setFoto] = useState<Blob | null>(null);
   const [noLegible, setNoLegible] = useState(false);
   const [sugeridos, setSugeridos] = useState<Set<CampoSugerible>>(new Set());
+  const fechaTocadaRef = useRef(false);
 
   const [movilId, setMovilId] = useState<number | null>(null);
   const [km, setKm] = useState<number | null>(null);
@@ -141,32 +142,62 @@ export default function NuevaCargaCombustiblePage() {
       if (resultado.legible === false) setNoLegible(true);
       const s = resultado.sugerencias;
       if (!s) return;
-      const nuevosSugeridos = new Set<CampoSugerible>();
-      if (s.litros != null && litros === null) {
-        setLitros(s.litros);
-        nuevosSugeridos.add('litros');
+
+      // Se usan actualizaciones funcionales para leer el valor MÁS RECIENTE de cada
+      // campo (no el capturado por el closure al invocar elegirFoto): si el usuario
+      // tipeó mientras "Leyendo el ticket…" estaba en vuelo, la sugerencia no debe
+      // pisar lo que ya escribió. `aplicados` registra qué campos sí se completaron
+      // con la sugerencia, para marcarlos con el badge "sugerido por IA".
+      const aplicados = new Set<CampoSugerible>();
+
+      if (s.litros != null) {
+        setLitros((prev) => {
+          if (prev !== null) return prev;
+          aplicados.add('litros');
+          return s.litros as number;
+        });
       }
-      if (s.monto != null && monto === null) {
-        setMonto(s.monto);
-        nuevosSugeridos.add('monto');
+      if (s.monto != null) {
+        setMonto((prev) => {
+          if (prev !== null) return prev;
+          aplicados.add('monto');
+          return s.monto as number;
+        });
       }
-      if (s.fechaCarga != null && fecha === '') {
-        setFecha(s.fechaCarga);
-        nuevosSugeridos.add('fechaCarga');
+      if (s.nroComprobante != null) {
+        setNroComprobante((prev) => {
+          if (prev !== '') return prev;
+          aplicados.add('nroComprobante');
+          return s.nroComprobante as string;
+        });
       }
-      if (s.nroComprobante != null && nroComprobante === '') {
-        setNroComprobante(s.nroComprobante);
-        nuevosSugeridos.add('nroComprobante');
+      if (s.tipoCombustibleId != null) {
+        setTipoCombustibleId((prev) => {
+          if (prev !== null) return prev;
+          aplicados.add('tipoCombustibleId');
+          return s.tipoCombustibleId as number;
+        });
       }
-      if (s.tipoCombustibleId != null && tipoCombustibleId === null) {
-        setTipoCombustibleId(s.tipoCombustibleId);
-        nuevosSugeridos.add('tipoCombustibleId');
+      if (s.estacionId != null) {
+        setEstacionId((prev) => {
+          if (prev !== null) return prev;
+          aplicados.add('estacionId');
+          return s.estacionId as number;
+        });
       }
-      if (s.estacionId != null && estacionId === null) {
-        setEstacionId(s.estacionId);
-        nuevosSugeridos.add('estacionId');
+      if (s.fechaCarga != null) {
+        // "Vacío" para la fecha es "no tocada por el usuario todavía" (fechaTocadaRef),
+        // no fecha === '': el campo arranca con hoyISO() por defecto, pero el ticket
+        // puede ser de otro día — la IA debe poder corregirlo hasta que el usuario
+        // edite la fecha a mano.
+        setFecha((prev) => {
+          if (fechaTocadaRef.current) return prev;
+          aplicados.add('fechaCarga');
+          return s.fechaCarga as string;
+        });
       }
-      setSugeridos((prev) => new Set([...prev, ...nuevosSugeridos]));
+
+      setSugeridos((prev) => new Set([...prev, ...aplicados]));
     } catch {
       // el toast/banner de "no se pudo leer" se maneja abajo; no bloqueamos el alta manual
       setNoLegible(true);
@@ -341,6 +372,7 @@ export default function NuevaCargaCombustiblePage() {
               type="date"
               value={fecha}
               onChange={(e) => {
+                fechaTocadaRef.current = true;
                 setFecha(e.target.value);
                 quitarSugerido('fechaCarga');
               }}
