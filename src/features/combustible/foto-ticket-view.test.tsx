@@ -25,4 +25,16 @@ describe('FotoTicketView', () => {
     expect(img.src).toMatch(/^blob:/);
     expect(get).toHaveBeenCalledWith('/cargas-combustible/1/ticket', { responseType: 'blob' });
   });
+
+  it('muestra un mensaje de error si no se pudo cargar el ticket', async () => {
+    get.mockReset();
+    get.mockRejectedValue(new Error('network error'));
+
+    render(<FotoTicketView cargaId={1} />);
+
+    await waitFor(() =>
+      expect(screen.getByText('No se pudo cargar el ticket.')).toBeInTheDocument(),
+    );
+    expect(screen.queryByAltText('Foto del ticket')).not.toBeInTheDocument();
+  });
 });

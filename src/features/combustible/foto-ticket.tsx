@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { comprimirImagen } from './comprimir-imagen';
 
 export function FotoTicket({
@@ -23,7 +24,22 @@ export function FotoTicket({
     const archivo = e.target.files?.[0];
     e.target.value = '';
     if (!archivo) return;
-    const blob = await comprimirImagen(archivo);
+
+    let blob: Blob;
+    try {
+      blob = await comprimirImagen(archivo);
+    } catch {
+      // HEIC u otros formatos que createImageBitmap/toBlob no pueden procesar en este
+      // navegador: si el archivo original ya es un formato usable, lo usamos sin
+      // comprimir; si no, no hay nada razonable para mostrar y pedimos otra foto.
+      if (archivo.type === 'image/jpeg' || archivo.type === 'image/png') {
+        blob = archivo;
+      } else {
+        toast.error('No pudimos procesar la imagen. Probá con otra foto (JPG o PNG).');
+        return;
+      }
+    }
+
     if (preview) URL.revokeObjectURL(preview);
     setPreview(URL.createObjectURL(blob));
     onFoto(blob);

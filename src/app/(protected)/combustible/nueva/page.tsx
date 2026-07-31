@@ -85,6 +85,18 @@ export default function NuevaCargaCombustiblePage() {
   const [tareaIds, setTareaIds] = useState<number[]>([]);
   const [intentoEnviar, setIntentoEnviar] = useState(false);
 
+  // Refs espejo del estado "tiene valor/tocado" por campo sugerible. Se actualizan
+  // sincrónicamente en cada onChange y al setear un valor (incluidas las sugerencias
+  // de IA), y se leen — también sincrónicamente — en elegirFoto para decidir qué
+  // sugerencias aplican. Nunca se leen ni escriben dentro de un updater funcional de
+  // setState: los updaters deben quedar puros (React/StrictMode puede invocarlos más
+  // de una vez o fuera de orden).
+  const litrosTocadoRef = useRef(false);
+  const montoTocadoRef = useRef(false);
+  const nroComprobanteTocadoRef = useRef(false);
+  const tipoCombustibleTocadoRef = useRef(false);
+  const estacionTocadaRef = useRef(false);
+
   const { data: ultimoKmData } = useUltimoKm(movilId);
   const ultimoKm = ultimoKmData?.km ?? null;
 
@@ -106,61 +118,52 @@ export default function NuevaCargaCombustiblePage() {
       const s = resultado.sugerencias;
       if (!s) return;
 
-      // Se usan actualizaciones funcionales para leer el valor MÁS RECIENTE de cada
-      // campo (no el capturado por el closure al invocar elegirFoto): si el usuario
-      // tipeó mientras "Leyendo el ticket…" estaba en vuelo, la sugerencia no debe
-      // pisar lo que ya escribió. `aplicados` registra qué campos sí se completaron
-      // con la sugerencia, para marcarlos con el badge "sugerido por IA".
+      // Decisión síncrona de qué sugerencias aplican, leyendo las refs espejo del
+      // estado "tocado/con valor" de cada campo (actualizadas en cada onChange). Así
+      // evitamos updaters funcionales impuros: si el usuario tipeó mientras "Leyendo
+      // el ticket…" estaba en vuelo, la ref ya refleja eso y la sugerencia no pisa lo
+      // que el usuario escribió. `aplicados` se calcula acá mismo, no dentro de un
+      // setState, y se usa para UN solo setSugeridos + setters planos.
       const aplicados = new Set<CampoSugerible>();
 
-      if (s.litros != null) {
-        setLitros((prev) => {
-          if (prev !== null) return prev;
-          aplicados.add('litros');
-          return s.litros as number;
-        });
+      if (s.litros != null && !litrosTocadoRef.current) {
+        litrosTocadoRef.current = true;
+        setLitros(s.litros as number);
+        aplicados.add('litros');
       }
-      if (s.monto != null) {
-        setMonto((prev) => {
-          if (prev !== null) return prev;
-          aplicados.add('monto');
-          return s.monto as number;
-        });
+      if (s.monto != null && !montoTocadoRef.current) {
+        montoTocadoRef.current = true;
+        setMonto(s.monto as number);
+        aplicados.add('monto');
       }
-      if (s.nroComprobante != null) {
-        setNroComprobante((prev) => {
-          if (prev !== '') return prev;
-          aplicados.add('nroComprobante');
-          return s.nroComprobante as string;
-        });
+      if (s.nroComprobante != null && !nroComprobanteTocadoRef.current) {
+        nroComprobanteTocadoRef.current = true;
+        setNroComprobante(s.nroComprobante as string);
+        aplicados.add('nroComprobante');
       }
-      if (s.tipoCombustibleId != null) {
-        setTipoCombustibleId((prev) => {
-          if (prev !== null) return prev;
-          aplicados.add('tipoCombustibleId');
-          return s.tipoCombustibleId as number;
-        });
+      if (s.tipoCombustibleId != null && !tipoCombustibleTocadoRef.current) {
+        tipoCombustibleTocadoRef.current = true;
+        setTipoCombustibleId(s.tipoCombustibleId as number);
+        aplicados.add('tipoCombustibleId');
       }
-      if (s.estacionId != null) {
-        setEstacionId((prev) => {
-          if (prev !== null) return prev;
-          aplicados.add('estacionId');
-          return s.estacionId as number;
-        });
+      if (s.estacionId != null && !estacionTocadaRef.current) {
+        estacionTocadaRef.current = true;
+        setEstacionId(s.estacionId as number);
+        aplicados.add('estacionId');
       }
-      if (s.fechaCarga != null) {
+      if (s.fechaCarga != null && !fechaTocadaRef.current) {
         // "Vacío" para la fecha es "no tocada por el usuario todavía" (fechaTocadaRef),
         // no fecha === '': el campo arranca con hoyISO() por defecto, pero el ticket
         // puede ser de otro día — la IA debe poder corregirlo hasta que el usuario
         // edite la fecha a mano.
-        setFecha((prev) => {
-          if (fechaTocadaRef.current) return prev;
-          aplicados.add('fechaCarga');
-          return s.fechaCarga as string;
-        });
+        fechaTocadaRef.current = true;
+        setFecha(s.fechaCarga as string);
+        aplicados.add('fechaCarga');
       }
 
-      setSugeridos((prev) => new Set([...prev, ...aplicados]));
+      if (aplicados.size > 0) {
+        setSugeridos((prev) => new Set([...prev, ...aplicados]));
+      }
     } catch {
       // el toast/banner de "no se pudo leer" se maneja abajo; no bloqueamos el alta manual
       setNoLegible(true);
@@ -352,6 +355,7 @@ export default function NuevaCargaCombustiblePage() {
               step="0.01"
               value={litros ?? ''}
               onChange={(e) => {
+                litrosTocadoRef.current = e.target.value !== '';
                 setLitros(e.target.value ? Number(e.target.value) : null);
                 quitarSugerido('litros');
               }}
@@ -371,6 +375,7 @@ export default function NuevaCargaCombustiblePage() {
               step="0.01"
               value={monto ?? ''}
               onChange={(e) => {
+                montoTocadoRef.current = e.target.value !== '';
                 setMonto(e.target.value ? Number(e.target.value) : null);
                 quitarSugerido('monto');
               }}
@@ -387,6 +392,7 @@ export default function NuevaCargaCombustiblePage() {
               aria-label={labelComprobante}
               value={nroComprobante}
               onChange={(e) => {
+                nroComprobanteTocadoRef.current = e.target.value !== '';
                 setNroComprobante(e.target.value);
                 quitarSugerido('nroComprobante');
               }}
@@ -432,6 +438,7 @@ export default function NuevaCargaCombustiblePage() {
               aria-label="Estación de servicio"
               value={estacionId ?? ''}
               onChange={(e) => {
+                estacionTocadaRef.current = e.target.value !== '';
                 setEstacionId(e.target.value ? Number(e.target.value) : null);
                 quitarSugerido('estacionId');
               }}
@@ -455,6 +462,7 @@ export default function NuevaCargaCombustiblePage() {
               aria-label="Tipo de combustible"
               value={tipoCombustibleId ?? ''}
               onChange={(e) => {
+                tipoCombustibleTocadoRef.current = e.target.value !== '';
                 setTipoCombustibleId(e.target.value ? Number(e.target.value) : null);
                 quitarSugerido('tipoCombustibleId');
               }}
