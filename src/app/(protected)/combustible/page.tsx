@@ -131,7 +131,10 @@ export default function CombustiblePage() {
                     tabIndex={0}
                     onClick={() => setDetalleId(c.id)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') setDetalleId(c.id);
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setDetalleId(c.id);
+                      }
                     }}
                     className="cursor-pointer border-b border-line text-ink last:border-0 hover:bg-accent/40"
                   >

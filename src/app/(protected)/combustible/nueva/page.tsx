@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useSession } from '@/lib/auth/session';
-import { useProvincias, useMoviles, useTareas } from '@/lib/api/catalogos';
+import { useProvincias, useMoviles } from '@/lib/api/catalogos';
 import {
   useEstacionesServicio,
   useTiposCombustible,
@@ -14,8 +14,9 @@ import {
 } from '@/lib/api/combustible';
 import { FotoTicket } from '@/features/combustible/foto-ticket';
 import { advertenciaKm } from '@/features/combustible/validaciones';
+import { ContratoTareas } from '@/features/combustible/contrato-tareas';
 import { PageHeader } from '@/components/page-header';
-import type { ContratoResumen, MedioPagoCombustible } from '@/types/domain';
+import type { MedioPagoCombustible } from '@/types/domain';
 
 const CAMPOS_SUGERIBLES = [
   'litros',
@@ -50,44 +51,6 @@ function BadgeSugerido() {
     <span className="ml-2 rounded-full border border-brand/60 bg-accent px-1.5 py-0.5 text-[10px] font-medium text-brand-deep">
       sugerido por IA
     </span>
-  );
-}
-
-function ContratoTareas({
-  contrato,
-  tareaIds,
-  onToggle,
-}: {
-  contrato: ContratoResumen;
-  tareaIds: number[];
-  onToggle: (id: number) => void;
-}) {
-  const { data: tareas } = useTareas(contrato.id);
-  if ((tareas ?? []).length === 0) return null;
-  return (
-    <div>
-      <p className="text-xs font-medium text-slate">{contrato.codigo}</p>
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
-        {(tareas ?? []).map((t) => {
-          const activa = tareaIds.includes(t.id);
-          return (
-            <button
-              key={t.id}
-              type="button"
-              aria-pressed={activa}
-              onClick={() => onToggle(t.id)}
-              className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                activa
-                  ? 'border-brand bg-accent font-medium text-ink'
-                  : 'border-line text-slate hover:border-brand/50'
-              }`}
-            >
-              {t.nombre}
-            </button>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 

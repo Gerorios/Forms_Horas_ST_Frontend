@@ -159,6 +159,8 @@ export interface CargaCombustible {
   observaciones: string | null;
   estado: EstadoCargaCombustible;
   motivoAnulacion: string | null;
+  anuladaPorCuil: string | null;
+  anuladaEn: string | null;
   tareas: { tarea: { id: number; nombre: string; contrato: { id: number; codigo: string } } }[];
 }
 

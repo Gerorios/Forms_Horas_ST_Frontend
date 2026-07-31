@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useSession } from '@/lib/auth/session';
-import { useProvincias } from '@/lib/api/catalogos';
+import { useProvincias, useMoviles } from '@/lib/api/catalogos';
 import {
   useCargaCombustible,
   useEstacionesServicio,
@@ -12,8 +12,27 @@ import {
   useAnularCargaCombustible,
 } from '@/lib/api/combustible';
 import { FotoTicketView } from './foto-ticket-view';
+import { ContratoTareas } from './contrato-tareas';
 import { StatusBadge } from '@/components/status-badge';
 import type { CargaCombustible, MedioPagoCombustible } from '@/types/domain';
+
+/** true si dos listas de ids tienen el mismo contenido, sin importar el orden. */
+function mismosIds(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort((x, y) => x - y);
+  const sb = [...b].sort((x, y) => x - y);
+  return sa.every((v, i) => v === sb[i]);
+}
+
+function formatearFechaHora(iso: string): string {
+  return new Date(iso).toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 function Fila({ label, valor }: { label: string; valor: ReactNode }) {
   return (
@@ -38,8 +57,14 @@ function EditarCargaDialog({
   const { data: estaciones } = useEstacionesServicio();
   const { data: tipos } = useTiposCombustible();
   const { data: provincias } = useProvincias();
+  const { data: moviles } = useMoviles();
+  const { perfil } = useSession();
+  const contratos = (perfil?.contratosHabilitados ?? []).map((c) => c.contrato);
+
+  const tareaIdsOriginales = useMemo(() => carga.tareas.map((t) => t.tarea.id), [carga]);
 
   const [fecha, setFecha] = useState(carga.fechaCarga.slice(0, 10));
+  const [movilId, setMovilId] = useState<number>(carga.movil.id);
   const [km, setKm] = useState(String(carga.km));
   const [litros, setLitros] = useState(carga.litros);
   const [monto, setMonto] = useState(carga.monto);
@@ -49,9 +74,14 @@ function EditarCargaDialog({
   const [tipoCombustibleId, setTipoCombustibleId] = useState<number | null>(carga.tipoCombustible.id);
   const [provinciaId, setProvinciaId] = useState<number | null>(carga.provincia.id);
   const [observaciones, setObservaciones] = useState(carga.observaciones ?? '');
+  const [tareaIds, setTareaIds] = useState<number[]>(tareaIdsOriginales);
   const [foto, setFoto] = useState<File | null>(null);
 
   const labelComprobante = medioPago === 'cuenta_corriente' ? 'N° de remito' : 'N° de factura';
+
+  function toggleTarea(id: number) {
+    setTareaIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
 
   const valido =
     fecha !== '' &&
@@ -61,7 +91,8 @@ function EditarCargaDialog({
     nroComprobante.trim() !== '' &&
     estacionId != null &&
     tipoCombustibleId != null &&
-    provinciaId != null;
+    provinciaId != null &&
+    tareaIds.length > 0;
 
   function guardar() {
     if (!valido) return;
@@ -76,6 +107,9 @@ function EditarCargaDialog({
     form.append('tipoCombustibleId', String(tipoCombustibleId));
     form.append('provinciaId', String(provinciaId));
     if (observaciones.trim() !== '') form.append('observaciones', observaciones.trim());
+    // Patch parcial: móvil y tareas solo viajan si el usuario los cambió.
+    if (movilId !== carga.movil.id) form.append('movilId', String(movilId));
+    if (!mismosIds(tareaIds, tareaIdsOriginales)) form.append('tareaIds', JSON.stringify(tareaIds));
     if (foto) form.append('foto', foto, foto.name);
     onGuardar(form);
   }
@@ -86,6 +120,21 @@ function EditarCargaDialog({
         <h3 className="font-display font-semibold text-ink">Editar carga</h3>
 
         <div className="grid gap-4 sm:grid-cols-2">
+          <label className="flex flex-col text-sm font-medium text-ink">
+            Móvil
+            <select
+              aria-label="Móvil"
+              value={movilId}
+              onChange={(e) => setMovilId(Number(e.target.value))}
+              className="mt-1 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+            >
+              {(moviles ?? []).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.identificador}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="flex flex-col text-sm font-medium text-ink">
             Fecha
             <input
@@ -215,6 +264,18 @@ function EditarCargaDialog({
               ))}
             </select>
           </label>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-ink">Contratos y tareas</p>
+          <div className="mt-1.5 space-y-3">
+            {contratos.map((c) => (
+              <ContratoTareas key={c.id} contrato={c} tareaIds={tareaIds} onToggle={toggleTarea} />
+            ))}
+          </div>
+          {tareaIds.length === 0 && (
+            <p className="mt-1 text-[11px] text-danger">Elegí al menos una tarea.</p>
+          )}
         </div>
 
         <label className="flex flex-col text-sm font-medium text-ink">
@@ -363,6 +424,10 @@ export function DetalleCarga({ id, onClose }: { id: number; onClose: () => void 
               <div className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
                 <p className="font-medium">Carga anulada</p>
                 <p>Motivo: {carga.motivoAnulacion}</p>
+                <p>
+                  {carga.anuladaPorCuil ?? '—'}
+                  {carga.anuladaEn ? ` · ${formatearFechaHora(carga.anuladaEn)}` : ''}
+                </p>
               </div>
             )}
 
