@@ -14,8 +14,8 @@ import { TareaEditRow } from './tarea-edit-row';
 
 const TAREA: TareaAdmin = { id: 1, nombre: 'Excavación', contratoId: 10, activo: true };
 const CONTRATOS: ContratoAdmin[] = [
-  { id: 10, codigo: 'K5', nombre: 'Contrato K5', activo: true, jefeContratoCuil: null, jefeContrato: null },
-  { id: 11, codigo: 'K8', nombre: 'Contrato K8', activo: true, jefeContratoCuil: null, jefeContrato: null },
+  { id: 10, codigo: 'K5', nombre: 'Contrato K5', activo: true, jefesCuils: [] },
+  { id: 11, codigo: 'K8', nombre: 'Contrato K8', activo: true, jefesCuils: [] },
 ];
 
 function renderRow(tarea: TareaAdmin = TAREA) {

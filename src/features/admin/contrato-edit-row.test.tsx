@@ -14,7 +14,7 @@ import { ContratoEditRow } from './contrato-edit-row';
 
 const CONTRATO: ContratoAdmin = {
   id: 1, codigo: 'K5', nombre: 'Contrato K5', activo: true,
-  jefeContratoCuil: null, jefeContrato: null,
+  jefesCuils: [],
 };
 
 const JEFES: UsuarioAdmin[] = [
@@ -37,22 +37,25 @@ function renderRow(contrato: ContratoAdmin = CONTRATO) {
 describe('ContratoEditRow', () => {
   beforeEach(() => { editar.mockClear(); });
 
-  it('precarga nombre y "Sin jefe asignado" cuando no tiene jefe', async () => {
+  it('precarga nombre y sin chips de jefe seleccionados cuando no tiene jefes', async () => {
     renderRow();
     await userEvent.click(screen.getByRole('button', { name: /editar/i }));
     expect(screen.getByLabelText('Nombre')).toHaveValue('Contrato K5');
-    expect(screen.getByLabelText('Jefe de Contrato')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'PEREZ JUAN' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'GOMEZ ANA' })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('precarga el jefe actual cuando ya tiene uno asignado', async () => {
-    const conJefe: ContratoAdmin = {
-      ...CONTRATO,
-      jefeContratoCuil: '20111111111',
-      jefeContrato: { cuil: '20111111111', email: 'jefe1@serytec.com' },
-    };
+  it('muestra "sin jefes" en la fila colapsada cuando el contrato no tiene jefes', () => {
+    renderRow();
+    expect(screen.getByText('sin jefes')).toBeInTheDocument();
+  });
+
+  it('precarga los chips de los jefes actuales como seleccionados', async () => {
+    const conJefe: ContratoAdmin = { ...CONTRATO, jefesCuils: ['20111111111'] };
     renderRow(conJefe);
     await userEvent.click(screen.getByRole('button', { name: /editar/i }));
-    expect(screen.getByLabelText('Jefe de Contrato')).toHaveValue('20111111111');
+    expect(screen.getByRole('button', { name: 'PEREZ JUAN' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'GOMEZ ANA' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('editar el nombre y guardar llama al mutate con id y nombre nuevo', async () => {
@@ -65,25 +68,46 @@ describe('ContratoEditRow', () => {
     await waitFor(() => expect(editar).toHaveBeenCalledWith({ id: 1, nombre: 'K5 renombrado' }));
   });
 
-  it('asignar un jefe y guardar llama al mutate con jefeContratoCuil', async () => {
+  it('asignar un jefe y guardar llama al mutate con jefesCuils', async () => {
     renderRow();
     await userEvent.click(screen.getByRole('button', { name: /editar/i }));
-    await userEvent.selectOptions(screen.getByLabelText('Jefe de Contrato'), '20222222222');
+    await userEvent.click(screen.getByRole('button', { name: 'GOMEZ ANA' }));
     await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
-    await waitFor(() => expect(editar).toHaveBeenCalledWith({ id: 1, jefeContratoCuil: '20222222222' }));
+    await waitFor(() => expect(editar).toHaveBeenCalledWith({ id: 1, jefesCuils: ['20222222222'] }));
   });
 
-  it('desasignar el jefe (volver a "Sin jefe asignado") envía jefeContratoCuil: null', async () => {
-    const conJefe: ContratoAdmin = {
-      ...CONTRATO,
-      jefeContratoCuil: '20111111111',
-      jefeContrato: { cuil: '20111111111', email: 'jefe1@serytec.com' },
-    };
+  it('seleccionar un segundo jefe agrega el chip sin quitar el primero', async () => {
+    const conJefe: ContratoAdmin = { ...CONTRATO, jefesCuils: ['20111111111'] };
     renderRow(conJefe);
     await userEvent.click(screen.getByRole('button', { name: /editar/i }));
-    await userEvent.selectOptions(screen.getByLabelText('Jefe de Contrato'), '');
+    expect(screen.getByRole('button', { name: 'PEREZ JUAN' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('button', { name: 'GOMEZ ANA' }));
+    expect(screen.getByRole('button', { name: 'PEREZ JUAN' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'GOMEZ ANA' })).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
-    await waitFor(() => expect(editar).toHaveBeenCalledWith({ id: 1, jefeContratoCuil: null }));
+    await waitFor(() =>
+      expect(editar).toHaveBeenCalledWith({ id: 1, jefesCuils: expect.arrayContaining(['20111111111', '20222222222']) }),
+    );
+    const call = editar.mock.calls[0][0];
+    expect(call.jefesCuils).toHaveLength(2);
+  });
+
+  it('quitar un chip y guardar envía jefesCuils sin ese cuil', async () => {
+    const conDosJefes: ContratoAdmin = { ...CONTRATO, jefesCuils: ['20111111111', '20222222222'] };
+    renderRow(conDosJefes);
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'PEREZ JUAN' }));
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    await waitFor(() => expect(editar).toHaveBeenCalledWith({ id: 1, jefesCuils: ['20222222222'] }));
+  });
+
+  it('quitar todos los jefes y guardar envía jefesCuils: []', async () => {
+    const conJefe: ContratoAdmin = { ...CONTRATO, jefesCuils: ['20111111111'] };
+    renderRow(conJefe);
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'PEREZ JUAN' }));
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    await waitFor(() => expect(editar).toHaveBeenCalledWith({ id: 1, jefesCuils: [] }));
   });
 
   it('Guardar deshabilitado sin cambios', async () => {

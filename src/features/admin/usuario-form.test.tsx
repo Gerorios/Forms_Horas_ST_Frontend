@@ -9,7 +9,7 @@ vi.mock('@/lib/api/admin', () => ({
   useRoles: () => ({
     data: [{ id: 1, nombre: 'Operario' }, { id: 2, nombre: 'JefeCuadrilla' }, { id: 3, nombre: 'JefeContrato' }],
   }),
-  useContratosAdmin: () => ({ data: [{ id: 5, codigo: 'K5', nombre: 'K5', activo: true, jefeContratoCuil: null, jefeContrato: null }] }),
+  useContratosAdmin: () => ({ data: [{ id: 5, codigo: 'K5', nombre: 'K5', activo: true, jefesCuils: [] }] }),
   useTiposNovedadAdmin: () => ({ data: [{ id: 8, nombre: 'Viáticos' }] }),
 }));
 vi.mock('@/lib/api/empleados', () => ({
