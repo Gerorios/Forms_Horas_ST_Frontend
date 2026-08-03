@@ -40,7 +40,20 @@ describe('AppShell — sidebar plegable (escritorio)', () => {
     const link = screen.getByRole('link', { name: 'Combustible' });
     expect(link).toHaveAttribute('aria-label', 'Combustible');
     expect(link).not.toHaveTextContent('Combustible');
+    expect(link).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('button', { name: 'Desplegar menú' })).toBeInTheDocument();
+  });
+
+  it('con el sidebar plegado, el drawer móvil sigue mostrando labels completos', async () => {
+    render(<AppShell><p>contenido</p></AppShell>);
+    await userEvent.click(screen.getByRole('button', { name: 'Plegar menú' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Abrir menú' }));
+
+    const links = screen.getAllByRole('link', { name: 'Combustible' });
+    expect(links).toHaveLength(2);
+    const drawerLink = links.find((l) => l.textContent === 'Combustible');
+    expect(drawerLink).toBeDefined();
+    expect(drawerLink).toHaveTextContent('Combustible');
   });
 
   it('persiste la preferencia en localStorage y la restaura al montar', async () => {

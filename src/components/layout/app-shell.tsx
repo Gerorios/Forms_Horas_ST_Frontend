@@ -111,16 +111,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   function togglePlegado() {
-    setPlegado((v) => {
-      window.localStorage.setItem('sidebar-plegado', v ? '0' : '1');
-      return !v;
-    });
+    const next = !plegado;
+    setPlegado(next);
+    window.localStorage.setItem('sidebar-plegado', next ? '1' : '0');
   }
 
   return (
     <div className="min-h-screen bg-sand">
       {/* Sidebar fija (desktop) */}
-      <aside className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-line bg-surface py-4 transition-[width] duration-200 md:flex ${plegado ? 'w-14 px-2' : 'w-60 px-3'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-line bg-surface py-4 transition-[width,padding] duration-200 md:flex ${plegado ? 'w-14 px-2' : 'w-60 px-3'}`}>
         <div className={plegado ? 'flex justify-center' : 'px-1'}>
           {plegado ? (
             <Image src="/logo.png" alt="" width={34} height={34} className="rounded-full" />
@@ -133,7 +132,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         {plegado ? (
           <div className="flex flex-col items-center gap-2 border-t border-line pt-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent font-display text-xs font-semibold text-brand-deep">
+            <span
+              title={nombre}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-accent font-display text-xs font-semibold text-brand-deep"
+            >
               {nombre.slice(0, 2).toUpperCase()}
             </span>
             <button
