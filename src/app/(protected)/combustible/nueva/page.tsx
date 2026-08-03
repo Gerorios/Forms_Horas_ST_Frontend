@@ -54,6 +54,22 @@ function BadgeSugerido() {
   );
 }
 
+const CLASES_CONFIANZA: Record<'alta' | 'media' | 'baja', string> = {
+  alta: 'bg-approved/10 text-approved',
+  media: 'bg-warn/10 text-warn',
+  baja: 'bg-danger/10 text-danger',
+};
+
+function ChipConfianza({ confianza }: { confianza: 'alta' | 'media' | 'baja' }) {
+  return (
+    <span
+      className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${CLASES_CONFIANZA[confianza]}`}
+    >
+      Confianza: {confianza}
+    </span>
+  );
+}
+
 export default function NuevaCargaCombustiblePage() {
   const router = useRouter();
   const { perfil } = useSession();
@@ -84,6 +100,10 @@ export default function NuevaCargaCombustiblePage() {
   const [observaciones, setObservaciones] = useState('');
   const [tareaIds, setTareaIds] = useState<number[]>([]);
   const [intentoEnviar, setIntentoEnviar] = useState(false);
+  const [medioPagoSugerido, setMedioPagoSugerido] = useState<MedioPagoCombustible | null>(null);
+  const [confianzaNumero, setConfianzaNumero] = useState<'alta' | 'media' | 'baja' | null>(null);
+  const [lineaOrigenNumero, setLineaOrigenNumero] = useState<string | null>(null);
+  const [advertenciaCoherencia, setAdvertenciaCoherencia] = useState<string | null>(null);
 
   // Refs espejo del estado "tiene valor/tocado" por campo sugerible. Se actualizan
   // sincrónicamente en cada onChange y al setear un valor (incluidas las sugerencias
@@ -96,6 +116,7 @@ export default function NuevaCargaCombustiblePage() {
   const nroComprobanteTocadoRef = useRef(false);
   const tipoCombustibleTocadoRef = useRef(false);
   const estacionTocadaRef = useRef(false);
+  const medioPagoTocadoRef = useRef(false);
 
   const { data: ultimoKmData } = useUltimoKm(movilId);
   const ultimoKm = ultimoKmData?.km ?? null;
@@ -164,6 +185,17 @@ export default function NuevaCargaCombustiblePage() {
       if (aplicados.size > 0) {
         setSugeridos((prev) => new Set([...prev, ...aplicados]));
       }
+
+      // Sugerencias v2 (medio de pago, confianza, línea de origen y coherencia): son
+      // avisos blandos, no campos "aplicados con badge" — se guardan en su propio
+      // estado y nunca bloquean el submit.
+      setMedioPagoSugerido(s.medioPagoSugerido ?? null);
+      setConfianzaNumero(s.confianzaNumero ?? null);
+      setLineaOrigenNumero(s.lineaOrigenNumero ?? null);
+      setAdvertenciaCoherencia(s.advertenciaCoherencia ?? null);
+      if (s.medioPagoSugerido != null && !medioPagoTocadoRef.current) {
+        setMedioPago(s.medioPagoSugerido);
+      }
     } catch {
       // el toast/banner de "no se pudo leer" se maneja abajo; no bloqueamos el alta manual
       setNoLegible(true);
@@ -175,6 +207,13 @@ export default function NuevaCargaCombustiblePage() {
   }
 
   const advertencia = km != null ? advertenciaKm(km, ultimoKm) : null;
+
+  const contradiccionMedioPago =
+    medioPagoSugerido != null && medioPago != null && medioPago !== medioPagoSugerido
+      ? medioPagoSugerido === 'cuenta_corriente'
+        ? 'La foto parece un remito (cuenta corriente).'
+        : 'La foto parece una factura o tique (caja).'
+      : null;
 
   const formularioValido = useMemo(
     () =>
@@ -384,10 +423,16 @@ export default function NuevaCargaCombustiblePage() {
             {intentoEnviar && (monto == null || monto <= 0) && (
               <span className="mt-1 text-[11px] text-danger">Ingresá el monto pagado.</span>
             )}
+            {advertenciaCoherencia && (
+              <span className="mt-1 rounded-md border border-amber-400/60 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+                {advertenciaCoherencia}
+              </span>
+            )}
           </label>
 
           <label className="flex flex-col text-sm font-medium text-ink">
             {labelComprobante} {sugeridos.has('nroComprobante') && <BadgeSugerido />}
+            {confianzaNumero && <ChipConfianza confianza={confianzaNumero} />}
             <input
               aria-label={labelComprobante}
               value={nroComprobante}
@@ -398,6 +443,9 @@ export default function NuevaCargaCombustiblePage() {
               }}
               className={`mt-1 rounded-md border bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 ${sugeridos.has('nroComprobante') ? 'border-brand' : 'border-line'}`}
             />
+            {lineaOrigenNumero && (
+              <span className="mt-1 text-[11px] text-slate">Leído de: «{lineaOrigenNumero}»</span>
+            )}
             {intentoEnviar && nroComprobante.trim() === '' && (
               <span className="mt-1 text-[11px] text-danger">Ingresá el número de comprobante.</span>
             )}
@@ -412,7 +460,10 @@ export default function NuevaCargaCombustiblePage() {
                 type="radio"
                 name="medioPago"
                 checked={medioPago === 'cuenta_corriente'}
-                onChange={() => setMedioPago('cuenta_corriente')}
+                onChange={() => {
+                  medioPagoTocadoRef.current = true;
+                  setMedioPago('cuenta_corriente');
+                }}
               />
               Cuenta corriente
             </label>
@@ -421,13 +472,21 @@ export default function NuevaCargaCombustiblePage() {
                 type="radio"
                 name="medioPago"
                 checked={medioPago === 'caja'}
-                onChange={() => setMedioPago('caja')}
+                onChange={() => {
+                  medioPagoTocadoRef.current = true;
+                  setMedioPago('caja');
+                }}
               />
               Caja
             </label>
           </div>
           {intentoEnviar && medioPago == null && (
             <p className="mt-1 text-[11px] text-danger">Elegí un medio de pago.</p>
+          )}
+          {contradiccionMedioPago && (
+            <p className="mt-1 rounded-md border border-amber-400/60 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
+              {contradiccionMedioPago}
+            </p>
           )}
         </div>
 

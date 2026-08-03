@@ -164,6 +164,14 @@ export interface CargaCombustible {
   tareas: { tarea: { id: number; nombre: string; contrato: { id: number; codigo: string } } }[];
 }
 
+export type TipoComprobanteTicket =
+  | 'REMITO'
+  | 'FACTURA_A'
+  | 'FACTURA_B'
+  | 'FACTURA_C'
+  | 'TIQUE'
+  | 'OTRO';
+
 export interface ExtraccionTicket {
   legible: boolean;
   sugerencias: null | {
@@ -173,5 +181,11 @@ export interface ExtraccionTicket {
     nroComprobante: string | null;
     tipoCombustibleId: number | null;
     estacionId: number | null;
+    tipoComprobante: TipoComprobanteTicket | null;
+    medioPagoSugerido: MedioPagoCombustible | null;
+    confianzaNumero: 'alta' | 'media' | 'baja' | null;
+    lineaOrigenNumero: string | null;
+    precioLitro: number | null;
+    advertenciaCoherencia: string | null;
   };
 }
