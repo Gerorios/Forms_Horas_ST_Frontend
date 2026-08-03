@@ -23,6 +23,11 @@ function fila(id: number, apellido: string): RegistroPorAprobar {
     provincia: { id: 1, nombre: 'Córdoba' },
     moviles: [{ movil: { id: 1, identificador: 'M-01' } }],
     accionable: true,
+    cargadoPor: { cuil: '20222222222', nombre: 'JEFE CUADRILLA' },
+    aprobadoPor: { cuil: '20333333333', nombre: 'JEFE CONTRATO' },
+    aprobadoEn: '2026-07-10T15:00:00.000Z',
+    totalHorasDia: 8,
+    duplicadoCruzado: false,
   };
 }
 

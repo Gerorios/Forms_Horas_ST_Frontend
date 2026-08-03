@@ -20,8 +20,21 @@ export function CargasAgrupadas({
     const filtrados = (registros ?? []).filter((r) => enQuincena(r.fecha, quincena));
     // "Cargas que hice" no distingue contratos propios/ajenos (ese concepto es
     // de aprobación, no aplica acá): se marcan todos accionable para que
-    // agruparPorLote los muestre sin el atenuado de "otro contrato".
-    return agruparPorLote(filtrados.map((r) => ({ ...r, accionable: true })));
+    // agruparPorLote los muestre sin el atenuado de "otro contrato". Estos
+    // registros vienen de findAll (no de porAprobar), que todavía no calcula
+    // auditoría/total-cruzado — se rellena con valores neutros hasta que se
+    // sume esa vista acá también.
+    return agruparPorLote(
+      filtrados.map((r) => ({
+        ...r,
+        accionable: true,
+        cargadoPor: { cuil: '', nombre: '' },
+        aprobadoPor: null,
+        aprobadoEn: null,
+        totalHorasDia: Number(r.horas),
+        duplicadoCruzado: false,
+      })),
+    );
   }, [registros, quincena]);
 
   const total = useMemo(() => grupos.reduce((s, g) => s + g.totalHoras, 0), [grupos]);

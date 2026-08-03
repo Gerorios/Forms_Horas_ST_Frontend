@@ -10,9 +10,14 @@ function fila(id: number, loteId: string, accionable: boolean, estado = 'pendien
   return {
     id, loteId, fecha: '2026-07-10', horas: '8', estado, alertaHoras: false, motivoDesaprobacion: null,
     operario: { cuil: '20111', apellido_nombre: 'PEREZ JUAN' },
-    contrato: { id: 1, codigo, nombre: codigo },
+    contrato: { id: codigo === 'K5' ? 1 : 2, codigo, nombre: codigo },
     tareas: [{ tarea: { id: 1, nombre: 'Excavación' } }],
     provincia: { id: 1, nombre: 'Córdoba' }, moviles: [], accionable,
+    cargadoPor: { cuil: '20222222222', nombre: 'JEFE CUADRILLA' },
+    aprobadoPor: null,
+    aprobadoEn: null,
+    totalHorasDia: 8,
+    duplicadoCruzado: false,
   };
 }
 
@@ -64,5 +69,13 @@ describe('AprobacionesPage', () => {
     render(<AprobacionesPage />);
     await userEvent.click(screen.getByRole('button', { name: 'Rechazados' }));
     expect(screen.getByLabelText('Quincena')).toBeInTheDocument();
+  });
+
+  it('muestra los filtros de contrato/cargador/operario/fecha, con opciones de lo ya cargado', () => {
+    render(<AprobacionesPage />);
+    expect(screen.getByLabelText('Filtrar por contrato')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'K5' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'K8' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'JEFE CUADRILLA' })).toBeInTheDocument();
   });
 });

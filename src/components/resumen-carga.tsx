@@ -16,6 +16,11 @@ export function ResumenCarga({ grupo }: { grupo: GrupoLote }) {
         </h2>
         <span className="text-sm tabular-nums text-ink">{grupo.totalHoras} hs totales</span>
       </div>
+      {grupo.cargadoPor.nombre && (
+        <p className="text-xs text-slate">
+          <span className="font-medium text-ink">Cargado por:</span> {grupo.cargadoPor.nombre}
+        </p>
+      )}
       <p className="text-xs text-slate">
         <span className="font-medium text-ink">Operarios:</span>{' '}
         {grupo.operarios.map((o) => o.apellido_nombre).join(', ')}

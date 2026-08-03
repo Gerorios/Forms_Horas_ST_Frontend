@@ -16,6 +16,11 @@ function fila(
     provincia: { id: 1, nombre: 'Córdoba' },
     moviles: [{ movil: { id: 1, identificador: 'M-01' } }],
     accionable: true,
+    cargadoPor: { cuil: '20222222222', nombre: 'JEFE CUADRILLA' },
+    aprobadoPor: null,
+    aprobadoEn: null,
+    totalHorasDia: 8,
+    duplicadoCruzado: false,
     ...overrides,
   };
 }
@@ -217,5 +222,13 @@ describe('agruparPorLote', () => {
   it('sin observación en ninguna fila, queda null', () => {
     const grupos = agruparPorLote([fila(1, 'lote-a', '2026-07-10')]);
     expect(grupos[0].contratos[0].observacion).toBeNull();
+  });
+
+  it('toma cargadoPor de la primera fila del lote (es el mismo para todo el envío)', () => {
+    const grupos = agruparPorLote([
+      fila(1, 'lote-a', '2026-07-10', { cargadoPor: { cuil: '20222222222', nombre: 'JEFE CUADRILLA' } }),
+      fila(2, 'lote-a', '2026-07-10'),
+    ]);
+    expect(grupos[0].cargadoPor.nombre).toBe('JEFE CUADRILLA');
   });
 });

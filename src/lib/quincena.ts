@@ -24,6 +24,15 @@ export function quincenaDeFecha(d: Date): Quincena {
   };
 }
 
+/** La quincena inmediata anterior — ya cerrada, sin el ruido de "todavía no
+ * le tocaba cargar" de la quincena en curso. */
+export function quincenaAnterior(q: Quincena): Quincena {
+  if (q.parte === 2) return { anio: q.anio, mes: q.mes, parte: 1 };
+  const mesAnterior = q.mes === 1 ? 12 : q.mes - 1;
+  const anioAnterior = q.mes === 1 ? q.anio - 1 : q.anio;
+  return { anio: anioAnterior, mes: mesAnterior, parte: 2 };
+}
+
 /** fechaISO: 'YYYY-MM-DD' o ISO completo. Compara por rango de la quincena. */
 export function enQuincena(fechaISO: string, q: Quincena): boolean {
   // Se parsea solo la parte YYYY-MM-DD como fecha LOCAL, para no correrse de día

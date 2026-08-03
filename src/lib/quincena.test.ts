@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rangoQuincena, quincenaDeFecha, enQuincena } from './quincena';
+import { rangoQuincena, quincenaDeFecha, enQuincena, quincenaAnterior } from './quincena';
 
 describe('rangoQuincena', () => {
   it('1ª quincena de julio 2026 = 1 al 15', () => {
@@ -41,5 +41,17 @@ describe('enQuincena', () => {
   it('el borde 15 está en la 1ª y el 16 NO (aunque venga en ISO UTC)', () => {
     expect(enQuincena('2026-07-15T00:00:00.000Z', q)).toBe(true);
     expect(enQuincena('2026-07-16T00:00:00.000Z', q)).toBe(false);
+  });
+});
+
+describe('quincenaAnterior', () => {
+  it('de la 2ª quincena, la anterior es la 1ª del mismo mes', () => {
+    expect(quincenaAnterior({ anio: 2026, mes: 7, parte: 2 })).toEqual({ anio: 2026, mes: 7, parte: 1 });
+  });
+  it('de la 1ª quincena, la anterior es la 2ª del mes previo', () => {
+    expect(quincenaAnterior({ anio: 2026, mes: 7, parte: 1 })).toEqual({ anio: 2026, mes: 6, parte: 2 });
+  });
+  it('de enero, la anterior es diciembre del año previo', () => {
+    expect(quincenaAnterior({ anio: 2026, mes: 1, parte: 1 })).toEqual({ anio: 2025, mes: 12, parte: 2 });
   });
 });

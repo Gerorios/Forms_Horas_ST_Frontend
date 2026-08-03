@@ -154,9 +154,20 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
                     </span>
                     <span>
                       <span className="tabular-nums text-ink">{f.horas}</span> hs
-                      {f.alertaHoras && (
-                        <span className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn">
-                          +16h
+                      {f.totalHorasDia > 16 && (
+                        <span
+                          className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn"
+                          title="Total real de horas de este operario ese día, sumando todos los contratos"
+                        >
+                          {f.totalHorasDia}hs ese día
+                        </span>
+                      )}
+                      {f.duplicadoCruzado && (
+                        <span
+                          className="ml-1 rounded bg-danger/10 px-1 text-xs font-medium text-danger"
+                          title="Este operario tiene carga en otro contrato/lote ese mismo día — coordiná con el otro jefe de contrato antes de aprobar"
+                        >
+                          ⚠ otro contrato el mismo día
                         </span>
                       )}
                     </span>

@@ -20,6 +20,8 @@ export type GrupoLote = {
   vehiculos: { id: number; identificador: string }[];
   totalHoras: number;
   contratos: GrupoContrato[];
+  /** Quién envió este lote — un solo cargador por loteId (ver ADR-004). */
+  cargadoPor: { cuil: string; nombre: string };
 };
 
 export function agruparPorLote(filas: RegistroPorAprobar[]): GrupoLote[] {
@@ -36,6 +38,7 @@ export function agruparPorLote(filas: RegistroPorAprobar[]): GrupoLote[] {
         vehiculos: [],
         totalHoras: 0,
         contratos: [],
+        cargadoPor: f.cargadoPor,
       };
       mapa.set(f.loteId, grupo);
     }
