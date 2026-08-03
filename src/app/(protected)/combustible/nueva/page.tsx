@@ -133,6 +133,10 @@ export default function NuevaCargaCombustiblePage() {
   async function elegirFoto(blob: Blob) {
     setFoto(blob);
     setNoLegible(false);
+    setMedioPagoSugerido(null);
+    setConfianzaNumero(null);
+    setLineaOrigenNumero(null);
+    setAdvertenciaCoherencia(null);
     try {
       const resultado = await extraerTicket.mutateAsync(blob);
       if (resultado.legible === false) setNoLegible(true);
@@ -193,6 +197,7 @@ export default function NuevaCargaCombustiblePage() {
       setConfianzaNumero(s.confianzaNumero ?? null);
       setLineaOrigenNumero(s.lineaOrigenNumero ?? null);
       setAdvertenciaCoherencia(s.advertenciaCoherencia ?? null);
+      // A propósito NO marca medioPagoTocadoRef: una foto nueva puede re-sugerir el medio de pago (no pisa nada tipeado).
       if (s.medioPagoSugerido != null && !medioPagoTocadoRef.current) {
         setMedioPago(s.medioPagoSugerido);
       }
@@ -397,6 +402,7 @@ export default function NuevaCargaCombustiblePage() {
                 litrosTocadoRef.current = e.target.value !== '';
                 setLitros(e.target.value ? Number(e.target.value) : null);
                 quitarSugerido('litros');
+                setAdvertenciaCoherencia(null);
               }}
               className={`mt-1 rounded-md border bg-surface px-3 py-2 text-ink tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 ${sugeridos.has('litros') ? 'border-brand' : 'border-line'}`}
             />
@@ -417,6 +423,7 @@ export default function NuevaCargaCombustiblePage() {
                 montoTocadoRef.current = e.target.value !== '';
                 setMonto(e.target.value ? Number(e.target.value) : null);
                 quitarSugerido('monto');
+                setAdvertenciaCoherencia(null);
               }}
               className={`mt-1 rounded-md border bg-surface px-3 py-2 text-ink tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 ${sugeridos.has('monto') ? 'border-brand' : 'border-line'}`}
             />
@@ -440,6 +447,8 @@ export default function NuevaCargaCombustiblePage() {
                 nroComprobanteTocadoRef.current = e.target.value !== '';
                 setNroComprobante(e.target.value);
                 quitarSugerido('nroComprobante');
+                setConfianzaNumero(null);
+                setLineaOrigenNumero(null);
               }}
               className={`mt-1 rounded-md border bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 ${sugeridos.has('nroComprobante') ? 'border-brand' : 'border-line'}`}
             />

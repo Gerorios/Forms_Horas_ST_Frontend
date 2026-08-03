@@ -128,4 +128,27 @@ describe('NuevaCargaCombustiblePage — sugerencias v2', () => {
       ).toBeInTheDocument();
     });
   });
+
+  it('limpia el aviso de coherencia al editar el monto a mano', async () => {
+    extraerTicket.mockResolvedValue(
+      extraccionBase({ monto: 168013.88, advertenciaCoherencia: 'El litraje no coincide con el monto informado' }),
+    );
+    render(<NuevaCargaCombustiblePage />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sacar foto del ticket' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('El litraje no coincide con el monto informado'),
+      ).toBeInTheDocument();
+    });
+
+    await userEvent.type(screen.getByRole('spinbutton', { name: 'Monto' }), '5');
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('El litraje no coincide con el monto informado'),
+      ).not.toBeInTheDocument();
+    });
+  });
 });
