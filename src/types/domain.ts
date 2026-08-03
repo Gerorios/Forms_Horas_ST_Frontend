@@ -126,3 +126,66 @@ export interface CrearNovedadInput {
   fechaFin?: string;
   justificacionTexto?: string;
 }
+
+export type MedioPagoCombustible = 'cuenta_corriente' | 'caja';
+export type EstadoCargaCombustible = 'activa' | 'anulada';
+
+export interface EstacionServicio {
+  id: number;
+  nombre: string;
+  localidad: string | null;
+  activo?: boolean;
+}
+
+export interface TipoCombustible {
+  id: number;
+  nombre: string;
+  activo?: boolean;
+}
+
+export interface CargaCombustible {
+  id: number;
+  fechaCarga: string;
+  cargadoPorCuil: string;
+  movil: { id: number; identificador: string };
+  litros: string;
+  monto: string;
+  km: number; // Decimals de Prisma llegan como string
+  medioPago: MedioPagoCombustible;
+  nroComprobante: string;
+  estacion: { id: number; nombre: string };
+  tipoCombustible: { id: number; nombre: string };
+  provincia: { id: number; nombre: string };
+  observaciones: string | null;
+  estado: EstadoCargaCombustible;
+  motivoAnulacion: string | null;
+  anuladaPorCuil: string | null;
+  anuladaEn: string | null;
+  tareas: { tarea: { id: number; nombre: string; contrato: { id: number; codigo: string } } }[];
+}
+
+export type TipoComprobanteTicket =
+  | 'REMITO'
+  | 'FACTURA_A'
+  | 'FACTURA_B'
+  | 'FACTURA_C'
+  | 'TIQUE'
+  | 'OTRO';
+
+export interface ExtraccionTicket {
+  legible: boolean;
+  sugerencias: null | {
+    litros: number | null;
+    monto: number | null;
+    fechaCarga: string | null;
+    nroComprobante: string | null;
+    tipoCombustibleId: number | null;
+    estacionId: number | null;
+    tipoComprobante: TipoComprobanteTicket | null;
+    medioPagoSugerido: MedioPagoCombustible | null;
+    confianzaNumero: 'alta' | 'media' | 'baja' | null;
+    lineaOrigenNumero: string | null;
+    precioLitro: number | null;
+    advertenciaCoherencia: string | null;
+  };
+}

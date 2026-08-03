@@ -5,6 +5,8 @@ const MAP: Record<string, { label: string; cls: string }> = {
   aprobada: { label: 'Aprobada', cls: 'bg-approved/10 text-approved ring-approved/25' },
   desaprobada: { label: 'Desaprobada', cls: 'bg-danger/10 text-danger ring-danger/25' },
   no_aplica: { label: 'No aplica', cls: 'bg-slate/10 text-slate ring-slate/25' },
+  activa: { label: 'Activa', cls: 'bg-approved/10 text-approved ring-approved/25' },
+  anulada: { label: 'Anulada', cls: 'bg-danger/10 text-danger ring-danger/25' },
 };
 
 /** Pill de estado (registro o novedad HyS) con la paleta de estados de la marca. */

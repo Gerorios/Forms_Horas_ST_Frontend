@@ -3,9 +3,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useSession } from '@/lib/auth/session';
 import { navForRole, type NavItem } from '@/components/layout/nav';
+import { NavIcon } from '@/components/layout/nav-icons';
 
 function Brand() {
   return (
@@ -23,10 +24,12 @@ function NavLinks({
   items,
   pathname,
   onNavigate,
+  plegado = false,
 }: {
   items: NavItem[];
   pathname: string;
   onNavigate?: () => void;
+  plegado?: boolean;
 }) {
   return (
     <nav className="flex flex-col gap-1">
@@ -38,13 +41,17 @@ function NavLinks({
             href={item.href}
             onClick={onNavigate}
             aria-current={active ? 'page' : undefined}
-            className={`flex items-center rounded-md border-l-[3px] px-3 py-2 text-sm transition-colors ${
+            aria-label={plegado ? item.label : undefined}
+            title={plegado ? item.label : undefined}
+            className={`flex items-center rounded-md border-l-[3px] py-2 text-sm transition-colors ${
+              plegado ? 'justify-center px-0' : 'px-3'
+            } ${
               active
                 ? 'border-brand bg-accent font-medium text-ink'
                 : 'border-transparent text-slate hover:bg-accent/60 hover:text-ink'
             }`}
           >
-            {item.label}
+            {plegado ? <NavIcon href={item.href} /> : item.label}
           </Link>
         );
       })}
@@ -89,6 +96,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [drawerAbierto, setDrawerAbierto] = useState(false);
+  const [plegado, setPlegado] = useState(false);
+  useEffect(() => {
+    setPlegado(window.localStorage.getItem('sidebar-plegado') === '1');
+  }, []);
   if (!perfil) return null;
 
   const items = navForRole(perfil);
@@ -99,17 +110,61 @@ export function AppShell({ children }: { children: ReactNode }) {
     router.replace('/login');
   }
 
+  function togglePlegado() {
+    const next = !plegado;
+    setPlegado(next);
+    window.localStorage.setItem('sidebar-plegado', next ? '1' : '0');
+  }
+
   return (
     <div className="min-h-screen bg-sand">
       {/* Sidebar fija (desktop) */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-line bg-surface px-3 py-4 md:flex">
-        <div className="px-1">
-          <Brand />
+      <aside className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-line bg-surface py-4 transition-[width,padding] duration-200 md:flex ${plegado ? 'w-14 px-2' : 'w-60 px-3'}`}>
+        <div className={plegado ? 'flex justify-center' : 'px-1'}>
+          {plegado ? (
+            <Image src="/logo.png" alt="" width={34} height={34} className="rounded-full" />
+          ) : (
+            <Brand />
+          )}
         </div>
         <div className="mt-6 flex-1">
-          <NavLinks items={items} pathname={pathname} />
+          <NavLinks items={items} pathname={pathname} plegado={plegado} />
         </div>
-        <UserFooter nombre={nombre} onLogout={salir} />
+        {plegado ? (
+          <div className="flex flex-col items-center gap-2 border-t border-line pt-3">
+            <span
+              title={nombre}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-accent font-display text-xs font-semibold text-brand-deep"
+            >
+              {nombre.slice(0, 2).toUpperCase()}
+            </span>
+            <button
+              type="button"
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+              onClick={salir}
+              className="rounded-md p-1.5 text-slate hover:bg-danger/5 hover:text-danger"
+            >
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+                <path d="M13 7V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-2" strokeLinecap="round" />
+                <path d="M8 10h9m0 0-3-3m3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <UserFooter nombre={nombre} onLogout={salir} />
+        )}
+        <button
+          type="button"
+          aria-label={plegado ? 'Desplegar menú' : 'Plegar menú'}
+          title={plegado ? 'Desplegar menú' : 'Plegar menú'}
+          onClick={togglePlegado}
+          className={`mt-3 flex items-center justify-center rounded-md border border-line py-1.5 text-slate transition-colors hover:bg-accent/60 hover:text-ink ${plegado ? '' : 'w-full'}`}
+        >
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" style={{ transform: plegado ? 'rotate(180deg)' : undefined }}>
+            <path d="m12 5-5 5 5 5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </aside>
 
       {/* Top bar (mobile) */}
@@ -165,7 +220,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
 
       {/* Contenido */}
-      <main className="md:pl-60">
+      <main className={`transition-[padding] duration-200 ${plegado ? 'md:pl-14' : 'md:pl-60'}`}>
         <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:py-8">{children}</div>
       </main>
     </div>

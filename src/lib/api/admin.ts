@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
+import type { EstacionServicio, TipoCombustible } from '@/types/domain';
 
 export interface Rol { id: number; nombre: string }
 export interface ContratoAdmin { id: number; codigo: string; nombre: string; activo: boolean; jefesCuils: string[] }
@@ -205,6 +206,60 @@ export function useCrearUsuariosMasivo() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'usuarios'] }),
   });
 }
+export function useAdminEstacionesServicio() {
+  return useQuery({ queryKey: ['admin', 'estaciones-servicio'], queryFn: () => get<EstacionServicio[]>('/admin/estaciones-servicio') });
+}
+export function useCrearEstacionServicio() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: { nombre: string; localidad?: string }) => api.post('/admin/estaciones-servicio', dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'estaciones-servicio'] }),
+  });
+}
+export function useActualizarEstacionServicio() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...dto }: { id: number; nombre?: string; localidad?: string }) =>
+      api.patch(`/admin/estaciones-servicio/${id}`, dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'estaciones-servicio'] }),
+  });
+}
+export function useToggleEstacionServicio() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      api.patch(`/admin/estaciones-servicio/${id}/activo`, { activo }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'estaciones-servicio'] }),
+  });
+}
+
+export function useAdminTiposCombustible() {
+  return useQuery({ queryKey: ['admin', 'tipos-combustible'], queryFn: () => get<TipoCombustible[]>('/admin/tipos-combustible') });
+}
+export function useCrearTipoCombustible() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: { nombre: string }) => api.post('/admin/tipos-combustible', dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'tipos-combustible'] }),
+  });
+}
+export function useActualizarTipoCombustible() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...dto }: { id: number; nombre?: string }) =>
+      api.patch(`/admin/tipos-combustible/${id}`, dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'tipos-combustible'] }),
+  });
+}
+export function useToggleTipoCombustible() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, activo }: { id: number; activo: boolean }) =>
+      api.patch(`/admin/tipos-combustible/${id}/activo`, { activo }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'tipos-combustible'] }),
+  });
+}
+
 export function useResetearPassword() {
   const qc = useQueryClient();
   return useMutation({
