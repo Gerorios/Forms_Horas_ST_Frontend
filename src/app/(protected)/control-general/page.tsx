@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
 import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
+import { FiltroBusqueda } from '@/components/ui/barra-filtros';
 import { useResumenOperarios, useSinCarga } from '@/lib/api/panel-general';
 import { quincenaDeFecha, quincenaAnterior, type Quincena } from '@/lib/quincena';
 
@@ -41,26 +42,6 @@ function StatTile({
       <p className="text-xs font-medium uppercase tracking-wide text-slate">{label}</p>
       <p className={`mt-1 text-3xl font-semibold tabular-nums ${colorValor}`}>{value}</p>
     </button>
-  );
-}
-
-function BuscarInput({
-  value,
-  onChange,
-  label,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  label: string;
-}) {
-  return (
-    <input
-      aria-label={label}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="Buscar por nombre…"
-      className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-    />
   );
 }
 
@@ -179,7 +160,13 @@ export default function ControlGeneralPage() {
               </span>
             )}
           </h2>
-          <BuscarInput value={busquedaResumen} onChange={setBusquedaResumen} label="Buscar operario" />
+          <FiltroBusqueda
+            label="Buscar"
+            ariaLabel="Buscar operario"
+            value={busquedaResumen}
+            onChange={setBusquedaResumen}
+            placeholder="Buscar por nombre…"
+          />
         </div>
         {cargandoResumen ? (
           <p className="text-slate">Cargando…</p>
@@ -271,7 +258,13 @@ export default function ControlGeneralPage() {
       <div ref={sinCargaRef} className="space-y-3 scroll-mt-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-sm font-semibold text-ink">Sin carga en esta quincena</h2>
-          <BuscarInput value={busquedaSinCarga} onChange={setBusquedaSinCarga} label="Buscar empleado sin carga" />
+          <FiltroBusqueda
+            label="Buscar"
+            ariaLabel="Buscar empleado sin carga"
+            value={busquedaSinCarga}
+            onChange={setBusquedaSinCarga}
+            placeholder="Buscar por nombre…"
+          />
         </div>
         <p className="text-xs text-slate">
           Empleados activos sin ningún registro de horas en el período — puede ser una omisión, o

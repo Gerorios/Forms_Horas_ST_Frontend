@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
+import { BarraFiltros, FiltroBusqueda, FiltroSelect } from '@/components/ui/barra-filtros';
 import { useEmpleadosActivos } from '@/lib/api/empleados';
 import {
   useCategoriasUocra,
@@ -207,65 +208,61 @@ export default function PerfilesLiquidacionPage() {
         </button>
       </div>
 
-      <input
-        aria-label="Buscar empleado"
-        value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
-        placeholder="Buscar por nombre…"
-        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-      />
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="flex flex-col gap-1 text-xs font-medium text-slate">
-          Filtrar por régimen
-          <select
-            aria-label="Filtrar por régimen"
-            value={filtroRegimen}
-            onChange={(e) => setFiltroRegimen(e.target.value as RegimenLiquidacion | 'sin_perfil' | '')}
-            className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-          >
-            <option value="">— (todos)</option>
-            <option value="sin_perfil">Sin perfil asignado</option>
-            {(Object.keys(REGIMEN_LABEL) as RegimenLiquidacion[]).map((r) => (
-              <option key={r} value={r}>{REGIMEN_LABEL[r]}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-slate">
-          Filtrar por categoría
-          <select
-            aria-label="Filtrar por categoría"
-            value={filtroCategoriaId}
-            onChange={(e) =>
-              setFiltroCategoriaId(
-                e.target.value === '' ? '' : e.target.value === 'sin_categoria' ? 'sin_categoria' : Number(e.target.value),
-              )
-            }
-            className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-          >
-            <option value="">— (todas)</option>
-            <option value="sin_categoria">Sin categoría</option>
-            {(categorias ?? []).map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-slate">
-          Filtrar por modalidad de pago
-          <select
-            aria-label="Filtrar por modalidad de pago"
-            value={filtroModalidad}
-            onChange={(e) => setFiltroModalidad(e.target.value as ModalidadPago | 'sin_modalidad' | '')}
-            className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-          >
-            <option value="">— (todas)</option>
-            <option value="sin_modalidad">Sin modalidad</option>
-            {(Object.keys(MODALIDAD_PAGO_LABEL) as ModalidadPago[]).map((m) => (
-              <option key={m} value={m}>{MODALIDAD_PAGO_LABEL[m]}</option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <BarraFiltros
+        hayFiltros={busqueda !== '' || filtroRegimen !== '' || filtroCategoriaId !== '' || filtroModalidad !== ''}
+        onLimpiar={() => {
+          setBusqueda('');
+          setFiltroRegimen('');
+          setFiltroCategoriaId('');
+          setFiltroModalidad('');
+        }}
+      >
+        <FiltroBusqueda
+          label="Buscar"
+          ariaLabel="Buscar empleado"
+          value={busqueda}
+          onChange={setBusqueda}
+          placeholder="Buscar por nombre…"
+        />
+        <FiltroSelect
+          label="Filtrar por régimen"
+          value={filtroRegimen}
+          onChange={(v) => setFiltroRegimen(v as RegimenLiquidacion | 'sin_perfil' | '')}
+          placeholder="— (todos)"
+          opciones={[
+            { value: 'sin_perfil', label: 'Sin perfil asignado' },
+            ...(Object.keys(REGIMEN_LABEL) as RegimenLiquidacion[]).map((r) => ({
+              value: r,
+              label: REGIMEN_LABEL[r],
+            })),
+          ]}
+        />
+        <FiltroSelect
+          label="Filtrar por categoría"
+          value={filtroCategoriaId}
+          onChange={(v) =>
+            setFiltroCategoriaId(v === '' ? '' : v === 'sin_categoria' ? 'sin_categoria' : Number(v))
+          }
+          placeholder="— (todas)"
+          opciones={[
+            { value: 'sin_categoria', label: 'Sin categoría' },
+            ...(categorias ?? []).map((c) => ({ value: c.id, label: c.nombre })),
+          ]}
+        />
+        <FiltroSelect
+          label="Filtrar por modalidad de pago"
+          value={filtroModalidad}
+          onChange={(v) => setFiltroModalidad(v as ModalidadPago | 'sin_modalidad' | '')}
+          placeholder="— (todas)"
+          opciones={[
+            { value: 'sin_modalidad', label: 'Sin modalidad' },
+            ...(Object.keys(MODALIDAD_PAGO_LABEL) as ModalidadPago[]).map((m) => ({
+              value: m,
+              label: MODALIDAD_PAGO_LABEL[m],
+            })),
+          ]}
+        />
+      </BarraFiltros>
 
       {isLoading ? (
         <p className="text-slate">Cargando…</p>
