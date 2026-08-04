@@ -25,6 +25,8 @@ const CAMPOS_SUGERIBLES = [
   'nroComprobante',
   'tipoCombustibleId',
   'estacionId',
+  'movilId',
+  'km',
 ] as const;
 type CampoSugerible = (typeof CAMPOS_SUGERIBLES)[number];
 
@@ -104,6 +106,7 @@ export default function NuevaCargaCombustiblePage() {
   const [confianzaNumero, setConfianzaNumero] = useState<'alta' | 'media' | 'baja' | null>(null);
   const [lineaOrigenNumero, setLineaOrigenNumero] = useState<string | null>(null);
   const [advertenciaCoherencia, setAdvertenciaCoherencia] = useState<string | null>(null);
+  const [patenteSinMatch, setPatenteSinMatch] = useState<string | null>(null);
 
   // Refs espejo del estado "tiene valor/tocado" por campo sugerible. Se actualizan
   // sincrónicamente en cada onChange y al setear un valor (incluidas las sugerencias
@@ -117,6 +120,8 @@ export default function NuevaCargaCombustiblePage() {
   const tipoCombustibleTocadoRef = useRef(false);
   const estacionTocadaRef = useRef(false);
   const medioPagoTocadoRef = useRef(false);
+  const movilTocadoRef = useRef(false);
+  const kmTocadoRef = useRef(false);
 
   const { data: ultimoKmData } = useUltimoKm(movilId);
   const ultimoKm = ultimoKmData?.km ?? null;
@@ -137,6 +142,7 @@ export default function NuevaCargaCombustiblePage() {
     setConfianzaNumero(null);
     setLineaOrigenNumero(null);
     setAdvertenciaCoherencia(null);
+    setPatenteSinMatch(null);
     try {
       const resultado = await extraerTicket.mutateAsync(blob);
       if (resultado.legible === false) setNoLegible(true);
@@ -185,6 +191,24 @@ export default function NuevaCargaCombustiblePage() {
         setFecha(s.fechaCarga as string);
         aplicados.add('fechaCarga');
       }
+
+      // El móvil solo se pre-selecciona si el id sugerido existe en el maestro de
+      // móviles (useMoviles). Si no existe (o no vino), no se aplica nada y se deja
+      // el hint de patente sin match más abajo.
+      const movilAplicable = s.movilId != null && (moviles ?? []).some((m) => m.id === s.movilId);
+      if (movilAplicable && !movilTocadoRef.current) {
+        movilTocadoRef.current = true;
+        setMovilId(s.movilId as number);
+        setKmConfirmado(false);
+        aplicados.add('movilId');
+      }
+      if (s.km != null && !kmTocadoRef.current) {
+        kmTocadoRef.current = true;
+        setKm(s.km as number);
+        setKmConfirmado(false);
+        aplicados.add('km');
+      }
+      setPatenteSinMatch(s.patente != null && !movilAplicable ? s.patente : null);
 
       if (aplicados.size > 0) {
         setSugeridos((prev) => new Set([...prev, ...aplicados]));
@@ -318,15 +342,17 @@ export default function NuevaCargaCombustiblePage() {
       <Card title="Móvil y kilometraje">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col text-sm font-medium text-ink">
-            Móvil
+            Móvil {sugeridos.has('movilId') && <BadgeSugerido />}
             <select
               aria-label="Móvil"
               value={movilId ?? ''}
               onChange={(e) => {
+                movilTocadoRef.current = e.target.value !== '';
                 setMovilId(e.target.value ? Number(e.target.value) : null);
                 setKmConfirmado(false);
+                quitarSugerido('movilId');
               }}
-              className="mt-1 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              className={`mt-1 rounded-md border bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 ${sugeridos.has('movilId') ? 'border-brand' : 'border-line'}`}
             >
               <option value="">—</option>
               {(moviles ?? []).map((m) => (
@@ -335,23 +361,30 @@ export default function NuevaCargaCombustiblePage() {
                 </option>
               ))}
             </select>
+            {patenteSinMatch && (
+              <span className="mt-1 text-[11px] text-slate">
+                Patente leída: «{patenteSinMatch}» — no está en el maestro de móviles.
+              </span>
+            )}
             {intentoEnviar && movilId == null && (
               <span className="mt-1 text-[11px] text-danger">Elegí un móvil.</span>
             )}
           </label>
 
           <label className="flex flex-col text-sm font-medium text-ink">
-            Kilometraje
+            Kilometraje {sugeridos.has('km') && <BadgeSugerido />}
             <input
               aria-label="Kilometraje"
               type="number"
               min="0"
               value={km ?? ''}
               onChange={(e) => {
+                kmTocadoRef.current = e.target.value !== '';
                 setKm(e.target.value ? Number(e.target.value) : null);
                 setKmConfirmado(false);
+                quitarSugerido('km');
               }}
-              className="mt-1 rounded-md border border-line bg-surface px-3 py-2 text-ink tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              className={`mt-1 rounded-md border bg-surface px-3 py-2 text-ink tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 ${sugeridos.has('km') ? 'border-brand' : 'border-line'}`}
             />
             {intentoEnviar && (km == null || km < 0) && (
               <span className="mt-1 text-[11px] text-danger">Ingresá el kilometraje.</span>
