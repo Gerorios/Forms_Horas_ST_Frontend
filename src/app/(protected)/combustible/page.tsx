@@ -8,6 +8,7 @@ import { useCargasCombustible, type FiltroCargas } from '@/lib/api/combustible';
 import { DetalleCarga } from '@/features/combustible/detalle-carga';
 import { StatusBadge } from '@/components/status-badge';
 import { PageHeader } from '@/components/page-header';
+import { BarraFiltros, FiltroFecha, FiltroSelect } from '@/components/ui/barra-filtros';
 import type { EstadoCargaCombustible } from '@/types/domain';
 
 export default function CombustiblePage() {
@@ -32,6 +33,14 @@ export default function CombustiblePage() {
 
   const { data: cargas, isLoading } = useCargasCombustible(filtro);
 
+  const hayFiltros = desde !== '' || hasta !== '' || movilId !== '' || estado !== 'activa';
+  function limpiarFiltros() {
+    setDesde('');
+    setHasta('');
+    setMovilId('');
+    setEstado('activa');
+  }
+
   const puedeCargar = perfil?.rol.nombre === 'JefeCuadrilla' || perfil?.rol.nombre === 'Admin';
 
   return (
@@ -51,57 +60,26 @@ export default function CombustiblePage() {
         }
       />
 
-      <div className="grid gap-4 rounded-xl border border-line bg-surface p-4 sm:grid-cols-4">
-        <label className="flex flex-col text-sm font-medium text-ink">
-          Desde
-          <input
-            aria-label="Desde"
-            type="date"
-            value={desde}
-            onChange={(e) => setDesde(e.target.value)}
-            className="mt-1 rounded-md border border-line bg-surface px-3 py-2 text-ink tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-          />
-        </label>
-        <label className="flex flex-col text-sm font-medium text-ink">
-          Hasta
-          <input
-            aria-label="Hasta"
-            type="date"
-            value={hasta}
-            onChange={(e) => setHasta(e.target.value)}
-            className="mt-1 rounded-md border border-line bg-surface px-3 py-2 text-ink tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-          />
-        </label>
-        <label className="flex flex-col text-sm font-medium text-ink">
-          Móvil
-          <select
-            aria-label="Móvil"
-            value={movilId}
-            onChange={(e) => setMovilId(e.target.value ? Number(e.target.value) : '')}
-            className="mt-1 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-          >
-            <option value="">Todos</option>
-            {(moviles ?? []).map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.identificador}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col text-sm font-medium text-ink">
-          Estado
-          <select
-            aria-label="Estado"
-            value={estado}
-            onChange={(e) => setEstado(e.target.value as EstadoCargaCombustible | '')}
-            className="mt-1 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-          >
-            <option value="activa">Activas</option>
-            <option value="anulada">Anuladas</option>
-            <option value="">Todas</option>
-          </select>
-        </label>
-      </div>
+      <BarraFiltros hayFiltros={hayFiltros} onLimpiar={limpiarFiltros}>
+        <FiltroFecha label="Desde" value={desde} onChange={setDesde} />
+        <FiltroFecha label="Hasta" value={hasta} onChange={setHasta} />
+        <FiltroSelect
+          label="Móvil"
+          value={movilId}
+          onChange={(v) => setMovilId(v ? Number(v) : '')}
+          opciones={(moviles ?? []).map((m) => ({ value: m.id, label: m.identificador }))}
+        />
+        <FiltroSelect
+          label="Estado"
+          value={estado}
+          onChange={(v) => setEstado(v as EstadoCargaCombustible | '')}
+          opciones={[
+            { value: 'activa', label: 'Activas' },
+            { value: 'anulada', label: 'Anuladas' },
+          ]}
+          placeholder="Todas"
+        />
+      </BarraFiltros>
 
       {isLoading ? (
         <p className="text-slate">Cargando…</p>
