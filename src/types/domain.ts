@@ -202,5 +202,8 @@ export interface ExtraccionTicket {
     lineaOrigenNumero: string | null;
     precioLitro: number | null;
     advertenciaCoherencia: string | null;
+    patente: string | null;
+    km: number | null;
+    movilId: number | null;
   };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ExtraccionTicket } from '@/types/domain';
 
@@ -58,6 +58,9 @@ function extraccionBase(sugerencias: Partial<NonNullable<ExtraccionTicket['suger
       lineaOrigenNumero: null,
       precioLitro: null,
       advertenciaCoherencia: null,
+      patente: null,
+      km: null,
+      movilId: null,
       ...sugerencias,
     },
   };
@@ -150,5 +153,40 @@ describe('NuevaCargaCombustiblePage — sugerencias v2', () => {
         screen.queryByText('El litraje no coincide con el monto informado'),
       ).not.toBeInTheDocument();
     });
+  });
+
+  it('pre-selecciona móvil y km sugeridos', async () => {
+    extraerTicket.mockResolvedValue(extraccionBase({ movilId: 1, km: 45210 }));
+    render(<NuevaCargaCombustiblePage />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sacar foto del ticket' }));
+
+    await waitFor(() => {
+      const select = screen.getByRole('combobox', { name: 'Móvil' }) as HTMLSelectElement;
+      expect(select.value).toBe('1');
+    });
+    const select = screen.getByRole('combobox', { name: 'Móvil' });
+    const movilLabel = select.closest('label') as HTMLElement;
+    expect(within(movilLabel).getByText('sugerido por IA')).toBeInTheDocument();
+
+    const kmInput = screen.getByRole('spinbutton', { name: 'Kilometraje' }) as HTMLInputElement;
+    expect(kmInput.value).toBe('45210');
+    const kmLabel = kmInput.closest('label') as HTMLElement;
+    expect(within(kmLabel).getByText('sugerido por IA')).toBeInTheDocument();
+  });
+
+  it('muestra el hint de patente sin match cuando no hay movilId sugerido', async () => {
+    extraerTicket.mockResolvedValue(extraccionBase({ patente: 'XX 999 XX', movilId: null }));
+    render(<NuevaCargaCombustiblePage />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sacar foto del ticket' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Patente leída: «XX 999 XX» — no está en el maestro de móviles.'),
+      ).toBeInTheDocument();
+    });
+    const select = screen.getByRole('combobox', { name: 'Móvil' }) as HTMLSelectElement;
+    expect(select.value).toBe('');
   });
 });
