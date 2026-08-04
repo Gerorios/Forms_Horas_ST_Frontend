@@ -231,4 +231,22 @@ describe('agruparPorLote', () => {
     ]);
     expect(grupos[0].cargadoPor.nombre).toBe('JEFE CUADRILLA');
   });
+
+  it('alertas es false cuando ninguna fila supera el umbral ni tiene duplicado cruzado', () => {
+    const grupos = agruparPorLote([fila(1, 'lote-a', '2026-07-10')]);
+    expect(grupos[0].alertas).toBe(false);
+  });
+
+  it('alertas es true si alguna fila tiene totalHorasDia >= 16, aunque sea de contexto', () => {
+    const grupos = agruparPorLote([
+      fila(1, 'lote-a', '2026-07-10', { totalHorasDia: 16 }),
+      fila(2, 'lote-a', '2026-07-10'),
+    ]);
+    expect(grupos[0].alertas).toBe(true);
+  });
+
+  it('alertas es true si alguna fila tiene duplicadoCruzado', () => {
+    const grupos = agruparPorLote([fila(1, 'lote-a', '2026-07-10', { duplicadoCruzado: true })]);
+    expect(grupos[0].alertas).toBe(true);
+  });
 });

@@ -180,6 +180,13 @@ describe('LoteResumenCard', () => {
     expect(screen.getByText(/otro contrato el mismo día/i)).toBeInTheDocument();
   });
 
+  it('con alguna fila en alerta, resalta el borde de la tarjeta sin expandir el detalle', () => {
+    const { container } = render(
+      <LoteResumenCard grupo={grupo([fila(1, 'PEREZ', { duplicadoCruzado: true })])} />,
+    );
+    expect(container.firstElementChild).toHaveClass('border-warn/60');
+  });
+
   it('con onReabrir, solo aparece en filas accionables y llama con id y nombre', async () => {
     const onReabrir = vi.fn();
     render(

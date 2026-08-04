@@ -48,4 +48,19 @@ describe('ResumenCarga', () => {
     );
     expect(screen.queryByText(/cargado por:/i)).not.toBeInTheDocument();
   });
+
+  it('sin ninguna fila con alerta, no muestra el badge "Revisar"', () => {
+    render(<ResumenCarga grupo={agruparPorLote([fila()])[0]} />);
+    expect(screen.queryByText(/revisar/i)).not.toBeInTheDocument();
+  });
+
+  it('con una fila de horas totales ≥16, muestra el badge "Revisar" a nivel de tarjeta', () => {
+    render(<ResumenCarga grupo={agruparPorLote([fila({ totalHorasDia: 18 })])[0]} />);
+    expect(screen.getByText(/revisar/i)).toBeInTheDocument();
+  });
+
+  it('con una fila de duplicado cruzado, muestra el badge "Revisar" a nivel de tarjeta', () => {
+    render(<ResumenCarga grupo={agruparPorLote([fila({ duplicadoCruzado: true })])[0]} />);
+    expect(screen.getByText(/revisar/i)).toBeInTheDocument();
+  });
 });

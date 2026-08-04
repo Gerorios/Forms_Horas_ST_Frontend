@@ -9,7 +9,20 @@ export interface ResumenOperario {
   pendiente: number;
   aprobado: number;
   desaprobado: number;
+  /** Suma de horas de filas aprobadas (distinto de `aprobado`, que es la
+   * cantidad de filas) — la base de la comparación contra la quincena anterior. */
+  horasAprobadas: number;
   superaHorasExtra: boolean;
+  /** Algún día de la quincena tuvo horas cruzando >1 lote o total ≥16hs, en
+   * cualquier contrato (no solo los del jefe que consulta) — mismo criterio
+   * que el badge de /aprobaciones. */
+  tieneAlertaCruzada: boolean;
+  /** Horas aprobadas (de mis contratos) en la quincena anterior — para
+   * comparar contra `aprobado`/`totalHoras` de esta quincena. */
+  horasAprobadasAnterior: number;
+  /** horasAprobadas de esta quincena menos horasAprobadasAnterior. Positivo =
+   * le estoy aprobando más que la vez pasada (revisar si es real). */
+  deltaHorasAprobadas: number;
 }
 
 export interface OperarioSinCarga {
@@ -17,6 +30,9 @@ export interface OperarioSinCarga {
   apellido_nombre: string;
   legajo: number;
   cargo: string;
+  /** Fecha (YYYY-MM-DD) de su último registro histórico, en cualquier
+   * contrato. null si nunca tuvo ninguno (ej. recién ingresado). */
+  ultimaCarga: string | null;
 }
 
 export function useResumenOperarios(quincena: Quincena) {

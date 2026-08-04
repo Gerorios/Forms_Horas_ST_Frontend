@@ -13,6 +13,14 @@ export function ResumenCarga({ grupo }: { grupo: GrupoLote }) {
               Corrección de horas
             </span>
           )}
+          {grupo.alertas && (
+            <span
+              className="ml-2 rounded-full bg-warn/10 px-2 py-0.5 text-xs font-medium text-warn"
+              title="Alguna fila tiene horas totales del día ≥16 o duplicado cruzado — ver detalle"
+            >
+              ⚠ Revisar
+            </span>
+          )}
         </h2>
         <span className="text-sm tabular-nums text-ink">{grupo.totalHoras} hs totales</span>
       </div>

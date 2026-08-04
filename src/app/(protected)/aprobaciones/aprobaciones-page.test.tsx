@@ -35,6 +35,11 @@ vi.mock('@/lib/api/aprobaciones', () => ({
 }));
 vi.mock('sonner', () => ({ toast: { promise: vi.fn() } }));
 
+let searchParamsMock = new URLSearchParams();
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => searchParamsMock,
+}));
+
 import AprobacionesPage from './page';
 
 describe('AprobacionesPage', () => {
@@ -42,6 +47,7 @@ describe('AprobacionesPage', () => {
     resolverLote.mockClear();
     reabrirRegistro.mockClear();
     corregirLote.mockClear();
+    searchParamsMock = new URLSearchParams();
   });
 
   it('por default muestra la pestaña Pendientes, agrupada por lote, sin filtro de quincena', () => {
@@ -77,5 +83,11 @@ describe('AprobacionesPage', () => {
     expect(screen.getByRole('option', { name: 'K5' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'K8' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'JEFE CUADRILLA' })).toBeInTheDocument();
+  });
+
+  it('con operarioCuil en la URL (ej. link desde Control general), llega con ese filtro ya aplicado', () => {
+    searchParamsMock = new URLSearchParams({ operarioCuil: '20111' });
+    render(<AprobacionesPage />);
+    expect(screen.getByLabelText('Filtrar por operario')).toHaveValue('20111');
   });
 });

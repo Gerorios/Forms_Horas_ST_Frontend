@@ -150,6 +150,17 @@ describe('LoteCard', () => {
     expect(screen.queryByText('+16h')).not.toBeInTheDocument();
   });
 
+  it('con alguna fila en alerta, resalta el borde de la tarjeta en naranja sin expandir el detalle', () => {
+    const conAlerta = { ...fila(1, 'PEREZ'), totalHorasDia: 20 };
+    const { container } = render(<LoteCard grupo={grupo([conAlerta, fila(2, 'GOMEZ')])} />);
+    expect(container.firstElementChild).toHaveClass('border-warn/60');
+  });
+
+  it('sin ninguna fila en alerta, la tarjeta usa el borde normal', () => {
+    const { container } = render(<LoteCard grupo={grupo()} />);
+    expect(container.firstElementChild).toHaveClass('border-line');
+  });
+
   it('muestra la alerta de duplicado cruzado cuando el operario tiene carga en otro lote ese día', async () => {
     const duplicado = { ...fila(1, 'PEREZ'), duplicadoCruzado: true };
     render(<LoteCard grupo={grupo([duplicado, fila(2, 'GOMEZ')])} />);

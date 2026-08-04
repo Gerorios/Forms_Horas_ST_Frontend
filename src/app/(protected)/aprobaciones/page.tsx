@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { usePorAprobar, type FiltrosPorAprobar } from '@/lib/api/aprobaciones';
 import { agruparPorLote } from '@/lib/agrupar';
 import { LoteCard } from '@/features/aprobaciones/lote-card';
@@ -32,9 +33,16 @@ function opcionesDeFiltros(filas: RegistroPorAprobar[]): FiltrosRegistrosOpcione
 }
 
 export default function AprobacionesPage() {
+  const searchParams = useSearchParams();
+  // Permite llegar acá con un operario ya filtrado (ej. desde "Control
+  // general", clic en un nombre con alerta) sin pasos extra.
+  const operarioCuilInicial = searchParams.get('operarioCuil');
+
   const [tab, setTab] = useState<Tab>('pendiente');
   const [quincena, setQuincena] = useState<Quincena>(() => quincenaDeFecha(new Date()));
-  const [filtros, setFiltros] = useState<FiltrosPorAprobar>({});
+  const [filtros, setFiltros] = useState<FiltrosPorAprobar>(() =>
+    operarioCuilInicial ? { operarioCuil: operarioCuilInicial } : {},
+  );
 
   const { data, isLoading } = usePorAprobar(tab, filtros);
 

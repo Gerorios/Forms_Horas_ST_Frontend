@@ -81,7 +81,9 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
   const etiqueta = expandido ? `seleccionados (${seleccionados.size})` : 'todo';
 
   return (
-    <div className="overflow-hidden rounded-xl border border-line bg-surface">
+    <div
+      className={`overflow-hidden rounded-xl border bg-surface ${grupo.alertas ? 'border-warn/60' : 'border-line'}`}
+    >
       <ResumenCarga grupo={grupo} />
 
       <div className="flex flex-wrap items-center gap-2 px-4 py-3">
@@ -154,7 +156,7 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
                     </span>
                     <span>
                       <span className="tabular-nums text-ink">{f.horas}</span> hs
-                      {f.totalHorasDia > 16 && (
+                      {f.totalHorasDia >= 16 && (
                         <span
                           className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn"
                           title="Total real de horas de este operario ese día, sumando todos los contratos"
