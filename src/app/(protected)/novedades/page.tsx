@@ -2,18 +2,24 @@
 
 import { useState } from 'react';
 import { useNovedades } from '@/lib/api/novedades';
+import { useSession } from '@/lib/auth/session';
 import { NuevaNovedadForm } from '@/features/novedades/nueva-novedad-form';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 
 export default function NovedadesPage() {
+  const { perfil } = useSession();
   const { data, isLoading } = useNovedades();
   const [mostrarForm, setMostrarForm] = useState(false);
+  // JefeCuadrilla solo ve lo que él mismo cargó (el backend ya lo scopea);
+  // se lo aclaramos acá para que no piense que falta algo.
+  const esJefeCuadrilla = perfil?.rol.nombre === 'JefeCuadrilla';
 
   return (
     <section className="space-y-4">
       <PageHeader
         title="Novedades"
+        eyebrow={esJefeCuadrilla ? 'Las que cargaste vos' : undefined}
         action={
           <button
             type="button"
