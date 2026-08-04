@@ -18,6 +18,7 @@ export function DetalleEmpleado({
   onKmEditChange,
   onGuardarKm,
   guardandoKm,
+  contratosDestacados = [],
 }: {
   fila: FilaDetalleEmpleado;
   montoEdit: string;
@@ -28,6 +29,7 @@ export function DetalleEmpleado({
   onKmEditChange: (v: string) => void;
   onGuardarKm: () => void;
   guardandoKm: boolean;
+  contratosDestacados?: string[];
 }) {
   return (
     <div className="space-y-4 text-sm text-ink" onClick={(e) => e.stopPropagation()}>
@@ -93,6 +95,11 @@ export function DetalleEmpleado({
 
       <div>
         <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate">Días aprobados</h3>
+        {contratosDestacados.length > 0 && (
+          <p className="mb-1 text-xs text-slate">
+            Los importes son de la quincena completa, no del contrato filtrado.
+          </p>
+        )}
         {fila.dias.length === 0 ? (
           <p className="text-xs text-slate">Sin días aprobados en el período.</p>
         ) : (
@@ -110,7 +117,12 @@ export function DetalleEmpleado({
               </thead>
               <tbody>
                 {fila.dias.map((d, i) => (
-                  <tr key={`${d.fecha}-${d.contratoCodigo}-${i}`} className="border-b border-line/60 last:border-0">
+                  <tr
+                    key={`${d.fecha}-${d.contratoCodigo}-${i}`}
+                    className={`border-b border-line/60 last:border-0 ${
+                      contratosDestacados.includes(d.contratoCodigo) ? 'bg-brand/10' : ''
+                    }`}
+                  >
                     <td className="px-2 py-1.5">{d.fecha}</td>
                     <td className="px-2 py-1.5">{d.contratoCodigo}</td>
                     <td className="px-2 py-1.5">{d.tareas.join(', ') || '—'}</td>

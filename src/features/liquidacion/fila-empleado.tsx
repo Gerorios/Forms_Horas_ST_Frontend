@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { FilaDetalleEmpleado, RegimenLiquidacion } from '@/lib/api/liquidacion';
 import { DetalleEmpleado } from './detalle-empleado';
 
-const REGIMEN_LABEL: Record<RegimenLiquidacion, string> = {
+export const REGIMEN_LABEL: Record<RegimenLiquidacion, string> = {
   jornalizado: 'Jornalizado',
   fijo: 'Fijo',
   mensualizado: 'Mensualizado',
@@ -28,6 +28,7 @@ export function FilaEmpleado({
   onKmEditChange,
   onGuardarKm,
   guardandoKm,
+  contratosDestacados,
 }: {
   fila: FilaDetalleEmpleado;
   montoEdit: string;
@@ -38,6 +39,9 @@ export function FilaEmpleado({
   onKmEditChange: (v: string) => void;
   onGuardarKm: () => void;
   guardandoKm: boolean;
+  /** Códigos de contrato tildados en el filtro de contrato — se resaltan los
+   * días correspondientes en el expand (los totales de la fila no cambian). */
+  contratosDestacados?: string[];
 }) {
   const [expandido, setExpandido] = useState(false);
 
@@ -102,6 +106,7 @@ export function FilaEmpleado({
               onKmEditChange={onKmEditChange}
               onGuardarKm={onGuardarKm}
               guardandoKm={guardandoKm}
+              contratosDestacados={contratosDestacados}
             />
           </td>
         </tr>

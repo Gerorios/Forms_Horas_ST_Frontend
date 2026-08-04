@@ -122,6 +122,74 @@ export function FiltroBusqueda({
   );
 }
 
+/** Checkbox multi-selección facetado (ej. Régimen, Categoría, Contrato) con el
+ * mismo look que los demás filtros. No hay una primitiva de popover en el
+ * repo, así que se usa un `<details>/<summary>` estilizado: el `summary` hace
+ * de "caja" del filtro y el `<div>` de adentro es el desplegable de
+ * checkboxes. `opciones` ya viene facetada (calculada por quien renderiza a
+ * partir de las filas que pasan los demás filtros) y puede traer `count`. */
+export function FiltroChecks({
+  label,
+  opciones,
+  seleccionados,
+  onChange,
+  ariaLabel,
+}: {
+  label: string;
+  opciones: { value: string; label: string; count?: number }[];
+  seleccionados: string[];
+  onChange: (v: string[]) => void;
+  ariaLabel?: string;
+}) {
+  function toggle(value: string) {
+    if (seleccionados.includes(value)) {
+      onChange(seleccionados.filter((v) => v !== value));
+    } else {
+      onChange([...seleccionados, value]);
+    }
+  }
+
+  return (
+    <div className="flex flex-col text-xs text-slate">
+      {label}
+      <details className="group relative mt-0.5">
+        <summary
+          aria-label={ariaLabel ?? label}
+          className="flex cursor-pointer list-none items-center gap-2 rounded border border-line px-2 py-1 text-sm text-ink [&::-webkit-details-marker]:hidden"
+        >
+          <span>
+            {seleccionados.length > 0
+              ? `${seleccionados.length} seleccionado${seleccionados.length === 1 ? '' : 's'}`
+              : 'Todos'}
+          </span>
+          <span className="text-slate">▾</span>
+        </summary>
+        <div className="absolute z-10 mt-1 max-h-56 min-w-[200px] overflow-y-auto rounded-md border border-line bg-surface p-2 shadow-md">
+          {opciones.length === 0 ? (
+            <p className="px-1 py-1 text-xs text-slate">Sin opciones</p>
+          ) : (
+            opciones.map((o) => (
+              <label
+                key={o.value}
+                className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm text-ink hover:bg-accent/30"
+              >
+                <input
+                  type="checkbox"
+                  aria-label={o.label}
+                  checked={seleccionados.includes(o.value)}
+                  onChange={() => toggle(o.value)}
+                />
+                <span className="flex-1">{o.label}</span>
+                {o.count !== undefined && <span className="text-xs tabular-nums text-slate">{o.count}</span>}
+              </label>
+            ))
+          )}
+        </div>
+      </details>
+    </div>
+  );
+}
+
 /** Selector numérico compacto (ej. Año) con el mismo estilo que los demás
  * filtros — no hay un <input type="number"> nativo entre las primitivas de
  * texto/fecha/select, así que se agrega esta variante mínima. */
