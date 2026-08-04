@@ -77,12 +77,23 @@ function opcionesFacetContrato(filas: FilaDetalleEmpleado[], seleccionados: stri
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
+function periodoEsValido(anio: number, mes: number, quincena: number) {
+  return (
+    Number.isInteger(anio) &&
+    anio > 0 &&
+    Number.isInteger(mes) &&
+    mes >= 1 &&
+    mes <= 12 &&
+    (quincena === 1 || quincena === 2)
+  );
+}
+
 export default function DetalleQuincenaPage() {
   const searchParams = useSearchParams();
   const anio = Number(searchParams.get('anio'));
   const mes = Number(searchParams.get('mes'));
   const quincena = Number(searchParams.get('q')) as 1 | 2;
-  const periodoValido = Boolean(anio && mes && quincena);
+  const periodoValido = periodoEsValido(anio, mes, quincena);
 
   const { data, isLoading } = useDetalleQuincena(anio, mes, quincena, periodoValido);
   const { data: montosMensualizados } = useMontosMensualizados(anio, mes, quincena);
@@ -145,9 +156,11 @@ export default function DetalleQuincenaPage() {
       pasaCategoria(f, categoriaSel) &&
       pasaContrato(f.dias, contratoSel),
   );
-  const sinPerfilVisibles = sinPerfil.filter(
-    (e) => pasaNombre(e.nombre, filtroNombre) && pasaContrato([], contratoSel),
-  );
+  // Las filas sin perfil no tienen contrato/régimen/categoría asignados, así
+  // que esos filtros no les aplican: quedan siempre visibles (solo la
+  // búsqueda por nombre las filtra) y se atenúan cuando hay un filtro de
+  // contrato activo, para no desaparecer en silencio.
+  const sinPerfilVisibles = sinPerfil.filter((e) => pasaNombre(e.nombre, filtroNombre));
 
   const hayFiltros = filtroNombre !== '' || regimenSel.length > 0 || categoriaSel.length > 0 || contratoSel.length > 0;
   function limpiarFiltros() {
@@ -192,6 +205,20 @@ export default function DetalleQuincenaPage() {
       success: 'Km guardado',
       error: 'No se pudo guardar',
     });
+  }
+
+  if (!periodoValido) {
+    return (
+      <section className="space-y-5">
+        <PageHeader eyebrow="Liquidador" title="Período inválido" />
+        <p className="text-slate">
+          Período inválido —{' '}
+          <Link href="/liquidacion/quincena" className="underline">
+            volvé al panel de quincenas
+          </Link>
+        </p>
+      </section>
+    );
   }
 
   return (
@@ -272,7 +299,12 @@ export default function DetalleQuincenaPage() {
                   />
                 ))}
                 {sinPerfilVisibles.map((e) => (
-                  <tr key={e.cuil} className="border-b border-line bg-sand/60 text-slate last:border-0">
+                  <tr
+                    key={e.cuil}
+                    className="border-b border-line bg-sand/60 text-slate last:border-0"
+                    style={contratoSel.length > 0 ? { opacity: 0.5 } : undefined}
+                    title={contratoSel.length > 0 ? 'Sin datos de contrato para filtrar' : undefined}
+                  >
                     <td className="px-3 py-2.5">{e.nombre}</td>
                     <td className="px-3 py-2.5" colSpan={7}>
                       {e.motivo === 'sin_perfil' ? 'Sin perfil de liquidación asignado' : 'Perfil incompleto'} —{' '}

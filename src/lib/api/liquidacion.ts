@@ -165,8 +165,10 @@ export function useCargarMontosMensualizados() {
   return useMutation({
     mutationFn: (dto: { anio: number; mes: number; quincena: number; montos: { cuil: string; monto: number }[] }) =>
       api.post('/liquidacion/quincena/montos-mensualizados', dto).then((r) => r.data),
-    onSuccess: (_data, vars) =>
-      qc.invalidateQueries({ queryKey: ['liquidacion', 'montos-mensualizados', vars.anio, vars.mes, vars.quincena] }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'montos-mensualizados', vars.anio, vars.mes, vars.quincena] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincena-detalle'] });
+    },
   });
 }
 
@@ -181,8 +183,10 @@ export function useCargarKmPorTantos() {
   return useMutation({
     mutationFn: (dto: { anio: number; mes: number; quincena: number; kms: { cuil: string; kmTotal: number }[] }) =>
       api.post('/liquidacion/quincena/km-por-tantos', dto).then((r) => r.data),
-    onSuccess: (_data, vars) =>
-      qc.invalidateQueries({ queryKey: ['liquidacion', 'km-por-tantos', vars.anio, vars.mes, vars.quincena] }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'km-por-tantos', vars.anio, vars.mes, vars.quincena] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincena-detalle'] });
+    },
   });
 }
 
