@@ -98,8 +98,14 @@ export default function DetalleQuincenaPage() {
   const [categoriaSel, setCategoriaSel] = useState<string[]>([]);
   const [contratoSel, setContratoSel] = useState<string[]>([]);
 
-  const filas = data?.filas ?? [];
-  const sinPerfil = data?.sinPerfil ?? [];
+  const filas = useMemo(
+    () => [...(data?.filas ?? [])].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+    [data?.filas],
+  );
+  const sinPerfil = useMemo(
+    () => [...(data?.sinPerfil ?? [])].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+    [data?.sinPerfil],
+  );
 
   const opcionesRegimen = useMemo(
     () =>
