@@ -30,6 +30,11 @@ function fila(
     provincia: { id: 1, nombre: 'Córdoba' },
     moviles: [{ movil: { id: 1, identificador: 'M-01' } }],
     accionable,
+    cargadoPor: { cuil: '20222222222', nombre: 'JEFE CUADRILLA' },
+    aprobadoPor: null,
+    aprobadoEn: null,
+    totalHorasDia: 8,
+    duplicadoCruzado: false,
   };
 }
 
@@ -135,6 +140,38 @@ describe('LoteCard', () => {
         motivo: 'según recorrido registrado son 6hs',
       }),
     );
+  });
+
+  it('muestra el total real de horas del operario ese día cuando supera 16, no un texto fijo', async () => {
+    const conAlerta = { ...fila(1, 'PEREZ'), totalHorasDia: 22 };
+    render(<LoteCard grupo={grupo([conAlerta, fila(2, 'GOMEZ')])} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.getByText('22hs ese día')).toBeInTheDocument();
+    expect(screen.queryByText('+16h')).not.toBeInTheDocument();
+  });
+
+  it('con alguna fila en alerta, resalta el borde de la tarjeta en naranja sin expandir el detalle', () => {
+    const conAlerta = { ...fila(1, 'PEREZ'), totalHorasDia: 20 };
+    const { container } = render(<LoteCard grupo={grupo([conAlerta, fila(2, 'GOMEZ')])} />);
+    expect(container.firstElementChild).toHaveClass('border-warn/60');
+  });
+
+  it('sin ninguna fila en alerta, la tarjeta usa el borde normal', () => {
+    const { container } = render(<LoteCard grupo={grupo()} />);
+    expect(container.firstElementChild).toHaveClass('border-line');
+  });
+
+  it('muestra la alerta de duplicado cruzado cuando el operario tiene carga en otro lote ese día', async () => {
+    const duplicado = { ...fila(1, 'PEREZ'), duplicadoCruzado: true };
+    render(<LoteCard grupo={grupo([duplicado, fila(2, 'GOMEZ')])} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.getByText(/otro contrato el mismo día/i)).toBeInTheDocument();
+  });
+
+  it('sin duplicadoCruzado, no muestra esa alerta', async () => {
+    render(<LoteCard grupo={grupo()} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.queryByText(/otro contrato el mismo día/i)).not.toBeInTheDocument();
   });
 
   it('el botón de confirmar corrección está deshabilitado sin motivo', async () => {

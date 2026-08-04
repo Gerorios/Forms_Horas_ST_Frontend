@@ -56,7 +56,9 @@ export function LoteResumenCard({
   const [expandido, setExpandido] = useState(false);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-line bg-surface">
+    <div
+      className={`overflow-hidden rounded-xl border bg-surface ${grupo.alertas ? 'border-warn/60' : 'border-line'}`}
+    >
       <ResumenCarga grupo={grupo} />
 
       <div className="px-4 py-3">
@@ -101,13 +103,31 @@ export function LoteResumenCard({
                     </span>
                     <span>
                       <span className="tabular-nums text-ink">{f.horas}</span> hs
-                      {f.alertaHoras && (
-                        <span className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn">
-                          +16h
+                      {f.totalHorasDia !== null && f.totalHorasDia >= 16 && (
+                        <span
+                          className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn"
+                          title="Total real de horas de este operario ese día, sumando todos los contratos"
+                        >
+                          {f.totalHorasDia}hs ese día
+                        </span>
+                      )}
+                      {f.duplicadoCruzado && (
+                        <span
+                          className="ml-1 rounded bg-danger/10 px-1 text-xs font-medium text-danger"
+                          title="Este operario tiene carga en otro contrato/lote ese mismo día — coordiná con el otro jefe de contrato antes de aprobar"
+                        >
+                          ⚠ otro contrato el mismo día
                         </span>
                       )}
                     </span>
                     {mostrarEstado && <StatusBadge estado={f.estado} />}
+                    {f.aprobadoPor && (
+                      <span className="text-xs text-slate">
+                        {f.estado === 'desaprobado' ? 'Rechazado' : 'Aprobado'} por{' '}
+                        {f.aprobadoPor.nombre}
+                        {f.aprobadoEn && ` el ${new Date(f.aprobadoEn).toLocaleString('es-AR')}`}
+                      </span>
+                    )}
                     {f.motivoDesaprobacion && (
                       <span className="text-xs text-danger">Motivo: {f.motivoDesaprobacion}</span>
                     )}

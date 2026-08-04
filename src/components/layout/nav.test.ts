@@ -39,9 +39,16 @@ describe('navForRole', () => {
     expect(hrefs).toContain('/novedades');
   });
 
-  it('JefeContrato ve Aprobaciones', () => {
+  it('JefeContrato ve Aprobaciones y Control general', () => {
     const hrefs = navForRole(perfil('JefeContrato')).map((i) => i.href);
     expect(hrefs).toContain('/aprobaciones');
+    expect(hrefs).toContain('/control-general');
+  });
+
+  it('Admin ve Control general (además de Aprobaciones lo ve solo JefeContrato)', () => {
+    const hrefs = navForRole(perfil('Admin')).map((i) => i.href);
+    expect(hrefs).toContain('/control-general');
+    expect(hrefs).not.toContain('/aprobaciones');
   });
 
   it('HyS solo ve Ausencias', () => {

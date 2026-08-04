@@ -19,6 +19,11 @@ function fila(
     provincia: { id: 1, nombre: 'Córdoba' },
     moviles: [{ movil: { id: 1, identificador: 'M-01' } }],
     accionable: true,
+    cargadoPor: { cuil: '20222222222', nombre: 'JEFE CUADRILLA' },
+    aprobadoPor: null,
+    aprobadoEn: null,
+    totalHorasDia: 8,
+    duplicadoCruzado: false,
     ...overrides,
   };
 }
@@ -132,6 +137,54 @@ describe('LoteResumenCard', () => {
     render(<LoteResumenCard grupo={grupo([fila(1, 'PEREZ')])} />);
     await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
     expect(screen.queryByRole('button', { name: /^reabrir$/i })).not.toBeInTheDocument();
+  });
+
+  it('muestra el total real de horas del día en vez de un texto fijo, cuando supera el umbral', async () => {
+    render(<LoteResumenCard grupo={grupo([fila(1, 'PEREZ', { totalHorasDia: 20 })])} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.getByText('20hs ese día')).toBeInTheDocument();
+    expect(screen.queryByText('+16h')).not.toBeInTheDocument();
+  });
+
+  it('sin superar el umbral de 16hs, no muestra ninguna alerta de horas', async () => {
+    render(<LoteResumenCard grupo={grupo([fila(1, 'PEREZ', { totalHorasDia: 8 })])} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.queryByText(/hs ese día/)).not.toBeInTheDocument();
+  });
+
+  it('muestra quién aprobó/rechazó una fila resuelta y cuándo', async () => {
+    render(
+      <LoteResumenCard
+        grupo={grupo([
+          fila(1, 'PEREZ', {
+            estado: 'aprobado',
+            aprobadoPor: { cuil: '20333333333', nombre: 'JEFE CONTRATO' },
+            aprobadoEn: '2026-07-10T15:00:00.000Z',
+          }),
+        ])}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.getByText(/aprobado por jefe contrato/i)).toBeInTheDocument();
+  });
+
+  it('sin aprobadoPor (todavía pendiente), no muestra la línea de auditoría', async () => {
+    render(<LoteResumenCard grupo={grupo([fila(1, 'PEREZ', { estado: 'pendiente' })])} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.queryByText(/aprobado por/i)).not.toBeInTheDocument();
+  });
+
+  it('muestra la alerta de duplicado cruzado cuando el operario tiene carga en otro lote ese día', async () => {
+    render(<LoteResumenCard grupo={grupo([fila(1, 'PEREZ', { duplicadoCruzado: true })])} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.getByText(/otro contrato el mismo día/i)).toBeInTheDocument();
+  });
+
+  it('con alguna fila en alerta, resalta el borde de la tarjeta sin expandir el detalle', () => {
+    const { container } = render(
+      <LoteResumenCard grupo={grupo([fila(1, 'PEREZ', { duplicadoCruzado: true })])} />,
+    );
+    expect(container.firstElementChild).toHaveClass('border-warn/60');
   });
 
   it('con onReabrir, solo aparece en filas accionables y llama con id y nombre', async () => {

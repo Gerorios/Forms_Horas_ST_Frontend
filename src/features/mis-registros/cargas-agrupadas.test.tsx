@@ -110,6 +110,17 @@ describe('CargasAgrupadas', () => {
     expect(screen.getAllByRole('button', { name: /ver detalle/i })).toHaveLength(2);
   });
 
+  it('no muestra "⚠ Revisar" aunque la línea tenga ≥16hs — acá no se computa el cruce entre contratos', () => {
+    render(
+      <CargasAgrupadas
+        registros={[reg(1, 'lote-a', '2026-07-05', '18', 'PEREZ')]}
+        quincena={QUINCENA_1}
+        isLoading={false}
+      />,
+    );
+    expect(screen.queryByText('⚠ Revisar')).not.toBeInTheDocument();
+  });
+
   it('isLoading muestra el estado de carga', () => {
     render(<CargasAgrupadas registros={undefined} quincena={QUINCENA_1} isLoading />);
     expect(screen.getByText('Cargando…')).toBeInTheDocument();

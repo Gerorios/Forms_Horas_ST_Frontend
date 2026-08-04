@@ -17,6 +17,8 @@ export const NAV_ICONS: Record<string, ReactElement> = {
   '/combustible': svg(<><rect x="4" y="3" width="8" height="14" rx="1" /><path d="M4 9h8M12 8l3-2v9a1.5 1.5 0 0 1-3 0" /></>),
   // Aprobaciones: tilde en círculo
   '/aprobaciones': svg(<><circle cx="10" cy="10" r="7" /><path d="m7 10 2 2 4-4" /></>),
+  // Control general: barras (panel/resumen)
+  '/control-general': svg(<><path d="M4 16.5V10M10 16.5V4M16 16.5v-5" /><path d="M3 17.5h14" strokeWidth="1.4" /></>),
   // Novedades: campana
   '/novedades': svg(<><path d="M10 3a5 5 0 0 0-5 5v3l-1.5 2.5h13L15 11V8a5 5 0 0 0-5-5Z" /><path d="M8.5 16a1.5 1.5 0 0 0 3 0" /></>),
   // Ausencias: calendario

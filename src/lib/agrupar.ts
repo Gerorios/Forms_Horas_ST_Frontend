@@ -20,6 +20,12 @@ export type GrupoLote = {
   vehiculos: { id: number; identificador: string }[];
   totalHoras: number;
   contratos: GrupoContrato[];
+  /** Quién envió este lote — un solo cargador por loteId (ver ADR-004). */
+  cargadoPor: { cuil: string; nombre: string };
+  /** true si alguna fila del lote (accionable o de contexto) tiene horas
+   * totales del día ≥16 o quedó marcada como duplicado cruzado — para
+   * resaltar la tarjeta sin tener que abrir "Ver detalle". */
+  alertas: boolean;
 };
 
 export function agruparPorLote(filas: RegistroPorAprobar[]): GrupoLote[] {
@@ -36,12 +42,15 @@ export function agruparPorLote(filas: RegistroPorAprobar[]): GrupoLote[] {
         vehiculos: [],
         totalHoras: 0,
         contratos: [],
+        cargadoPor: f.cargadoPor,
+        alertas: false,
       };
       mapa.set(f.loteId, grupo);
     }
 
     grupo.filas.push(f);
     if (f.accionable) grupo.accionables.push(f);
+    if ((f.totalHorasDia !== null && f.totalHorasDia >= 16) || f.duplicadoCruzado) grupo.alertas = true;
 
     if (!grupo.operarios.some((o) => o.cuil === f.operario.cuil)) {
       grupo.operarios.push(f.operario);

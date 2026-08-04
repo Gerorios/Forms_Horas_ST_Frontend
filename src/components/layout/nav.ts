@@ -12,6 +12,7 @@ export const NAV_ITEMS: NavItem[] = [
   // TEMPORAL: solo Admin hasta afinar el módulo (spec 2026-08-03; originales: JefeCuadrilla, JefeContrato, Admin)
   { label: 'Combustible', href: '/combustible', roles: ['Admin'] },
   { label: 'Aprobaciones', href: '/aprobaciones', roles: ['JefeContrato'] },
+  { label: 'Control general', href: '/control-general', roles: ['JefeContrato', 'Admin'] },
   { label: 'Novedades', href: '/novedades', roles: ['Supervisor', 'JefeCuadrilla'] },
   { label: 'Ausencias', href: '/ausencias', roles: ['HyS'] },
   { label: 'Admin', href: '/admin', roles: ['Admin'] },
