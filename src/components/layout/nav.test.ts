@@ -60,6 +60,22 @@ describe('navForRole', () => {
     const hrefs = navForRole(perfil('Admin')).map((i) => i.href);
     expect(hrefs).toContain('/admin');
   });
+
+  it('JefeCuadrilla NO ve Combustible (gating temporal Admin)', () => {
+    expect(navForRole(perfil('JefeCuadrilla')).map((i) => i.href)).not.toContain('/combustible');
+  });
+
+  it('JefeContrato NO ve Combustible (gating temporal Admin)', () => {
+    expect(navForRole(perfil('JefeContrato')).map((i) => i.href)).not.toContain('/combustible');
+  });
+
+  it('Operario NO ve Combustible', () => {
+    expect(navForRole(perfil('Operario')).map((i) => i.href)).not.toContain('/combustible');
+  });
+
+  it('Admin ve Combustible', () => {
+    expect(navForRole(perfil('Admin')).map((i) => i.href)).toContain('/combustible');
+  });
 });
 
 describe('canAccess', () => {
