@@ -202,3 +202,82 @@ export function useAlertasQuincena(anio: number, mes: number, quincena: number) 
     queryFn: () => get<AlertasQuincena>('/liquidacion/quincena/alertas', { anio, mes, quincena }),
   });
 }
+
+// ---- Panel de quincenas (estado derivado) ----
+export type EstadoQuincena = 'con_pendientes' | 'con_alertas' | 'lista';
+
+export interface QuincenaResumen {
+  anio: number;
+  mes: number;
+  quincena: 1 | 2;
+  estado: EstadoQuincena;
+  pendientes: number;
+  alertas: number;
+}
+
+export function useQuincenas() {
+  return useQuery({
+    queryKey: ['liquidacion', 'quincenas'],
+    queryFn: () => get<QuincenaResumen[]>('/liquidacion/quincenas'),
+  });
+}
+
+// ---- Detalle de quincena (drill-down por empleado) ----
+export interface DiaAprobado {
+  fecha: string;
+  contratoCodigo: string;
+  tareas: string[];
+  horas: string;
+  cargadoPor: string;
+  /** horas × tarifa vigente de su categoría; null si no hay categoría/tarifa. */
+  importeEstimado: string | null;
+}
+
+export interface NovedadDetalle {
+  tipo: string;
+  desde: string;
+  hasta: string;
+  efecto: string;
+}
+
+export interface FilaDetalleEmpleado {
+  cuil: string;
+  nombre: string;
+  regimen: RegimenLiquidacion;
+  categoria: string | null;
+  horasTotal: string | null;
+  horasCct: string | null;
+  basico: string;
+  montoExtra: string;
+  presentismo: string;
+  totalPlus: string;
+  noRemunerativo: string;
+  total: string;
+  modalidadPago: ModalidadPago | null;
+  etiquetaNovedades: string;
+  datoFaltante: string | null;
+  pendientesAprobacion: number;
+  duplicadoCruzado: boolean;
+  dias: DiaAprobado[];
+  novedades: NovedadDetalle[];
+}
+
+export interface EmpleadoSinPerfil {
+  cuil: string;
+  nombre: string;
+  horasAprobadas: string;
+  motivo: 'sin_perfil' | 'perfil_incompleto';
+}
+
+export interface DetalleQuincena {
+  filas: FilaDetalleEmpleado[];
+  sinPerfil: EmpleadoSinPerfil[];
+}
+
+export function useDetalleQuincena(anio: number, mes: number, quincena: number, enabled = true) {
+  return useQuery({
+    queryKey: ['liquidacion', 'quincena-detalle', anio, mes, quincena],
+    queryFn: () => get<DetalleQuincena>('/liquidacion/quincena/detalle', { anio, mes, quincena }),
+    enabled,
+  });
+}
