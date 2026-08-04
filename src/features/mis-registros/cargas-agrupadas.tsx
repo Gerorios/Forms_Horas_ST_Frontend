@@ -23,7 +23,10 @@ export function CargasAgrupadas({
     // agruparPorLote los muestre sin el atenuado de "otro contrato". Estos
     // registros vienen de findAll (no de porAprobar), que todavía no calcula
     // auditoría/total-cruzado — se rellena con valores neutros hasta que se
-    // sume esa vista acá también.
+    // sume esa vista acá también. totalHorasDia va en null (no false-Number(horas))
+    // para que los componentes compartidos NO rendericen la alerta "⚠ Revisar" /
+    // "Xhs ese día": ese badge dice "sumando todos los contratos", algo que acá
+    // no se calculó — mostrarlo con solo el total de esta línea sería engañoso.
     return agruparPorLote(
       filtrados.map((r) => ({
         ...r,
@@ -31,7 +34,7 @@ export function CargasAgrupadas({
         cargadoPor: { cuil: '', nombre: '' },
         aprobadoPor: null,
         aprobadoEn: null,
-        totalHorasDia: Number(r.horas),
+        totalHorasDia: null,
         duplicadoCruzado: false,
       })),
     );

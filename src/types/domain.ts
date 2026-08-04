@@ -104,8 +104,10 @@ export type RegistroPorAprobar = RegistroHoras & {
   aprobadoPor: { cuil: string; nombre: string } | null;
   aprobadoEn: string | null;
   /** Total real de horas de este operario ese día, cruzando TODOS los contratos y
-   * lotes (no solo los de este jefe) — no confundir con `horas`, que es solo esta línea. */
-  totalHorasDia: number;
+   * lotes (no solo los de este jefe) — no confundir con `horas`, que es solo esta línea.
+   * null cuando el origen de datos no computa el cruce (ej. "Mis registros", que sale
+   * de findAll) — en ese caso no hay que renderizar la alerta de horas totales. */
+  totalHorasDia: number | null;
   /** true si este operario tiene filas en más de un loteId distinto ese mismo día
    * (posible duplicación entre cuadrillas/contratos que no se ven entre sí). */
   duplicadoCruzado: boolean;

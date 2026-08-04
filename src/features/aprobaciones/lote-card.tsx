@@ -156,7 +156,7 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
                     </span>
                     <span>
                       <span className="tabular-nums text-ink">{f.horas}</span> hs
-                      {f.totalHorasDia >= 16 && (
+                      {f.totalHorasDia !== null && f.totalHorasDia >= 16 && (
                         <span
                           className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn"
                           title="Total real de horas de este operario ese día, sumando todos los contratos"

@@ -50,7 +50,7 @@ export function agruparPorLote(filas: RegistroPorAprobar[]): GrupoLote[] {
 
     grupo.filas.push(f);
     if (f.accionable) grupo.accionables.push(f);
-    if (f.totalHorasDia >= 16 || f.duplicadoCruzado) grupo.alertas = true;
+    if ((f.totalHorasDia !== null && f.totalHorasDia >= 16) || f.duplicadoCruzado) grupo.alertas = true;
 
     if (!grupo.operarios.some((o) => o.cuil === f.operario.cuil)) {
       grupo.operarios.push(f.operario);

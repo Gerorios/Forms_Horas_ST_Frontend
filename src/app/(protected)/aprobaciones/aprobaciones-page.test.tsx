@@ -6,10 +6,18 @@ const resolverLote = vi.fn().mockResolvedValue({});
 const reabrirRegistro = vi.fn().mockResolvedValue({});
 const corregirLote = vi.fn().mockResolvedValue({});
 
-function fila(id: number, loteId: string, accionable: boolean, estado = 'pendiente', codigo = 'K5') {
+function fila(
+  id: number,
+  loteId: string,
+  accionable: boolean,
+  estado = 'pendiente',
+  codigo = 'K5',
+  operarioCuil = '20111',
+  operarioNombre = 'PEREZ JUAN',
+) {
   return {
     id, loteId, fecha: '2026-07-10', horas: '8', estado, alertaHoras: false, motivoDesaprobacion: null,
-    operario: { cuil: '20111', apellido_nombre: 'PEREZ JUAN' },
+    operario: { cuil: operarioCuil, apellido_nombre: operarioNombre },
     contrato: { id: codigo === 'K5' ? 1 : 2, codigo, nombre: codigo },
     tareas: [{ tarea: { id: 1, nombre: 'Excavación' } }],
     provincia: { id: 1, nombre: 'Córdoba' }, moviles: [], accionable,
@@ -22,7 +30,12 @@ function fila(id: number, loteId: string, accionable: boolean, estado = 'pendien
 }
 
 const datosPorEstado: Record<string, ReturnType<typeof fila>[]> = {
-  pendiente: [fila(1, 'lote-a', true), fila(2, 'lote-a', false, 'pendiente', 'K8'), fila(3, 'lote-b', true)],
+  pendiente: [
+    fila(1, 'lote-a', true),
+    fila(2, 'lote-a', false, 'pendiente', 'K8'),
+    fila(3, 'lote-b', true),
+    fila(6, 'lote-b', true, 'pendiente', 'K5', '20444444444', 'GOMEZ MARIA'),
+  ],
   aprobado: [fila(4, 'lote-c', true, 'aprobado')],
   desaprobado: [fila(5, 'lote-d', true, 'desaprobado')],
 };
@@ -89,5 +102,18 @@ describe('AprobacionesPage', () => {
     searchParamsMock = new URLSearchParams({ operarioCuil: '20111' });
     render(<AprobacionesPage />);
     expect(screen.getByLabelText('Filtrar por operario')).toHaveValue('20111');
+  });
+
+  it('un segundo cambio de operarioCuil en la URL (misma página, nuevo link) actualiza el filtro', () => {
+    // El useState inicial de filtros solo lee el query param una vez; sin el
+    // useEffect que sincroniza, un segundo link con otro operarioCuil quedaría
+    // stale (bug original de este fix).
+    searchParamsMock = new URLSearchParams({ operarioCuil: '20111' });
+    const { rerender } = render(<AprobacionesPage />);
+    expect(screen.getByLabelText('Filtrar por operario')).toHaveValue('20111');
+
+    searchParamsMock = new URLSearchParams({ operarioCuil: '20444444444' });
+    rerender(<AprobacionesPage />);
+    expect(screen.getByLabelText('Filtrar por operario')).toHaveValue('20444444444');
   });
 });

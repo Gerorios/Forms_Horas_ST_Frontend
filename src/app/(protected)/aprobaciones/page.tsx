@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { usePorAprobar, type FiltrosPorAprobar } from '@/lib/api/aprobaciones';
 import { agruparPorLote } from '@/lib/agrupar';
@@ -43,6 +43,17 @@ export default function AprobacionesPage() {
   const [filtros, setFiltros] = useState<FiltrosPorAprobar>(() =>
     operarioCuilInicial ? { operarioCuil: operarioCuilInicial } : {},
   );
+
+  // El useState inicial solo lee el query param una vez: si se navega de nuevo
+  // a esta misma página con otro operarioCuil (misma ruta, nuevo query), React
+  // reutiliza la instancia y el estado inicial no se vuelve a evaluar. Este
+  // effect mantiene el filtro sincronizado con el param sin pisar los demás
+  // filtros que el usuario haya elegido en pantalla.
+  useEffect(() => {
+    if (operarioCuilInicial) {
+      setFiltros((prev) => ({ ...prev, operarioCuil: operarioCuilInicial }));
+    }
+  }, [operarioCuilInicial]);
 
   const { data, isLoading } = usePorAprobar(tab, filtros);
 
