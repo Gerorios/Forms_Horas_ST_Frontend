@@ -96,6 +96,23 @@ export interface AlertasQuincena {
 const get = async <T>(url: string, params?: Record<string, unknown>) =>
   (await api.get<T>(url, params ? { params } : undefined)).data;
 
+/**
+ * Extrae un mensaje de error legible de una respuesta de la API (Nest suele
+ * mandar `message` como string o, con class-validator, como array de
+ * strings). Si no hay nada útil, cae al mensaje genérico que le pasa el
+ * caller.
+ */
+export function mensajeDeError(e: unknown, fallback = 'Ocurrió un error inesperado'): string {
+  const data = (e as { response?: { data?: { message?: string | string[] } } } | undefined)?.response?.data;
+  const message = data?.message;
+  if (Array.isArray(message)) {
+    const texto = message.filter((m) => typeof m === 'string' && m.trim() !== '').join(', ');
+    return texto !== '' ? texto : fallback;
+  }
+  if (typeof message === 'string' && message.trim() !== '') return message;
+  return fallback;
+}
+
 // ---- Categorías UOCRA ----
 export function useCategoriasUocra() {
   return useQuery({ queryKey: ['liquidacion', 'categorias'], queryFn: () => get<CategoriaUocra[]>('/liquidacion/categorias-uocra') });
@@ -126,6 +143,48 @@ export function useCargarRondaTarifas() {
     mutationFn: (dto: CargarRondaTarifasInput) =>
       api.post<{ mesesCompletados: { anio: number; mes: number }[] }>('/liquidacion/tarifas/ronda', dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-estado'] }),
+  });
+}
+
+// ---- Edición de una ronda ya cargada (ver contrato GET/PUT /tarifas/ronda/:anio/:mes) ----
+export interface RondaTarifasPeriodo {
+  categorias: {
+    id: number;
+    nombre: string;
+    importeHora: string;
+    bonoNoRemunerativo: { tipo: TipoBonoNoRemunerativo; valor: string } | null;
+  }[];
+  tiposNovedad: { id: number; nombre: string; montoPorDia: string }[];
+  rangosKm: { kmDesde: string; kmHasta: string | null; precioPorKm: string }[];
+}
+
+function periodoHabilitado(anio: number, mes: number) {
+  return Number.isInteger(anio) && anio > 0 && Number.isInteger(mes) && mes >= 1 && mes <= 12;
+}
+
+export function useRondaPeriodo(anio: number, mes: number, enabled = true) {
+  return useQuery({
+    queryKey: ['liquidacion', 'tarifas-ronda', anio, mes],
+    queryFn: () => get<RondaTarifasPeriodo>(`/liquidacion/tarifas/ronda/${anio}/${mes}`),
+    enabled: enabled && periodoHabilitado(anio, mes),
+    retry: false,
+  });
+}
+
+export type ActualizarRondaTarifasInput = { anio: number; mes: number } & Omit<
+  CargarRondaTarifasInput,
+  'anio' | 'mes'
+>;
+
+export function useActualizarRondaTarifas() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ anio, mes, ...dto }: ActualizarRondaTarifasInput) =>
+      api.put(`/liquidacion/tarifas/ronda/${anio}/${mes}`, dto).then((r) => r.data),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-estado'] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-ronda', vars.anio, vars.mes] });
+    },
   });
 }
 

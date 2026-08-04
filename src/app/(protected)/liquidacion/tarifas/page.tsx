@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
-import { useEstadoTarifas, useCargarRondaTarifas, type TipoBonoNoRemunerativo } from '@/lib/api/liquidacion';
+import {
+  useEstadoTarifas,
+  useCargarRondaTarifas,
+  useRondaPeriodo,
+  useActualizarRondaTarifas,
+  mensajeDeError,
+  type TipoBonoNoRemunerativo,
+} from '@/lib/api/liquidacion';
 
 const NOMBRES_MES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -30,21 +37,89 @@ function etiquetaPeriodo(p: Periodo) {
   return `${NOMBRES_MES[p.mes - 1]} ${p.anio}`;
 }
 
+function restarMes(p: Periodo): Periodo {
+  return p.mes === 1 ? { anio: p.anio - 1, mes: 12 } : { anio: p.anio, mes: p.mes - 1 };
+}
+
+/** No hay forma de saber cuál fue el primer período cargado (el backend
+ * solo expone el último), así que ofrecemos los últimos N meses hasta ahí
+ * para elegir. Si el Liquidador elige uno que en realidad no se cargó, el
+ * GET de useRondaPeriodo devuelve 404 y se lo avisamos en el form. */
+function periodosHaciaAtras(hasta: Periodo, cantidad: number): Periodo[] {
+  const resultado: Periodo[] = [hasta];
+  let cursor = hasta;
+  for (let i = 1; i < cantidad; i++) {
+    cursor = restarMes(cursor);
+    resultado.push(cursor);
+  }
+  return resultado;
+}
+
 const RANGOS_DEFAULT = [
   { kmDesde: '0', kmHasta: '60', precioPorKm: '' },
   { kmDesde: '60', kmHasta: '75', precioPorKm: '' },
   { kmDesde: '75', kmHasta: '', precioPorKm: '' },
 ];
 
+const AVISO_EDICION =
+  'Vas a modificar precios de un período ya cargado. Esto recalcula todas las quincenas de ese ' +
+  'mes: si ya las liquidaste con los valores anteriores, el panel dejará de coincidir con lo ' +
+  'pagado. El cambio queda auditado.';
+
 export default function TarifasPage() {
   const { data: estado, isLoading } = useEstadoTarifas();
   const cargarRonda = useCargarRondaTarifas();
+  const actualizarRonda = useActualizarRondaTarifas();
+
+  const [modo, setModo] = useState<'nueva' | 'editar'>('nueva');
+  const [periodoAEditar, setPeriodoAEditar] = useState('');
+  const [dialogConfirmacion, setDialogConfirmacion] = useState(false);
 
   const [mesAnio, setMesAnio] = useState('');
   const [importes, setImportes] = useState<Record<number, string>>({});
   const [montos, setMontos] = useState<Record<number, string>>({});
   const [rangos, setRangos] = useState<{ kmDesde: string; kmHasta: string; precioPorKm: string }[]>(RANGOS_DEFAULT);
   const [bonos, setBonos] = useState<Record<number, { tipo: TipoBonoNoRemunerativo | ''; valor: string }>>({});
+
+  const periodosEditables = useMemo(
+    () => (estado?.ultimoPeriodo ? periodosHaciaAtras(estado.ultimoPeriodo, 24) : []),
+    [estado?.ultimoPeriodo],
+  );
+
+  const objetivoEditar = useMemo<Periodo | null>(() => {
+    if (!periodoAEditar) return null;
+    const [anioStr, mesStr] = periodoAEditar.split('-');
+    return { anio: Number(anioStr), mes: Number(mesStr) };
+  }, [periodoAEditar]);
+
+  const {
+    data: rondaAEditar,
+    isLoading: cargandoRondaAEditar,
+    error: errorRondaAEditar,
+  } = useRondaPeriodo(objetivoEditar?.anio ?? 0, objetivoEditar?.mes ?? 0, modo === 'editar' && objetivoEditar != null);
+
+  // Precarga los valores de la ronda elegida cada vez que cambia el período
+  // seleccionado en modo edición (a diferencia de la precarga inicial de
+  // "nueva ronda", acá SÍ queremos recargar cada vez que el usuario elige
+  // otro período).
+  useEffect(() => {
+    if (modo !== 'editar' || !rondaAEditar) return;
+    setImportes(Object.fromEntries(rondaAEditar.categorias.map((c) => [c.id, c.importeHora])));
+    setMontos(Object.fromEntries(rondaAEditar.tiposNovedad.map((t) => [t.id, t.montoPorDia])));
+    setRangos(
+      rondaAEditar.rangosKm.length
+        ? rondaAEditar.rangosKm.map((r) => ({ kmDesde: r.kmDesde, kmHasta: r.kmHasta ?? '', precioPorKm: r.precioPorKm }))
+        : RANGOS_DEFAULT,
+    );
+    setBonos(
+      Object.fromEntries(
+        rondaAEditar.categorias.map((c) => [
+          c.id,
+          { tipo: c.bonoNoRemunerativo?.tipo ?? '', valor: c.bonoNoRemunerativo?.valor ?? '' },
+        ]),
+      ),
+    );
+  }, [modo, rondaAEditar]);
 
   // Solo se precarga una vez, la primera vez que llegan los datos — un
   // refetch posterior de la query (ej. al volver a la pestaña) no debe
@@ -89,21 +164,24 @@ export default function TarifasPage() {
     return mesesEntre(estado.ultimoPeriodo, objetivo);
   }, [estado, objetivo]);
 
-  const puedeConfirmar =
-    objetivo != null &&
+  const objetivoActivo = modo === 'editar' ? objetivoEditar : objetivo;
+
+  const camposCompletos =
     Object.values(importes).every((v) => v !== '') &&
     Object.values(montos).every((v) => v !== '') &&
     rangos.every((r) => r.kmDesde !== '' && r.precioPorKm !== '');
+
+  const puedeConfirmar =
+    modo === 'nueva'
+      ? objetivo != null && camposCompletos
+      : objetivoEditar != null && rondaAEditar != null && camposCompletos;
 
   function actualizarRango(i: number, campo: 'kmDesde' | 'kmHasta' | 'precioPorKm', valor: string) {
     setRangos((prev) => prev.map((r, j) => (j === i ? { ...r, [campo]: valor } : r)));
   }
 
-  function confirmar() {
-    if (!puedeConfirmar || !objetivo) return;
-    const promesa = cargarRonda.mutateAsync({
-      mes: objetivo.mes,
-      anio: objetivo.anio,
+  function armarDto() {
+    return {
       categorias: (estado?.categorias ?? []).map((c) => ({
         categoriaUocraId: c.id,
         importeHora: Number(importes[c.id]),
@@ -124,11 +202,32 @@ export default function TarifasPage() {
           tipo: b.tipo as TipoBonoNoRemunerativo,
           valor: Number(b.valor),
         })),
-    });
+    };
+  }
+
+  function confirmar() {
+    if (!puedeConfirmar || !objetivo || modo !== 'nueva') return;
+    const promesa = cargarRonda.mutateAsync({ mes: objetivo.mes, anio: objetivo.anio, ...armarDto() });
     toast.promise(promesa, {
       loading: 'Guardando ronda de tarifas…',
       success: `Tarifas de ${etiquetaPeriodo(objetivo)} cargadas`,
-      error: 'No se pudo cargar la ronda',
+      error: (e) => mensajeDeError(e, 'No se pudo cargar la ronda'),
+    });
+  }
+
+  function pedirConfirmacionEdicion() {
+    if (!puedeConfirmar || !objetivoEditar || modo !== 'editar') return;
+    setDialogConfirmacion(true);
+  }
+
+  function confirmarEdicion() {
+    if (!objetivoEditar) return;
+    setDialogConfirmacion(false);
+    const promesa = actualizarRonda.mutateAsync({ anio: objetivoEditar.anio, mes: objetivoEditar.mes, ...armarDto() });
+    toast.promise(promesa, {
+      loading: 'Guardando cambios…',
+      success: `Tarifas de ${etiquetaPeriodo(objetivoEditar)} actualizadas`,
+      error: (e) => mensajeDeError(e, 'No se pudo actualizar la ronda'),
     });
   }
 
@@ -152,19 +251,72 @@ export default function TarifasPage() {
                 {estado?.ultimoPeriodo ? etiquetaPeriodo(estado.ultimoPeriodo) : 'ninguno todavía'}
               </span>
             </p>
-            <label className="mt-3 flex flex-col gap-1 text-sm font-medium text-ink sm:max-w-xs">
-              Período a cargar
-              <input
-                aria-label="Período a cargar"
-                type="month"
-                value={mesAnio}
-                onChange={(e) => setMesAnio(e.target.value)}
-                className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-              />
-            </label>
+
+            <fieldset className="mt-3 flex flex-col gap-2 text-sm font-medium text-ink sm:flex-row sm:items-center sm:gap-4">
+              <legend className="sr-only">Modo</legend>
+              <label className="flex items-center gap-2 font-normal">
+                <input
+                  type="radio"
+                  name="modo"
+                  value="nueva"
+                  checked={modo === 'nueva'}
+                  onChange={() => setModo('nueva')}
+                />
+                Nueva ronda{estado?.ultimoPeriodo ? ` (${etiquetaPeriodo(sumarMes(estado.ultimoPeriodo))})` : ''}
+              </label>
+              <label className="flex items-center gap-2 font-normal">
+                <input
+                  type="radio"
+                  name="modo"
+                  value="editar"
+                  checked={modo === 'editar'}
+                  disabled={periodosEditables.length === 0}
+                  onChange={() => setModo('editar')}
+                />
+                Editar período cargado
+              </label>
+            </fieldset>
+
+            {modo === 'nueva' ? (
+              <label className="mt-3 flex flex-col gap-1 text-sm font-medium text-ink sm:max-w-xs">
+                Período a cargar
+                <input
+                  aria-label="Período a cargar"
+                  type="month"
+                  value={mesAnio}
+                  onChange={(e) => setMesAnio(e.target.value)}
+                  className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                />
+              </label>
+            ) : (
+              <div className="mt-3 flex flex-col gap-1 text-sm font-medium text-ink sm:max-w-xs">
+                <label className="flex flex-col gap-1">
+                  Período a editar
+                  <select
+                    aria-label="Período a editar"
+                    value={periodoAEditar}
+                    onChange={(e) => setPeriodoAEditar(e.target.value)}
+                    className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                  >
+                    <option value="">— elegí un período —</option>
+                    {periodosEditables.map((p) => (
+                      <option key={`${p.anio}-${p.mes}`} value={`${p.anio}-${String(p.mes).padStart(2, '0')}`}>
+                        {etiquetaPeriodo(p)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {cargandoRondaAEditar && <p className="text-xs text-slate">Cargando valores del período…</p>}
+                {errorRondaAEditar && (
+                  <p className="text-xs text-danger">
+                    {mensajeDeError(errorRondaAEditar, 'No se pudo encontrar esa ronda')}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
-          {faltantes.length > 0 && (
+          {modo === 'nueva' && faltantes.length > 0 && (
             <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
               Faltan cargar: <strong>{faltantes.map(etiquetaPeriodo).join(', ')}</strong>. Se van a
               completar automáticamente copiando el último valor conocido (
@@ -289,15 +441,53 @@ export default function TarifasPage() {
             ))}
           </div>
 
-          <button
-            type="button"
-            disabled={!puedeConfirmar || cargarRonda.isPending}
-            onClick={confirmar}
-            className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-          >
-            Confirmar tarifas de {objetivo ? etiquetaPeriodo(objetivo) : '…'}
-          </button>
+          {modo === 'nueva' ? (
+            <button
+              type="button"
+              disabled={!puedeConfirmar || cargarRonda.isPending}
+              onClick={confirmar}
+              className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
+            >
+              Confirmar tarifas de {objetivo ? etiquetaPeriodo(objetivo) : '…'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={!puedeConfirmar || actualizarRonda.isPending}
+              onClick={pedirConfirmacionEdicion}
+              className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
+            >
+              Guardar cambios de {objetivoEditar ? etiquetaPeriodo(objetivoEditar) : '…'}
+            </button>
+          )}
         </>
+      )}
+
+      {dialogConfirmacion && objetivoActivo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md space-y-4 rounded-xl bg-surface p-6">
+            <h3 className="font-display text-base font-semibold text-ink">
+              Confirmar edición de {etiquetaPeriodo(objetivoActivo)}
+            </h3>
+            <p className="text-sm text-slate">{AVISO_EDICION}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDialogConfirmacion(false)}
+                className="rounded-md px-3 py-2 text-sm font-medium text-ink hover:bg-accent/50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarEdicion}
+                className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95"
+              >
+                Confirmar y guardar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );

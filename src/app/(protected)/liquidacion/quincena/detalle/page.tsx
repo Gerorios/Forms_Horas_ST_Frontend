@@ -12,6 +12,7 @@ import {
   useCargarMontosMensualizados,
   useKmPorTantos,
   useCargarKmPorTantos,
+  mensajeDeError,
   type FilaDetalleEmpleado,
 } from '@/lib/api/liquidacion';
 import { FilaEmpleado, REGIMEN_LABEL } from '@/features/liquidacion/fila-empleado';
@@ -193,7 +194,7 @@ export default function DetalleQuincenaPage() {
     toast.promise(cargarMontos.mutateAsync({ anio, mes, quincena, montos: [{ cuil, monto: Number(v) }] }), {
       loading: 'Guardando monto…',
       success: 'Monto guardado',
-      error: 'No se pudo guardar',
+      error: (e) => mensajeDeError(e, 'No se pudo guardar el monto'),
     });
   }
 
@@ -203,7 +204,7 @@ export default function DetalleQuincenaPage() {
     toast.promise(cargarKms.mutateAsync({ anio, mes, quincena, kms: [{ cuil, kmTotal: Number(v) }] }), {
       loading: 'Guardando km…',
       success: 'Km guardado',
-      error: 'No se pudo guardar',
+      error: (e) => mensajeDeError(e, 'No se pudo guardar el km'),
     });
   }
 
