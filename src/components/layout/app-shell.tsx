@@ -219,9 +219,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* Contenido */}
+      {/* Contenido — las vistas de tablas anchas (liquidación) usan todo el ancho disponible */}
       <main className={`transition-[padding] duration-200 ${plegado ? 'md:pl-14' : 'md:pl-60'}`}>
-        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:py-8">{children}</div>
+        <div
+          className={`mx-auto px-4 py-6 sm:px-6 lg:py-8 ${
+            pathname.startsWith('/liquidacion') ? 'max-w-none 2xl:max-w-[1600px]' : 'max-w-5xl'
+          }`}
+        >
+          {children}
+        </div>
       </main>
     </div>
   );
