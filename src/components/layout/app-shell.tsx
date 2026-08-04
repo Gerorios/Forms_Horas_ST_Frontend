@@ -8,6 +8,9 @@ import { useSession } from '@/lib/auth/session';
 import { navForRole, type NavItem } from '@/components/layout/nav';
 import { NavIcon } from '@/components/layout/nav-icons';
 
+/** Rutas cuyas tablas necesitan todo el ancho de pantalla (el resto usa max-w-5xl). */
+const RUTAS_ANCHAS = ['/liquidacion', '/control-general', '/combustible', '/admin/usuarios'];
+
 function Brand() {
   return (
     <div className="flex items-center gap-2.5">
@@ -219,11 +222,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* Contenido — las vistas de tablas anchas (liquidación) usan todo el ancho disponible */}
+      {/* Contenido — las vistas con tablas anchas usan todo el ancho disponible */}
       <main className={`transition-[padding] duration-200 ${plegado ? 'md:pl-14' : 'md:pl-60'}`}>
         <div
           className={`mx-auto px-4 py-6 sm:px-6 lg:py-8 ${
-            pathname.startsWith('/liquidacion') ? 'max-w-none 2xl:max-w-[1600px]' : 'max-w-5xl'
+            RUTAS_ANCHAS.some((r) => pathname.startsWith(r)) ? 'max-w-none 2xl:max-w-[1600px]' : 'max-w-5xl'
           }`}
         >
           {children}
