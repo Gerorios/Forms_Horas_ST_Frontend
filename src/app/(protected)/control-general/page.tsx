@@ -4,9 +4,14 @@ import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
 import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
-import { FiltroBusqueda } from '@/components/ui/barra-filtros';
-import { useResumenOperarios, useSinCarga } from '@/lib/api/panel-general';
+import { MultiFiltro } from '@/components/ui/barra-filtros';
+import { opcionesFacetadas } from '@/lib/facetado';
+import { useResumenOperarios, useSinCarga, type ResumenOperario, type OperarioSinCarga } from '@/lib/api/panel-general';
 import { quincenaDeFecha, quincenaAnterior, type Quincena } from '@/lib/quincena';
+
+function pasaPersona(cuil: string, seleccionados: string[]) {
+  return seleccionados.length === 0 || seleccionados.includes(cuil);
+}
 
 type FiltroTile = 'todos' | 'extra' | 'pendientes';
 
@@ -47,8 +52,8 @@ function StatTile({
 
 export default function ControlGeneralPage() {
   const [quincena, setQuincena] = useState<Quincena>(() => quincenaAnterior(quincenaDeFecha(new Date())));
-  const [busquedaResumen, setBusquedaResumen] = useState('');
-  const [busquedaSinCarga, setBusquedaSinCarga] = useState('');
+  const [resumenSel, setResumenSel] = useState<string[]>([]);
+  const [sinCargaSel, setSinCargaSel] = useState<string[]>([]);
   const [filtroTile, setFiltroTile] = useState<FiltroTile>('todos');
   const sinCargaRef = useRef<HTMLDivElement>(null);
 
@@ -67,15 +72,33 @@ export default function ControlGeneralPage() {
   // pendientes, y recién ahí por total de horas — así no hay que escanear
   // toda la tabla para encontrar los casos que importan. El filtro de tile
   // (clic en un stat tile) y la búsqueda por nombre se combinan (AND).
-  const resumenOrdenado = useMemo(() => {
-    const term = busquedaResumen.trim().toLowerCase();
-    return [...(resumen ?? [])]
-      .filter((r) => term === '' || r.apellido_nombre.toLowerCase().includes(term))
-      .filter((r) => {
+  const resumenPorTile = useMemo(
+    () =>
+      (resumen ?? []).filter((r) => {
         if (filtroTile === 'extra') return r.superaHorasExtra;
         if (filtroTile === 'pendientes') return r.pendiente > 0;
         return true;
-      })
+      }),
+    [resumen, filtroTile],
+  );
+
+  const nombrePorCuilResumen = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of resumen ?? []) m.set(r.cuil, r.apellido_nombre);
+    return m;
+  }, [resumen]);
+
+  const opcionesResumen = useMemo(
+    () =>
+      opcionesFacetadas(resumenPorTile, (r: ResumenOperario) => r.cuil, resumenSel, {
+        labelDe: (cuil) => nombrePorCuilResumen.get(cuil) ?? cuil,
+      }),
+    [resumenPorTile, resumenSel, nombrePorCuilResumen],
+  );
+
+  const resumenOrdenado = useMemo(() => {
+    return [...resumenPorTile]
+      .filter((r) => pasaPersona(r.cuil, resumenSel))
       .sort((a, b) => {
         // deltaHorasAprobadas queda fuera de "necesita atención": casi todos
         // tienen algo de variación natural quincena a quincena, así que
@@ -87,22 +110,35 @@ export default function ControlGeneralPage() {
         if (a.pendiente !== b.pendiente) return b.pendiente - a.pendiente;
         return b.totalHoras - a.totalHoras;
       });
-  }, [resumen, busquedaResumen, filtroTile]);
+  }, [resumenPorTile, resumenSel]);
+
+  const nombrePorCuilSinCarga = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of sinCarga ?? []) m.set(e.cuil, e.apellido_nombre);
+    return m;
+  }, [sinCarga]);
+
+  const opcionesSinCarga = useMemo(
+    () =>
+      opcionesFacetadas(sinCarga ?? [], (e: OperarioSinCarga) => e.cuil, sinCargaSel, {
+        labelDe: (cuil) => nombrePorCuilSinCarga.get(cuil) ?? cuil,
+      }),
+    [sinCarga, sinCargaSel, nombrePorCuilSinCarga],
+  );
 
   // Quien tenía carga y dejó de reportar de repente es más urgente que quien
   // nunca cargó nada (probablemente recién ingresado, sin contrato asignado
   // todavía) — esos últimos quedan al final.
   const sinCargaFiltrado = useMemo(() => {
-    const term = busquedaSinCarga.trim().toLowerCase();
     return [...(sinCarga ?? [])]
-      .filter((e) => term === '' || e.apellido_nombre.toLowerCase().includes(term))
+      .filter((e) => pasaPersona(e.cuil, sinCargaSel))
       .sort((a, b) => {
         if (a.ultimaCarga === b.ultimaCarga) return 0;
         if (a.ultimaCarga === null) return 1;
         if (b.ultimaCarga === null) return -1;
         return b.ultimaCarga.localeCompare(a.ultimaCarga);
       });
-  }, [sinCarga, busquedaSinCarga]);
+  }, [sinCarga, sinCargaSel]);
 
   const conHorasExtra = (resumen ?? []).filter((r) => r.superaHorasExtra).length;
   const filasPendientes = (resumen ?? []).reduce((s, r) => s + r.pendiente, 0);
@@ -160,12 +196,12 @@ export default function ControlGeneralPage() {
               </span>
             )}
           </h2>
-          <FiltroBusqueda
-            label="Buscar"
+          <MultiFiltro
+            label="Operario"
             ariaLabel="Buscar operario"
-            value={busquedaResumen}
-            onChange={setBusquedaResumen}
-            placeholder="Buscar por nombre…"
+            opciones={opcionesResumen}
+            seleccionados={resumenSel}
+            onChange={setResumenSel}
           />
         </div>
         {cargandoResumen ? (
@@ -258,12 +294,12 @@ export default function ControlGeneralPage() {
       <div ref={sinCargaRef} className="space-y-3 scroll-mt-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-sm font-semibold text-ink">Sin carga en esta quincena</h2>
-          <FiltroBusqueda
-            label="Buscar"
+          <MultiFiltro
+            label="Empleado"
             ariaLabel="Buscar empleado sin carga"
-            value={busquedaSinCarga}
-            onChange={setBusquedaSinCarga}
-            placeholder="Buscar por nombre…"
+            opciones={opcionesSinCarga}
+            seleccionados={sinCargaSel}
+            onChange={setSinCargaSel}
           />
         </div>
         <p className="text-xs text-slate">

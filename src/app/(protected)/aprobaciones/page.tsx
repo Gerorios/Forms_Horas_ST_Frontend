@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { usePorAprobar, type FiltrosPorAprobar } from '@/lib/api/aprobaciones';
+import { usePorAprobar } from '@/lib/api/aprobaciones';
 import { agruparPorLote } from '@/lib/agrupar';
 import { LoteCard } from '@/features/aprobaciones/lote-card';
 import { LoteResueltoCard } from '@/features/aprobaciones/lote-resuelto-card';
 import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
-import { FiltrosRegistros, type FiltrosRegistrosOpciones } from '@/components/filtros-registros';
+import { FiltrosRegistros, type FiltrosRegistrosOpciones, type FiltrosRegistrosValue } from '@/components/filtros-registros';
+import { opcionesFacetadas } from '@/lib/facetado';
 import { quincenaDeFecha, enQuincena, type Quincena } from '@/lib/quincena';
 import { PageHeader } from '@/components/page-header';
 import type { EstadoRegistro, RegistroPorAprobar } from '@/types/domain';
@@ -20,16 +21,16 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'desaprobado', label: 'Rechazados' },
 ];
 
-function opcionesDeFiltros(filas: RegistroPorAprobar[]): FiltrosRegistrosOpciones {
-  const contratos = new Map<number, { id: number; codigo: string }>();
-  const cargadores = new Map<string, { cuil: string; nombre: string }>();
-  const operarios = new Map<string, { cuil: string; apellido_nombre: string }>();
-  for (const f of filas) {
-    contratos.set(f.contrato.id, { id: f.contrato.id, codigo: f.contrato.codigo });
-    if (f.cargadoPor.nombre) cargadores.set(f.cargadoPor.cuil, f.cargadoPor);
-    operarios.set(f.operario.cuil, f.operario);
-  }
-  return { contratos: [...contratos.values()], cargadores: [...cargadores.values()], operarios: [...operarios.values()] };
+function pasaContrato(f: RegistroPorAprobar, seleccionados: string[]) {
+  return seleccionados.length === 0 || seleccionados.includes(String(f.contrato.id));
+}
+
+function pasaCargador(f: RegistroPorAprobar, seleccionados: string[]) {
+  return seleccionados.length === 0 || seleccionados.includes(f.cargadoPor.cuil);
+}
+
+function pasaOperario(f: RegistroPorAprobar, seleccionados: string[]) {
+  return seleccionados.length === 0 || seleccionados.includes(f.operario.cuil);
 }
 
 export default function AprobacionesPage() {
@@ -40,8 +41,8 @@ export default function AprobacionesPage() {
 
   const [tab, setTab] = useState<Tab>('pendiente');
   const [quincena, setQuincena] = useState<Quincena>(() => quincenaDeFecha(new Date()));
-  const [filtros, setFiltros] = useState<FiltrosPorAprobar>(() =>
-    operarioCuilInicial ? { operarioCuil: operarioCuilInicial } : {},
+  const [filtros, setFiltros] = useState<FiltrosRegistrosValue>(() =>
+    operarioCuilInicial ? { operarioCuils: [operarioCuilInicial] } : {},
   );
 
   // El useState inicial solo lee el query param una vez: si se navega de nuevo
@@ -51,24 +52,84 @@ export default function AprobacionesPage() {
   // filtros que el usuario haya elegido en pantalla.
   useEffect(() => {
     if (operarioCuilInicial) {
-      setFiltros((prev) => ({ ...prev, operarioCuil: operarioCuilInicial }));
+      setFiltros((prev) => ({ ...prev, operarioCuils: [operarioCuilInicial] }));
     }
   }, [operarioCuilInicial]);
 
-  const { data, isLoading } = usePorAprobar(tab, filtros);
+  // Contrato/cargador/operario se filtran en cliente (multi-selección, ver
+  // MultiFiltro): el backend de porAprobar solo acepta un valor por campo, así
+  // que dejamos de mandárselos y filtramos las filas ya traídas. La fecha sí
+  // sigue yendo server-side, como antes.
+  const { data, isLoading } = usePorAprobar(tab, { fecha: filtros.fecha });
 
   // Pendientes es siempre una cola chica (lo no resuelto); aprobados/rechazados
   // se acumulan indefinidamente con el uso, así que ahí sí acotamos por quincena.
-  // Contrato/cargador/operario/fecha ya vienen filtrados server-side (porAprobar).
-  const filas = useMemo(
+  const filasDelPeriodo = useMemo(
     () => (tab === 'pendiente' ? (data ?? []) : (data ?? []).filter((f) => enQuincena(f.fecha, quincena))),
     [data, tab, quincena],
   );
+
+  const filas = useMemo(
+    () =>
+      filasDelPeriodo.filter(
+        (f) =>
+          pasaContrato(f, filtros.contratoIds ?? []) &&
+          pasaCargador(f, filtros.cargadoPorCuils ?? []) &&
+          pasaOperario(f, filtros.operarioCuils ?? []),
+      ),
+    [filasDelPeriodo, filtros],
+  );
   const grupos = useMemo(() => agruparPorLote(filas), [filas]);
-  // Las opciones de cada select salen de lo ya cargado en pantalla (no hay un
-  // catálogo aparte) — al elegir un filtro, las demás opciones se acotan a lo
-  // que queda visible; para volver a ampliarlas hay que limpiar filtros.
-  const opciones = useMemo(() => opcionesDeFiltros(filas), [filas]);
+
+  // Las opciones de cada MultiFiltro salen de lo ya cargado en pantalla (no
+  // hay un catálogo aparte) y se facetan con los DEMÁS filtros aplicados
+  // (excluyendo el propio) — así el contador de cada opción refleja cuántas
+  // filas quedarían si se tildara esa opción.
+  const codigoPorContratoId = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const f of filasDelPeriodo) m.set(String(f.contrato.id), f.contrato.codigo);
+    return m;
+  }, [filasDelPeriodo]);
+  const nombrePorCargadorCuil = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const f of filasDelPeriodo) if (f.cargadoPor.nombre) m.set(f.cargadoPor.cuil, f.cargadoPor.nombre);
+    return m;
+  }, [filasDelPeriodo]);
+  const nombrePorOperarioCuil = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const f of filasDelPeriodo) m.set(f.operario.cuil, f.operario.apellido_nombre);
+    return m;
+  }, [filasDelPeriodo]);
+
+  const opciones: FiltrosRegistrosOpciones = useMemo(
+    () => ({
+      contratos: opcionesFacetadas(
+        filasDelPeriodo.filter(
+          (f) => pasaCargador(f, filtros.cargadoPorCuils ?? []) && pasaOperario(f, filtros.operarioCuils ?? []),
+        ),
+        (f) => String(f.contrato.id),
+        filtros.contratoIds ?? [],
+        { labelDe: (id) => codigoPorContratoId.get(id) ?? id },
+      ),
+      cargadores: opcionesFacetadas(
+        filasDelPeriodo.filter(
+          (f) => pasaContrato(f, filtros.contratoIds ?? []) && pasaOperario(f, filtros.operarioCuils ?? []),
+        ),
+        (f) => (f.cargadoPor.nombre ? f.cargadoPor.cuil : null),
+        filtros.cargadoPorCuils ?? [],
+        { labelDe: (cuil) => nombrePorCargadorCuil.get(cuil) ?? cuil },
+      ),
+      operarios: opcionesFacetadas(
+        filasDelPeriodo.filter(
+          (f) => pasaContrato(f, filtros.contratoIds ?? []) && pasaCargador(f, filtros.cargadoPorCuils ?? []),
+        ),
+        (f) => f.operario.cuil,
+        filtros.operarioCuils ?? [],
+        { labelDe: (cuil) => nombrePorOperarioCuil.get(cuil) ?? cuil },
+      ),
+    }),
+    [filasDelPeriodo, filtros, codigoPorContratoId, nombrePorCargadorCuil, nombrePorOperarioCuil],
+  );
 
   return (
     <section className="space-y-5">

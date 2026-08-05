@@ -90,18 +90,20 @@ describe('AprobacionesPage', () => {
     expect(screen.getByLabelText('Quincena')).toBeInTheDocument();
   });
 
-  it('muestra los filtros de contrato/cargador/operario/fecha, con opciones de lo ya cargado', () => {
+  it('muestra los filtros de contrato/cargador/operario/fecha, con opciones de lo ya cargado', async () => {
     render(<AprobacionesPage />);
     expect(screen.getByLabelText('Filtrar por contrato')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'K5' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'K8' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'JEFE CUADRILLA' })).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText('Filtrar por contrato'));
+    expect(screen.getByLabelText('K5')).toBeInTheDocument();
+    expect(screen.getByLabelText('K8')).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText('Filtrar por quién cargó'));
+    expect(screen.getByLabelText('JEFE CUADRILLA')).toBeInTheDocument();
   });
 
   it('con operarioCuil en la URL (ej. link desde Control general), llega con ese filtro ya aplicado', () => {
     searchParamsMock = new URLSearchParams({ operarioCuil: '20111' });
     render(<AprobacionesPage />);
-    expect(screen.getByLabelText('Filtrar por operario')).toHaveValue('20111');
+    expect(screen.getByLabelText('Filtrar por operario')).toHaveTextContent('Operario (1)');
   });
 
   it('un segundo cambio de operarioCuil en la URL (misma página, nuevo link) actualiza el filtro', () => {
@@ -110,10 +112,26 @@ describe('AprobacionesPage', () => {
     // stale (bug original de este fix).
     searchParamsMock = new URLSearchParams({ operarioCuil: '20111' });
     const { rerender } = render(<AprobacionesPage />);
-    expect(screen.getByLabelText('Filtrar por operario')).toHaveValue('20111');
+    expect(screen.getByLabelText('Filtrar por operario')).toHaveTextContent('Operario (1)');
 
     searchParamsMock = new URLSearchParams({ operarioCuil: '20444444444' });
     rerender(<AprobacionesPage />);
-    expect(screen.getByLabelText('Filtrar por operario')).toHaveValue('20444444444');
+    expect(screen.getByLabelText('Filtrar por operario')).toHaveTextContent('Operario (1)');
+  });
+
+  it('con operarioCuil en la URL, ese operario queda tildado en el desplegable', async () => {
+    searchParamsMock = new URLSearchParams({ operarioCuil: '20111' });
+    render(<AprobacionesPage />);
+    await userEvent.click(screen.getByLabelText('Filtrar por operario'));
+    expect(screen.getByLabelText('PEREZ JUAN')).toBeChecked();
+  });
+
+  it('tildar un contrato filtra los lotes visibles en cliente', async () => {
+    render(<AprobacionesPage />);
+    expect(screen.getAllByRole('button', { name: /^aprobar todo/i })).toHaveLength(2);
+    await userEvent.click(screen.getByLabelText('Filtrar por contrato'));
+    await userEvent.click(screen.getByLabelText('K8'));
+    // Solo lote-a tiene una fila con contrato K8; lote-b (K5) desaparece.
+    expect(screen.getAllByRole('button', { name: /^aprobar todo/i })).toHaveLength(1);
   });
 });

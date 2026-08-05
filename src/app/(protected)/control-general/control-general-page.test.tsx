@@ -134,18 +134,22 @@ describe('ControlGeneralPage', () => {
     expect(filaAcevedo).toContainElement(screen.getByText('⚠ cruzado'));
   });
 
-  it('el buscador de operarios filtra el resumen por nombre', async () => {
+  it('el MultiFiltro de operarios filtra el resumen por persona tildada', async () => {
     render(<ControlGeneralPage />);
-    await userEvent.type(screen.getByLabelText('Buscar operario'), 'gomez');
+    await userEvent.click(screen.getByLabelText('Buscar operario'));
+    await userEvent.click(screen.getByLabelText('GOMEZ ANA'));
+    await userEvent.keyboard('{Escape}');
     expect(screen.getByText('GOMEZ ANA')).toBeInTheDocument();
     expect(screen.queryByText('PEREZ JUAN')).not.toBeInTheDocument();
   });
 
-  it('el buscador de sin carga filtra por nombre', async () => {
+  it('el MultiFiltro de sin carga filtra por persona tildada', async () => {
     render(<ControlGeneralPage />);
-    await userEvent.type(screen.getByLabelText('Buscar empleado sin carga'), 'zzz');
+    await userEvent.click(screen.getByLabelText('Buscar empleado sin carga'));
+    await userEvent.click(screen.getByLabelText('DIAZ MARIA'));
+    await userEvent.keyboard('{Escape}');
     expect(screen.queryByText('TORRES LUIS')).not.toBeInTheDocument();
-    expect(screen.getByText('Sin empleados que coincidan con la búsqueda.')).toBeInTheDocument();
+    expect(screen.getByText('DIAZ MARIA')).toBeInTheDocument();
   });
 
   it('clic en "Con horas extra" filtra el resumen a solo esos operarios', async () => {

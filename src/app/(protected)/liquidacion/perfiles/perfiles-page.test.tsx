@@ -47,9 +47,11 @@ describe('PerfilesLiquidacionPage', () => {
     expect(screen.getByRole('cell', { name: 'OFICIAL UOCRA' })).toBeInTheDocument();
   });
 
-  it('filtra la lista por nombre', async () => {
+  it('filtra la lista por empleado tildado en el MultiFiltro', async () => {
     render(<PerfilesLiquidacionPage />);
-    await userEvent.type(screen.getByLabelText('Buscar empleado'), 'perez');
+    await userEvent.click(screen.getByLabelText('Buscar empleado'));
+    await userEvent.click(screen.getByLabelText('PEREZ ANA'));
+    await userEvent.keyboard('{Escape}');
     expect(screen.queryByText('GOMEZ JUAN')).not.toBeInTheDocument();
     expect(screen.getByText('PEREZ ANA')).toBeInTheDocument();
   });
@@ -82,7 +84,9 @@ describe('PerfilesLiquidacionPage', () => {
 
   it('filtra por "sin perfil asignado"', async () => {
     render(<PerfilesLiquidacionPage />);
-    await userEvent.selectOptions(screen.getByLabelText('Filtrar por régimen'), 'sin_perfil');
+    await userEvent.click(screen.getByLabelText('Filtrar por régimen'));
+    await userEvent.click(screen.getByLabelText('Sin perfil asignado'));
+    await userEvent.keyboard('{Escape}');
     expect(screen.queryByText('GOMEZ JUAN')).not.toBeInTheDocument();
     expect(screen.getByText('PEREZ ANA')).toBeInTheDocument();
     expect(screen.getByText('RUIZ LUIS')).toBeInTheDocument();
@@ -90,7 +94,9 @@ describe('PerfilesLiquidacionPage', () => {
 
   it('filtra por régimen asignado', async () => {
     render(<PerfilesLiquidacionPage />);
-    await userEvent.selectOptions(screen.getByLabelText('Filtrar por régimen'), 'jornalizado');
+    await userEvent.click(screen.getByLabelText('Filtrar por régimen'));
+    await userEvent.click(screen.getByLabelText('Jornalizado (por horas)'));
+    await userEvent.keyboard('{Escape}');
     expect(screen.getByText('GOMEZ JUAN')).toBeInTheDocument();
     expect(screen.queryByText('PEREZ ANA')).not.toBeInTheDocument();
     expect(screen.queryByText('RUIZ LUIS')).not.toBeInTheDocument();
@@ -98,7 +104,9 @@ describe('PerfilesLiquidacionPage', () => {
 
   it('filtra por categoría "sin categoría"', async () => {
     render(<PerfilesLiquidacionPage />);
-    await userEvent.selectOptions(screen.getByLabelText('Filtrar por categoría'), 'sin_categoria');
+    await userEvent.click(screen.getByLabelText('Filtrar por categoría'));
+    await userEvent.click(screen.getByLabelText('Sin categoría'));
+    await userEvent.keyboard('{Escape}');
     expect(screen.queryByText('GOMEZ JUAN')).not.toBeInTheDocument();
     expect(screen.getByText('PEREZ ANA')).toBeInTheDocument();
   });

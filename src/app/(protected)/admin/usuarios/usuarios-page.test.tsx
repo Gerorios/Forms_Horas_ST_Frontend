@@ -49,7 +49,9 @@ describe('UsuariosAdminPage — filtro', () => {
 
   it('filtra por rol seleccionado', async () => {
     render(<UsuariosAdminPage />);
-    await userEvent.click(screen.getByRole('button', { name: 'Admin' }));
+    await userEvent.click(screen.getByLabelText('Filtrar por rol'));
+    await userEvent.click(screen.getByLabelText('Admin'));
+    await userEvent.keyboard('{Escape}');
     expect(screen.queryByText('JOSÉ TORRES')).not.toBeInTheDocument();
     expect(screen.getByText('MARIA GOMEZ')).toBeInTheDocument();
   });
@@ -57,7 +59,9 @@ describe('UsuariosAdminPage — filtro', () => {
   it('combina nombre y rol con "Y"', async () => {
     render(<UsuariosAdminPage />);
     await userEvent.type(screen.getByLabelText('Buscar por nombre'), 'jose');
-    await userEvent.click(screen.getByRole('button', { name: 'Admin' }));
+    await userEvent.click(screen.getByLabelText('Filtrar por rol'));
+    await userEvent.click(screen.getByLabelText('Admin'));
+    await userEvent.keyboard('{Escape}');
     expect(screen.getByText('No hay usuarios que coincidan con el filtro.')).toBeInTheDocument();
   });
 });
