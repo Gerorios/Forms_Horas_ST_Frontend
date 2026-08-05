@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
-import { BarraFiltros, FiltroBusqueda, FiltroSelect } from '@/components/ui/barra-filtros';
+import { BarraFiltros, MultiFiltro } from '@/components/ui/barra-filtros';
+import { opcionesFacetadas } from '@/lib/facetado';
 import { useEmpleadosActivos } from '@/lib/api/empleados';
 import {
   useCategoriasUocra,
@@ -13,6 +14,7 @@ import {
   mensajeDeError,
   type RegimenLiquidacion,
   type ModalidadPago,
+  type PerfilLiquidacion,
 } from '@/lib/api/liquidacion';
 
 const REGIMEN_LABEL: Record<RegimenLiquidacion, string> = {
@@ -34,6 +36,22 @@ const REGIMENES_SIN_CATEGORIA: RegimenLiquidacion[] = ['mensualizado', 'administ
 
 const POR_PAGINA = 20;
 
+function valorRegimenDe(perfil: PerfilLiquidacion | undefined) {
+  return perfil ? perfil.regimen : 'sin_perfil';
+}
+
+function valorCategoriaDe(perfil: PerfilLiquidacion | undefined) {
+  return perfil?.categoriaUocraId ? String(perfil.categoriaUocraId) : 'sin_categoria';
+}
+
+function valorModalidadDe(perfil: PerfilLiquidacion | undefined) {
+  return perfil?.modalidadPago ?? 'sin_modalidad';
+}
+
+function pasaMulti(valor: string, seleccionados: string[]) {
+  return seleccionados.length === 0 || seleccionados.includes(valor);
+}
+
 export default function PerfilesLiquidacionPage() {
   const { data: empleados, isLoading: cargandoEmpleados } = useEmpleadosActivos();
   const { data: perfiles, isLoading: cargandoPerfiles } = usePerfilesLiquidacion();
@@ -41,10 +59,10 @@ export default function PerfilesLiquidacionPage() {
   const upsertMasivo = useUpsertPerfilesMasivo();
   const eliminar = useEliminarPerfilLiquidacion();
 
-  const [busqueda, setBusqueda] = useState('');
-  const [filtroRegimen, setFiltroRegimen] = useState<RegimenLiquidacion | 'sin_perfil' | ''>('');
-  const [filtroCategoriaId, setFiltroCategoriaId] = useState<number | 'sin_categoria' | ''>('');
-  const [filtroModalidad, setFiltroModalidad] = useState<ModalidadPago | 'sin_modalidad' | ''>('');
+  const [empleadoSel, setEmpleadoSel] = useState<string[]>([]);
+  const [filtroRegimenSel, setFiltroRegimenSel] = useState<string[]>([]);
+  const [filtroCategoriaSel, setFiltroCategoriaSel] = useState<string[]>([]);
+  const [filtroModalidadSel, setFiltroModalidadSel] = useState<string[]>([]);
   const [pagina, setPagina] = useState(1);
   const [seleccionados, setSeleccionados] = useState<string[]>([]);
   const [regimen, setRegimen] = useState<RegimenLiquidacion | ''>('');
@@ -59,29 +77,97 @@ export default function PerfilesLiquidacionPage() {
   }, [perfiles]);
 
   const filtrados = useMemo(() => {
-    const term = busqueda.trim().toLowerCase();
     return (empleados ?? []).filter((e) => {
-      if (term !== '' && !e.apellido_nombre.toLowerCase().includes(term)) return false;
       const perfil = perfilPorCuil.get(e.cuil);
-
-      if (filtroRegimen === 'sin_perfil' && perfil) return false;
-      if (filtroRegimen !== '' && filtroRegimen !== 'sin_perfil' && perfil?.regimen !== filtroRegimen) return false;
-
-      if (filtroCategoriaId === 'sin_categoria' && perfil?.categoriaUocraId) return false;
-      if (
-        filtroCategoriaId !== '' &&
-        filtroCategoriaId !== 'sin_categoria' &&
-        perfil?.categoriaUocraId !== filtroCategoriaId
-      )
-        return false;
-
-      if (filtroModalidad === 'sin_modalidad' && perfil?.modalidadPago) return false;
-      if (filtroModalidad !== '' && filtroModalidad !== 'sin_modalidad' && perfil?.modalidadPago !== filtroModalidad)
-        return false;
-
-      return true;
+      return (
+        pasaMulti(e.cuil, empleadoSel) &&
+        pasaMulti(valorRegimenDe(perfil), filtroRegimenSel) &&
+        pasaMulti(valorCategoriaDe(perfil), filtroCategoriaSel) &&
+        pasaMulti(valorModalidadDe(perfil), filtroModalidadSel)
+      );
     });
-  }, [empleados, busqueda, perfilPorCuil, filtroRegimen, filtroCategoriaId, filtroModalidad]);
+  }, [empleados, perfilPorCuil, empleadoSel, filtroRegimenSel, filtroCategoriaSel, filtroModalidadSel]);
+
+  // Opciones facetadas: cada MultiFiltro se acota con los DEMÁS filtros
+  // aplicados (excluyendo el propio), con el catálogo completo como base para
+  // que las opciones en 0 (ej. "Sin categoría" si todos tienen una asignada)
+  // sigan apareciendo tildables.
+  const opcionesEmpleado = useMemo(() => {
+    const candidatos = (empleados ?? []).filter((e) => {
+      const perfil = perfilPorCuil.get(e.cuil);
+      return (
+        pasaMulti(valorRegimenDe(perfil), filtroRegimenSel) &&
+        pasaMulti(valorCategoriaDe(perfil), filtroCategoriaSel) &&
+        pasaMulti(valorModalidadDe(perfil), filtroModalidadSel)
+      );
+    });
+    return opcionesFacetadas(candidatos, (e) => e.cuil, empleadoSel, {
+      labelDe: (cuil) => (empleados ?? []).find((e) => e.cuil === cuil)?.apellido_nombre ?? cuil,
+    });
+  }, [empleados, perfilPorCuil, filtroRegimenSel, filtroCategoriaSel, filtroModalidadSel, empleadoSel]);
+
+  const opcionesRegimen = useMemo(() => {
+    const candidatos = (empleados ?? []).filter((e) => {
+      const perfil = perfilPorCuil.get(e.cuil);
+      return (
+        pasaMulti(e.cuil, empleadoSel) &&
+        pasaMulti(valorCategoriaDe(perfil), filtroCategoriaSel) &&
+        pasaMulti(valorModalidadDe(perfil), filtroModalidadSel)
+      );
+    });
+    const counts = opcionesFacetadas(candidatos, (e) => valorRegimenDe(perfilPorCuil.get(e.cuil)), filtroRegimenSel);
+    const countPorValor = new Map(counts.map((o) => [o.value, o.count]));
+    return [
+      { value: 'sin_perfil', label: 'Sin perfil asignado', count: countPorValor.get('sin_perfil') ?? 0 },
+      ...(Object.keys(REGIMEN_LABEL) as RegimenLiquidacion[]).map((r) => ({
+        value: r,
+        label: REGIMEN_LABEL[r],
+        count: countPorValor.get(r) ?? 0,
+      })),
+    ];
+  }, [empleados, perfilPorCuil, empleadoSel, filtroCategoriaSel, filtroModalidadSel, filtroRegimenSel]);
+
+  const opcionesCategoria = useMemo(() => {
+    const candidatos = (empleados ?? []).filter((e) => {
+      const perfil = perfilPorCuil.get(e.cuil);
+      return (
+        pasaMulti(e.cuil, empleadoSel) &&
+        pasaMulti(valorRegimenDe(perfil), filtroRegimenSel) &&
+        pasaMulti(valorModalidadDe(perfil), filtroModalidadSel)
+      );
+    });
+    const counts = opcionesFacetadas(candidatos, (e) => valorCategoriaDe(perfilPorCuil.get(e.cuil)), filtroCategoriaSel);
+    const countPorValor = new Map(counts.map((o) => [o.value, o.count]));
+    return [
+      { value: 'sin_categoria', label: 'Sin categoría', count: countPorValor.get('sin_categoria') ?? 0 },
+      ...(categorias ?? []).map((c) => ({
+        value: String(c.id),
+        label: c.nombre,
+        count: countPorValor.get(String(c.id)) ?? 0,
+      })),
+    ];
+  }, [empleados, perfilPorCuil, empleadoSel, filtroRegimenSel, filtroModalidadSel, filtroCategoriaSel, categorias]);
+
+  const opcionesModalidad = useMemo(() => {
+    const candidatos = (empleados ?? []).filter((e) => {
+      const perfil = perfilPorCuil.get(e.cuil);
+      return (
+        pasaMulti(e.cuil, empleadoSel) &&
+        pasaMulti(valorRegimenDe(perfil), filtroRegimenSel) &&
+        pasaMulti(valorCategoriaDe(perfil), filtroCategoriaSel)
+      );
+    });
+    const counts = opcionesFacetadas(candidatos, (e) => valorModalidadDe(perfilPorCuil.get(e.cuil)), filtroModalidadSel);
+    const countPorValor = new Map(counts.map((o) => [o.value, o.count]));
+    return [
+      { value: 'sin_modalidad', label: 'Sin modalidad', count: countPorValor.get('sin_modalidad') ?? 0 },
+      ...(Object.keys(MODALIDAD_PAGO_LABEL) as ModalidadPago[]).map((m) => ({
+        value: m,
+        label: MODALIDAD_PAGO_LABEL[m],
+        count: countPorValor.get(m) ?? 0,
+      })),
+    ];
+  }, [empleados, perfilPorCuil, empleadoSel, filtroRegimenSel, filtroCategoriaSel, filtroModalidadSel]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
   const paginaSegura = Math.min(pagina, totalPaginas);
@@ -89,7 +175,7 @@ export default function PerfilesLiquidacionPage() {
 
   useEffect(() => {
     setPagina(1);
-  }, [busqueda, filtroRegimen, filtroCategoriaId, filtroModalidad]);
+  }, [empleadoSel, filtroRegimenSel, filtroCategoriaSel, filtroModalidadSel]);
 
   function cambiarRegimen(valor: RegimenLiquidacion | '') {
     setRegimen(valor);
@@ -210,58 +296,46 @@ export default function PerfilesLiquidacionPage() {
       </div>
 
       <BarraFiltros
-        hayFiltros={busqueda !== '' || filtroRegimen !== '' || filtroCategoriaId !== '' || filtroModalidad !== ''}
+        hayFiltros={
+          empleadoSel.length > 0 ||
+          filtroRegimenSel.length > 0 ||
+          filtroCategoriaSel.length > 0 ||
+          filtroModalidadSel.length > 0
+        }
         onLimpiar={() => {
-          setBusqueda('');
-          setFiltroRegimen('');
-          setFiltroCategoriaId('');
-          setFiltroModalidad('');
+          setEmpleadoSel([]);
+          setFiltroRegimenSel([]);
+          setFiltroCategoriaSel([]);
+          setFiltroModalidadSel([]);
         }}
       >
-        <FiltroBusqueda
-          label="Buscar"
+        <MultiFiltro
+          label="Empleado"
           ariaLabel="Buscar empleado"
-          value={busqueda}
-          onChange={setBusqueda}
-          placeholder="Buscar por nombre…"
+          opciones={opcionesEmpleado}
+          seleccionados={empleadoSel}
+          onChange={setEmpleadoSel}
         />
-        <FiltroSelect
-          label="Filtrar por régimen"
-          value={filtroRegimen}
-          onChange={(v) => setFiltroRegimen(v as RegimenLiquidacion | 'sin_perfil' | '')}
-          placeholder="— (todos)"
-          opciones={[
-            { value: 'sin_perfil', label: 'Sin perfil asignado' },
-            ...(Object.keys(REGIMEN_LABEL) as RegimenLiquidacion[]).map((r) => ({
-              value: r,
-              label: REGIMEN_LABEL[r],
-            })),
-          ]}
+        <MultiFiltro
+          label="Régimen"
+          ariaLabel="Filtrar por régimen"
+          opciones={opcionesRegimen}
+          seleccionados={filtroRegimenSel}
+          onChange={setFiltroRegimenSel}
         />
-        <FiltroSelect
-          label="Filtrar por categoría"
-          value={filtroCategoriaId}
-          onChange={(v) =>
-            setFiltroCategoriaId(v === '' ? '' : v === 'sin_categoria' ? 'sin_categoria' : Number(v))
-          }
-          placeholder="— (todas)"
-          opciones={[
-            { value: 'sin_categoria', label: 'Sin categoría' },
-            ...(categorias ?? []).map((c) => ({ value: c.id, label: c.nombre })),
-          ]}
+        <MultiFiltro
+          label="Categoría"
+          ariaLabel="Filtrar por categoría"
+          opciones={opcionesCategoria}
+          seleccionados={filtroCategoriaSel}
+          onChange={setFiltroCategoriaSel}
         />
-        <FiltroSelect
-          label="Filtrar por modalidad de pago"
-          value={filtroModalidad}
-          onChange={(v) => setFiltroModalidad(v as ModalidadPago | 'sin_modalidad' | '')}
-          placeholder="— (todas)"
-          opciones={[
-            { value: 'sin_modalidad', label: 'Sin modalidad' },
-            ...(Object.keys(MODALIDAD_PAGO_LABEL) as ModalidadPago[]).map((m) => ({
-              value: m,
-              label: MODALIDAD_PAGO_LABEL[m],
-            })),
-          ]}
+        <MultiFiltro
+          label="Modalidad de pago"
+          ariaLabel="Filtrar por modalidad de pago"
+          opciones={opcionesModalidad}
+          seleccionados={filtroModalidadSel}
+          onChange={setFiltroModalidadSel}
         />
       </BarraFiltros>
 

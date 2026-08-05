@@ -8,8 +8,10 @@ import { useCargasCombustible, type FiltroCargas } from '@/lib/api/combustible';
 import { DetalleCarga } from '@/features/combustible/detalle-carga';
 import { StatusBadge } from '@/components/status-badge';
 import { PageHeader } from '@/components/page-header';
-import { BarraFiltros, FiltroFecha, FiltroSelect } from '@/components/ui/barra-filtros';
-import type { EstadoCargaCombustible } from '@/types/domain';
+import { BarraFiltros, FiltroFecha, MultiFiltro } from '@/components/ui/barra-filtros';
+import { opcionesFacetadas } from '@/lib/facetado';
+
+const ESTADO_LABEL: Record<'activa' | 'anulada', string> = { activa: 'Activas', anulada: 'Anuladas' };
 
 export default function CombustiblePage() {
   const { perfil } = useSession();
@@ -17,28 +19,65 @@ export default function CombustiblePage() {
 
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
-  const [movilId, setMovilId] = useState<number | ''>('');
-  const [estado, setEstado] = useState<EstadoCargaCombustible | ''>('activa');
+  const [movilIds, setMovilIds] = useState<string[]>([]);
+  // Por defecto solo se ven las activas — mismo comportamiento que antes,
+  // ahora expresado como "Activas" tildado en el MultiFiltro.
+  const [estados, setEstados] = useState<string[]>(['activa']);
   const [detalleId, setDetalleId] = useState<number | null>(null);
 
+  // Móvil/Estado se filtran en cliente (multi-selección); las fechas siguen
+  // yendo server-side como antes.
   const filtro: FiltroCargas = useMemo(
     () => ({
       desde: desde || undefined,
       hasta: hasta || undefined,
-      movilId: movilId === '' ? undefined : movilId,
-      estado: estado === '' ? undefined : estado,
     }),
-    [desde, hasta, movilId, estado],
+    [desde, hasta],
   );
 
-  const { data: cargas, isLoading } = useCargasCombustible(filtro);
+  const { data: cargasSinFiltrarPorCategoria, isLoading } = useCargasCombustible(filtro);
 
-  const hayFiltros = desde !== '' || hasta !== '' || movilId !== '' || estado !== 'activa';
+  const cargas = useMemo(
+    () =>
+      (cargasSinFiltrarPorCategoria ?? []).filter(
+        (c) =>
+          (movilIds.length === 0 || movilIds.includes(String(c.movil.id))) &&
+          (estados.length === 0 || estados.includes(c.estado)),
+      ),
+    [cargasSinFiltrarPorCategoria, movilIds, estados],
+  );
+
+  const opcionesMovil = useMemo(() => {
+    const base = opcionesFacetadas(
+      (cargasSinFiltrarPorCategoria ?? []).filter((c) => estados.length === 0 || estados.includes(c.estado)),
+      (c) => String(c.movil.id),
+      movilIds,
+    );
+    const countPorId = new Map(base.map((o) => [o.value, o.count]));
+    return (moviles ?? []).map((m) => ({
+      value: String(m.id),
+      label: m.identificador,
+      count: countPorId.get(String(m.id)) ?? 0,
+    }));
+  }, [cargasSinFiltrarPorCategoria, moviles, estados, movilIds]);
+
+  const opcionesEstado = useMemo(
+    () =>
+      opcionesFacetadas(
+        (cargasSinFiltrarPorCategoria ?? []).filter((c) => movilIds.length === 0 || movilIds.includes(String(c.movil.id))),
+        (c) => c.estado,
+        estados,
+        { labelDe: (v) => ESTADO_LABEL[v as 'activa' | 'anulada'] ?? v },
+      ),
+    [cargasSinFiltrarPorCategoria, movilIds, estados],
+  );
+
+  const hayFiltros = desde !== '' || hasta !== '' || movilIds.length > 0 || !(estados.length === 1 && estados[0] === 'activa');
   function limpiarFiltros() {
     setDesde('');
     setHasta('');
-    setMovilId('');
-    setEstado('activa');
+    setMovilIds([]);
+    setEstados(['activa']);
   }
 
   const puedeCargar = perfil?.rol.nombre === 'JefeCuadrilla' || perfil?.rol.nombre === 'Admin';
@@ -63,22 +102,8 @@ export default function CombustiblePage() {
       <BarraFiltros hayFiltros={hayFiltros} onLimpiar={limpiarFiltros}>
         <FiltroFecha label="Desde" value={desde} onChange={setDesde} />
         <FiltroFecha label="Hasta" value={hasta} onChange={setHasta} />
-        <FiltroSelect
-          label="Móvil"
-          value={movilId}
-          onChange={(v) => setMovilId(v ? Number(v) : '')}
-          opciones={(moviles ?? []).map((m) => ({ value: m.id, label: m.identificador }))}
-        />
-        <FiltroSelect
-          label="Estado"
-          value={estado}
-          onChange={(v) => setEstado(v as EstadoCargaCombustible | '')}
-          opciones={[
-            { value: 'activa', label: 'Activas' },
-            { value: 'anulada', label: 'Anuladas' },
-          ]}
-          placeholder="Todas"
-        />
+        <MultiFiltro label="Móvil" opciones={opcionesMovil} seleccionados={movilIds} onChange={setMovilIds} />
+        <MultiFiltro label="Estado" opciones={opcionesEstado} seleccionados={estados} onChange={setEstados} />
       </BarraFiltros>
 
       {isLoading ? (

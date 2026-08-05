@@ -1,23 +1,28 @@
 'use client';
 
-import { BarraFiltros, FiltroFecha, FiltroSelect } from '@/components/ui/barra-filtros';
+import { BarraFiltros, FiltroFecha, MultiFiltro } from '@/components/ui/barra-filtros';
 
 export interface FiltrosRegistrosValue {
-  contratoId?: number;
-  cargadoPorCuil?: string;
-  operarioCuil?: string;
+  contratoIds?: string[];
+  cargadoPorCuils?: string[];
+  operarioCuils?: string[];
   fecha?: string;
 }
 
-/** Opciones para poblar cada select — quien renderiza decide de dónde salen
- * (ej. derivadas de los datos ya cargados en pantalla). */
-export interface FiltrosRegistrosOpciones {
-  contratos: { id: number; codigo: string }[];
-  cargadores: { cuil: string; nombre: string }[];
-  operarios: { cuil: string; apellido_nombre: string }[];
+export interface OpcionFiltroRegistros {
+  value: string;
+  label: string;
+  count: number;
 }
 
-const SIN_FILTRO = '';
+/** Opciones para poblar cada MultiFiltro — quien renderiza decide de dónde
+ * salen (ej. facetadas a partir de los datos ya cargados en pantalla, con
+ * los demás filtros aplicados). */
+export interface FiltrosRegistrosOpciones {
+  contratos: OpcionFiltroRegistros[];
+  cargadores: OpcionFiltroRegistros[];
+  operarios: OpcionFiltroRegistros[];
+}
 
 export function FiltrosRegistros({
   value,
@@ -28,38 +33,42 @@ export function FiltrosRegistros({
   onChange: (v: FiltrosRegistrosValue) => void;
   opciones: FiltrosRegistrosOpciones;
 }) {
-  const hayFiltros = Object.values(value).some((v) => v !== undefined && v !== '');
+  const hayFiltros =
+    (value.contratoIds?.length ?? 0) > 0 ||
+    (value.cargadoPorCuils?.length ?? 0) > 0 ||
+    (value.operarioCuils?.length ?? 0) > 0 ||
+    (value.fecha ?? '') !== '';
 
   return (
     <BarraFiltros hayFiltros={hayFiltros} onLimpiar={() => onChange({})}>
-      <FiltroSelect
+      <MultiFiltro
         label="Contrato"
         ariaLabel="Filtrar por contrato"
-        value={value.contratoId ?? SIN_FILTRO}
-        onChange={(v) => onChange({ ...value, contratoId: v ? Number(v) : undefined })}
-        opciones={opciones.contratos.map((c) => ({ value: c.id, label: c.codigo }))}
+        opciones={opciones.contratos}
+        seleccionados={value.contratoIds ?? []}
+        onChange={(v) => onChange({ ...value, contratoIds: v })}
       />
 
-      <FiltroSelect
+      <MultiFiltro
         label="Cargado por"
         ariaLabel="Filtrar por quién cargó"
-        value={value.cargadoPorCuil ?? SIN_FILTRO}
-        onChange={(v) => onChange({ ...value, cargadoPorCuil: v || undefined })}
-        opciones={opciones.cargadores.map((c) => ({ value: c.cuil, label: c.nombre }))}
+        opciones={opciones.cargadores}
+        seleccionados={value.cargadoPorCuils ?? []}
+        onChange={(v) => onChange({ ...value, cargadoPorCuils: v })}
       />
 
-      <FiltroSelect
+      <MultiFiltro
         label="Operario"
         ariaLabel="Filtrar por operario"
-        value={value.operarioCuil ?? SIN_FILTRO}
-        onChange={(v) => onChange({ ...value, operarioCuil: v || undefined })}
-        opciones={opciones.operarios.map((o) => ({ value: o.cuil, label: o.apellido_nombre }))}
+        opciones={opciones.operarios}
+        seleccionados={value.operarioCuils ?? []}
+        onChange={(v) => onChange({ ...value, operarioCuils: v })}
       />
 
       <FiltroFecha
         label="Fecha"
         ariaLabel="Filtrar por fecha"
-        value={value.fecha ?? SIN_FILTRO}
+        value={value.fecha ?? ''}
         onChange={(v) => onChange({ ...value, fecha: v || undefined })}
       />
     </BarraFiltros>

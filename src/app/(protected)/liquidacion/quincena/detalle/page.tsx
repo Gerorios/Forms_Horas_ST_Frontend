@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
-import { BarraFiltros, FiltroBusqueda, FiltroChecks } from '@/components/ui/barra-filtros';
+import { BarraFiltros, MultiFiltro } from '@/components/ui/barra-filtros';
+import { opcionesFacetadas } from '@/lib/facetado';
 import {
   useDetalleQuincena,
   useMontosMensualizados,
@@ -22,12 +23,8 @@ function nombreQuincena(quincena: number, mes: number, anio: number) {
   return `Quincena ${quincena === 1 ? '1ra' : '2da'} de ${nombreMes} ${anio}`;
 }
 
-function normalizar(s: string) {
-  return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-}
-
-function pasaNombre(nombre: string, filtro: string) {
-  return filtro === '' || normalizar(nombre).includes(normalizar(filtro));
+function pasaEmpleado(cuil: string, seleccionados: string[]) {
+  return seleccionados.length === 0 || seleccionados.includes(cuil);
 }
 
 function pasaRegimen(fila: FilaDetalleEmpleado, seleccionados: string[]) {
@@ -40,42 +37,6 @@ function pasaCategoria(fila: FilaDetalleEmpleado, seleccionados: string[]) {
 
 function pasaContrato(dias: { contratoCodigo: string }[], seleccionados: string[]) {
   return seleccionados.length === 0 || dias.some((d) => seleccionados.includes(d.contratoCodigo));
-}
-
-type OpcionFacet = { value: string; label: string; count: number };
-
-/** Opciones facetadas: cuentan cuántas filas (de las que ya pasan los DEMÁS
- * filtros) tienen cada valor, y siempre incluyen los valores ya
- * seleccionados aunque hayan quedado en 0 — así se pueden destildar. */
-function opcionesFacetUnicas(
-  filas: FilaDetalleEmpleado[],
-  extraer: (f: FilaDetalleEmpleado) => string | null,
-  seleccionados: string[],
-  labelDe: (v: string) => string,
-): OpcionFacet[] {
-  const counts = new Map<string, number>();
-  for (const f of filas) {
-    const v = extraer(f);
-    if (v == null) continue;
-    counts.set(v, (counts.get(v) ?? 0) + 1);
-  }
-  for (const s of seleccionados) if (!counts.has(s)) counts.set(s, 0);
-  return [...counts.entries()]
-    .map(([value, count]) => ({ value, label: labelDe(value), count }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-}
-
-function opcionesFacetContrato(filas: FilaDetalleEmpleado[], seleccionados: string[]): OpcionFacet[] {
-  const counts = new Map<string, number>();
-  for (const f of filas) {
-    for (const codigo of new Set(f.dias.map((d) => d.contratoCodigo))) {
-      counts.set(codigo, (counts.get(codigo) ?? 0) + 1);
-    }
-  }
-  for (const s of seleccionados) if (!counts.has(s)) counts.set(s, 0);
-  return [...counts.entries()]
-    .map(([value, count]) => ({ value, label: value, count }))
-    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
 function periodoEsValido(anio: number, mes: number, quincena: number) {
@@ -105,7 +66,7 @@ export default function DetalleQuincenaPage() {
   const [montoEdits, setMontoEdits] = useState<Record<string, string>>({});
   const [kmEdits, setKmEdits] = useState<Record<string, string>>({});
 
-  const [filtroNombre, setFiltroNombre] = useState('');
+  const [empleadoSel, setEmpleadoSel] = useState<string[]>([]);
   const [regimenSel, setRegimenSel] = useState<string[]>([]);
   const [categoriaSel, setCategoriaSel] = useState<string[]>([]);
   const [contratoSel, setContratoSel] = useState<string[]>([]);
@@ -119,53 +80,72 @@ export default function DetalleQuincenaPage() {
     [data?.sinPerfil],
   );
 
+  const nombrePorCuil = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const f of filas) m.set(f.cuil, f.nombre);
+    for (const e of sinPerfil) m.set(e.cuil, e.nombre);
+    return m;
+  }, [filas, sinPerfil]);
+
+  const opcionesEmpleado = useMemo(() => {
+    // Las filas sin perfil no tienen régimen/categoría/contrato, así que esos
+    // filtros no las excluyen de la lista de personas a elegir.
+    const candidatos: { cuil: string }[] = [
+      ...filas.filter((f) => pasaRegimen(f, regimenSel) && pasaCategoria(f, categoriaSel) && pasaContrato(f.dias, contratoSel)),
+      ...sinPerfil,
+    ];
+    return opcionesFacetadas(candidatos, (item) => item.cuil, empleadoSel, {
+      labelDe: (cuil) => nombrePorCuil.get(cuil) ?? cuil,
+    });
+  }, [filas, sinPerfil, regimenSel, categoriaSel, contratoSel, empleadoSel, nombrePorCuil]);
+
   const opcionesRegimen = useMemo(
     () =>
-      opcionesFacetUnicas(
-        filas.filter((f) => pasaNombre(f.nombre, filtroNombre) && pasaCategoria(f, categoriaSel) && pasaContrato(f.dias, contratoSel)),
+      opcionesFacetadas(
+        filas.filter((f) => pasaEmpleado(f.cuil, empleadoSel) && pasaCategoria(f, categoriaSel) && pasaContrato(f.dias, contratoSel)),
         (f) => f.regimen,
         regimenSel,
-        (v) => REGIMEN_LABEL[v as keyof typeof REGIMEN_LABEL] ?? v,
+        { labelDe: (v) => REGIMEN_LABEL[v as keyof typeof REGIMEN_LABEL] ?? v },
       ),
-    [filas, filtroNombre, categoriaSel, contratoSel, regimenSel],
+    [filas, empleadoSel, categoriaSel, contratoSel, regimenSel],
   );
 
   const opcionesCategoria = useMemo(
     () =>
-      opcionesFacetUnicas(
-        filas.filter((f) => pasaNombre(f.nombre, filtroNombre) && pasaRegimen(f, regimenSel) && pasaContrato(f.dias, contratoSel)),
+      opcionesFacetadas(
+        filas.filter((f) => pasaEmpleado(f.cuil, empleadoSel) && pasaRegimen(f, regimenSel) && pasaContrato(f.dias, contratoSel)),
         (f) => f.categoria,
         categoriaSel,
-        (v) => v,
       ),
-    [filas, filtroNombre, regimenSel, contratoSel, categoriaSel],
+    [filas, empleadoSel, regimenSel, contratoSel, categoriaSel],
   );
 
   const opcionesContrato = useMemo(
     () =>
-      opcionesFacetContrato(
-        filas.filter((f) => pasaNombre(f.nombre, filtroNombre) && pasaRegimen(f, regimenSel) && pasaCategoria(f, categoriaSel)),
+      opcionesFacetadas(
+        filas.filter((f) => pasaEmpleado(f.cuil, empleadoSel) && pasaRegimen(f, regimenSel) && pasaCategoria(f, categoriaSel)),
+        (f) => f.dias.map((d) => d.contratoCodigo),
         contratoSel,
       ),
-    [filas, filtroNombre, regimenSel, categoriaSel, contratoSel],
+    [filas, empleadoSel, regimenSel, categoriaSel, contratoSel],
   );
 
   const filasVisibles = filas.filter(
     (f) =>
-      pasaNombre(f.nombre, filtroNombre) &&
+      pasaEmpleado(f.cuil, empleadoSel) &&
       pasaRegimen(f, regimenSel) &&
       pasaCategoria(f, categoriaSel) &&
       pasaContrato(f.dias, contratoSel),
   );
   // Las filas sin perfil no tienen contrato/régimen/categoría asignados, así
-  // que esos filtros no les aplican: quedan siempre visibles (solo la
-  // búsqueda por nombre las filtra) y se atenúan cuando hay un filtro de
-  // contrato activo, para no desaparecer en silencio.
-  const sinPerfilVisibles = sinPerfil.filter((e) => pasaNombre(e.nombre, filtroNombre));
+  // que esos filtros no les aplican: quedan siempre visibles (solo el filtro
+  // de empleado las filtra) y se atenúan cuando hay un filtro de contrato
+  // activo, para no desaparecer en silencio.
+  const sinPerfilVisibles = sinPerfil.filter((e) => pasaEmpleado(e.cuil, empleadoSel));
 
-  const hayFiltros = filtroNombre !== '' || regimenSel.length > 0 || categoriaSel.length > 0 || contratoSel.length > 0;
+  const hayFiltros = empleadoSel.length > 0 || regimenSel.length > 0 || categoriaSel.length > 0 || contratoSel.length > 0;
   function limpiarFiltros() {
-    setFiltroNombre('');
+    setEmpleadoSel([]);
     setRegimenSel([]);
     setCategoriaSel([]);
     setContratoSel([]);
@@ -231,28 +211,28 @@ export default function DetalleQuincenaPage() {
       ) : (
         <>
           <BarraFiltros hayFiltros={hayFiltros} onLimpiar={limpiarFiltros}>
-            <FiltroBusqueda
+            <MultiFiltro
               label="Empleado"
               ariaLabel="Filtrar por empleado"
-              value={filtroNombre}
-              onChange={setFiltroNombre}
-              placeholder="Buscar por nombre…"
+              opciones={opcionesEmpleado}
+              seleccionados={empleadoSel}
+              onChange={setEmpleadoSel}
             />
-            <FiltroChecks
+            <MultiFiltro
               label="Régimen"
               ariaLabel="Filtrar por régimen"
               opciones={opcionesRegimen}
               seleccionados={regimenSel}
               onChange={setRegimenSel}
             />
-            <FiltroChecks
+            <MultiFiltro
               label="Categoría"
               ariaLabel="Filtrar por categoría"
               opciones={opcionesCategoria}
               seleccionados={categoriaSel}
               onChange={setCategoriaSel}
             />
-            <FiltroChecks
+            <MultiFiltro
               label="Contrato"
               ariaLabel="Filtrar por contrato"
               opciones={opcionesContrato}

@@ -196,10 +196,12 @@ describe('DetalleQuincenaPage', () => {
     );
   });
 
-  it('el filtro de empleado por nombre reduce las filas visibles', async () => {
+  it('el filtro de empleado (MultiFiltro de personas) reduce las filas visibles', async () => {
     renderPage();
-    await userEvent.type(screen.getByLabelText('Filtrar por empleado'), 'gomez');
-    expect(screen.getByText('GOMEZ CARLOS')).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText('Filtrar por empleado'));
+    await userEvent.click(screen.getByLabelText('GOMEZ CARLOS'));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByRole('cell', { name: 'GOMEZ CARLOS' })).toBeInTheDocument();
     expect(screen.queryByText('PEREZ ANA')).not.toBeInTheDocument();
     expect(screen.queryByText('MENSUAL JUAN')).not.toBeInTheDocument();
     expect(screen.getByText(/Mostrando 1 de 4 empleados/)).toBeInTheDocument();
