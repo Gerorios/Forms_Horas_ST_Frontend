@@ -10,6 +10,7 @@ import {
   usePerfilesLiquidacion,
   useUpsertPerfilesMasivo,
   useEliminarPerfilLiquidacion,
+  mensajeDeError,
   type RegimenLiquidacion,
   type ModalidadPago,
 } from '@/lib/api/liquidacion';
@@ -128,7 +129,7 @@ export default function PerfilesLiquidacionPage() {
     toast.promise(promesa, {
       loading: `Asignando a ${seleccionados.length} empleado(s)…`,
       success: 'Perfiles asignados',
-      error: 'No se pudo asignar',
+      error: (e) => mensajeDeError(e, 'No se pudo asignar'),
     });
     promesa.then(() => setSeleccionados([])).catch(() => {});
   }
@@ -137,7 +138,7 @@ export default function PerfilesLiquidacionPage() {
     toast.promise(eliminar.mutateAsync(cuil), {
       loading: 'Quitando…',
       success: 'Perfil quitado del panel de liquidación',
-      error: 'No se pudo quitar',
+      error: (e) => mensajeDeError(e, 'No se pudo quitar'),
     });
   }
 

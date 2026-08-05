@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
-import { useCategoriasUocra, useCrearCategoriaUocra, useToggleCategoriaUocra } from '@/lib/api/liquidacion';
+import { useCategoriasUocra, useCrearCategoriaUocra, useToggleCategoriaUocra, mensajeDeError } from '@/lib/api/liquidacion';
 
 export default function CategoriasUocraPage() {
   const { data: categorias, isLoading } = useCategoriasUocra();
@@ -17,7 +17,7 @@ export default function CategoriasUocraPage() {
     toast.promise(crearCategoria.mutateAsync({ nombre: nombre.trim() }), {
       loading: 'Guardando…',
       success: 'Categoría creada',
-      error: 'No se pudo crear',
+      error: (e) => mensajeDeError(e, 'No se pudo crear la categoría'),
     });
     setNombre('');
   }
