@@ -343,13 +343,13 @@ export default function TarifasPage() {
               </div>
 
               <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
-                <h2 className="font-display text-sm font-semibold text-ink">Monto por día por tipo de novedad</h2>
+                <h2 className="font-display text-sm font-semibold text-ink">Monto por novedad (por cada carga declarada)</h2>
                 {(estado?.tiposNovedad ?? []).length > 0 ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Tipo de novedad</TableHead>
-                        <TableHead className="text-right">Monto por día</TableHead>
+                        <TableHead className="text-right">Monto por novedad</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -496,7 +496,7 @@ export default function TarifasPage() {
               </div>
 
               <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
-                <h2 className="font-display text-sm font-semibold text-ink">Novedades con plus (por día)</h2>
+                <h2 className="font-display text-sm font-semibold text-ink">Novedades con plus (por carga)</h2>
                 {(estado?.tiposNovedad ?? []).map((t) => (
                   <label key={t.id} className="flex items-center justify-between gap-3 text-sm text-ink">
                     {t.nombre}
