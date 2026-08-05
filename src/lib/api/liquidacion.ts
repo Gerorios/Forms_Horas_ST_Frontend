@@ -162,10 +162,38 @@ function periodoHabilitado(anio: number, mes: number) {
   return Number.isInteger(anio) && anio > 0 && Number.isInteger(mes) && mes >= 1 && mes <= 12;
 }
 
+/** Shape crudo del backend (GET /liquidacion/tarifas/ronda/:anio/:mes). */
+interface RondaTarifasPeriodoApi {
+  anio: number;
+  mes: number;
+  categorias: { categoriaUocraId: number; nombre: string; importeHora: string | null }[];
+  tiposNovedad: { tipoNovedadId: number; nombre: string; montoPorDia: string | null }[];
+  rangosKm: { kmDesde: string; kmHasta: string | null; precioPorKm: string }[];
+  bonosNoRemunerativos: { categoriaUocraId: number; bono: { tipo: TipoBonoNoRemunerativo; valor: string } | null }[];
+}
+
+function adaptarRondaPeriodo(api: RondaTarifasPeriodoApi): RondaTarifasPeriodo {
+  const bonoPorCategoria = new Map(api.bonosNoRemunerativos.map((b) => [b.categoriaUocraId, b.bono]));
+  return {
+    categorias: api.categorias.map((c) => ({
+      id: c.categoriaUocraId,
+      nombre: c.nombre,
+      importeHora: c.importeHora ?? '',
+      bonoNoRemunerativo: bonoPorCategoria.get(c.categoriaUocraId) ?? null,
+    })),
+    tiposNovedad: api.tiposNovedad.map((t) => ({
+      id: t.tipoNovedadId,
+      nombre: t.nombre,
+      montoPorDia: t.montoPorDia ?? '',
+    })),
+    rangosKm: api.rangosKm,
+  };
+}
+
 export function useRondaPeriodo(anio: number, mes: number, enabled = true) {
   return useQuery({
     queryKey: ['liquidacion', 'tarifas-ronda', anio, mes],
-    queryFn: () => get<RondaTarifasPeriodo>(`/liquidacion/tarifas/ronda/${anio}/${mes}`),
+    queryFn: async () => adaptarRondaPeriodo(await get<RondaTarifasPeriodoApi>(`/liquidacion/tarifas/ronda/${anio}/${mes}`)),
     enabled: enabled && periodoHabilitado(anio, mes),
     retry: false,
   });
