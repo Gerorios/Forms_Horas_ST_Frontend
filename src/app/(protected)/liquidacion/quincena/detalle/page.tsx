@@ -264,8 +264,8 @@ export default function DetalleQuincenaPage() {
                   <th className="px-3 py-2.5 font-medium">Hs totales</th>
                   <th className="px-3 py-2.5 font-medium">Hs CCT</th>
                   <th className="px-3 py-2.5 font-medium">Hs extra</th>
-                  <th className="px-3 py-2.5 font-medium">Básico</th>
-                  <th className="px-3 py-2.5 font-medium">Extras</th>
+                  <th className="px-3 py-2.5 font-medium">Total bruto</th>
+                  <th className="px-3 py-2.5 font-medium">$$ Hs Extras</th>
                   <th className="px-3 py-2.5 font-medium">Presentismo</th>
                   <th className="px-3 py-2.5 font-medium">Plus</th>
                   <th className="px-3 py-2.5 font-medium">Bono</th>

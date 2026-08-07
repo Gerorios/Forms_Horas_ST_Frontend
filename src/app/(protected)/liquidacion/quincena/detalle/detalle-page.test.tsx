@@ -281,7 +281,7 @@ describe('DetalleQuincenaPage', () => {
   it('la tabla de "por tantos" muestra km, monto bruto, horas y el extra ya sin ×1.5, etiquetado en B', () => {
     renderPage();
     expect(screen.getByText('Por tantos (relevadores)')).toBeInTheDocument();
-    expect(screen.getByText('Extra (en B)')).toBeInTheDocument();
+    expect(screen.getByText('$$ Hs Extras (en B)')).toBeInTheDocument();
 
     const fila = screen.getByRole('cell', { name: 'RELEVADOR PABLO' }).closest('tr')!;
     expect(fila).toHaveTextContent('175.00'); // km cargado

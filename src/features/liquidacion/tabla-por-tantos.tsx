@@ -30,9 +30,9 @@ export function TablaPorTantos({
             <th className="px-3 py-2.5 font-medium">Monto bruto</th>
             <th className="px-3 py-2.5 font-medium">Hs totales</th>
             <th className="px-3 py-2.5 font-medium">Hs CCT</th>
-            <th className="px-3 py-2.5 font-medium">Básico</th>
+            <th className="px-3 py-2.5 font-medium">Total bruto</th>
             <th className="px-3 py-2.5 font-medium">Hs extra</th>
-            <th className="px-3 py-2.5 font-medium">Extra (en B)</th>
+            <th className="px-3 py-2.5 font-medium">$$ Hs Extras (en B)</th>
             <th className="px-3 py-2.5 font-medium">Presentismo</th>
             <th className="px-3 py-2.5 font-medium">TOTAL</th>
             <th className="px-3 py-2.5 font-medium">Alertas</th>
