@@ -12,7 +12,7 @@ export const REGIMEN_LABEL: Record<RegimenLiquidacion, string> = {
   administrativo: 'Administrativo',
 };
 
-const COLUMNAS = 12;
+const COLUMNAS = 14;
 
 export function formatMoney(v: string) {
   return Number(v).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
@@ -48,6 +48,12 @@ export function FilaEmpleado({
         <td className="px-3 py-2.5">{fila.categoria ?? '—'}</td>
         <td className="px-3 py-2.5 tabular-nums">
           {fila.horasTotal !== null ? Number(fila.horasTotal).toFixed(2) : '—'}
+        </td>
+        <td className="px-3 py-2.5 tabular-nums">
+          {fila.horasCct !== null ? Number(fila.horasCct).toFixed(2) : '—'}
+        </td>
+        <td className="px-3 py-2.5 tabular-nums">
+          {fila.horasExtra !== null ? Number(fila.horasExtra).toFixed(2) : '—'}
         </td>
         <td className="px-3 py-2.5 tabular-nums">{formatMoney(fila.basico)}</td>
         <td className="px-3 py-2.5 tabular-nums">{formatMoney(fila.montoExtra)}</td>

@@ -255,13 +255,15 @@ export default function DetalleQuincenaPage() {
           </p>
 
           <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-            <table className="w-full min-w-[1100px] text-sm">
+            <table className="w-full min-w-[1250px] text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
                   <th className="px-3 py-2.5 font-medium">Empleado</th>
                   <th className="px-3 py-2.5 font-medium">Régimen</th>
                   <th className="px-3 py-2.5 font-medium">Categoría</th>
-                  <th className="px-3 py-2.5 font-medium">Hs</th>
+                  <th className="px-3 py-2.5 font-medium">Hs totales</th>
+                  <th className="px-3 py-2.5 font-medium">Hs CCT</th>
+                  <th className="px-3 py-2.5 font-medium">Hs extra</th>
                   <th className="px-3 py-2.5 font-medium">Básico</th>
                   <th className="px-3 py-2.5 font-medium">Extras</th>
                   <th className="px-3 py-2.5 font-medium">Presentismo</th>
@@ -292,7 +294,7 @@ export default function DetalleQuincenaPage() {
                     title={contratoSel.length > 0 ? 'Sin datos de contrato para filtrar' : undefined}
                   >
                     <td className="px-3 py-2.5">{e.nombre}</td>
-                    <td className="px-3 py-2.5" colSpan={7}>
+                    <td className="px-3 py-2.5" colSpan={9}>
                       {e.motivo === 'sin_perfil' ? 'Sin perfil de liquidación asignado' : 'Perfil incompleto'} —{' '}
                       {e.horasAprobadas}hs aprobadas
                     </td>
@@ -305,7 +307,7 @@ export default function DetalleQuincenaPage() {
                 ))}
                 {filasVisibles.length === 0 && sinPerfilVisibles.length === 0 && (
                   <tr>
-                    <td colSpan={12} className="px-3 py-3 text-sm text-slate">
+                    <td colSpan={14} className="px-3 py-3 text-sm text-slate">
                       {filas.length === 0 && sinPerfil.length === 0
                         ? 'Sin empleados en esta quincena.'
                         : 'Ningún empleado coincide con los filtros aplicados.'}

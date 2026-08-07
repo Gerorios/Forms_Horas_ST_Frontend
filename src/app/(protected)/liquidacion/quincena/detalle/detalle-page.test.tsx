@@ -190,6 +190,21 @@ describe('DetalleQuincenaPage', () => {
     expect(screen.getByText(/duplicado/)).toBeInTheDocument();
   });
 
+  it('la tabla principal separa Hs totales, Hs CCT y Hs extra en columnas propias', () => {
+    renderPage();
+    // Los mismos encabezados existen en las dos tablas (principal y "por
+    // tantos") — alcanza con que existan, la fila de abajo confirma cuáles
+    // valores le corresponden a cada uno en la tabla principal.
+    expect(screen.getAllByRole('columnheader', { name: 'Hs totales' }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole('columnheader', { name: 'Hs CCT' }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole('columnheader', { name: 'Hs extra' }).length).toBeGreaterThanOrEqual(1);
+
+    const fila = screen.getByText('GOMEZ CARLOS').closest('tr')!;
+    expect(fila).toHaveTextContent('104.00'); // horas totales
+    expect(fila).toHaveTextContent('88.00'); // horas CCT
+    expect(fila).toHaveTextContent('16.00'); // horas extra
+  });
+
   it('muestra — para horas null de mensualizado y su chip de falta dato', () => {
     renderPage();
     expect(screen.getByText('MENSUAL JUAN')).toBeInTheDocument();
@@ -243,15 +258,24 @@ describe('DetalleQuincenaPage', () => {
     expect(screen.getByText(/Mostrando 1 de 4 empleados/)).toBeInTheDocument();
   });
 
-  it('"por tantos" no tiene fila expandible en la tabla principal ni aparece en su filtro de régimen', async () => {
+  it('"por tantos" no aparece duplicado en la tabla principal ni en su filtro de régimen', async () => {
     renderPage();
-    // Está en la tabla nueva (plana, sin expand) — no en ninguna fila con
-    // botón "Ver detalle" de la tabla de arriba.
-    const filaRelevador = screen.getByRole('cell', { name: 'RELEVADOR PABLO' }).closest('tr')!;
-    expect(filaRelevador).not.toHaveTextContent(/ver detalle/i);
+    // Solo debe existir una fila con este nombre (la de la tabla nueva),
+    // no una segunda copia colada en la tabla principal.
+    expect(screen.getAllByText('RELEVADOR PABLO')).toHaveLength(1);
 
     await userEvent.click(screen.getByLabelText('Filtrar por régimen'));
     expect(screen.queryByLabelText('Por tantos')).not.toBeInTheDocument();
+  });
+
+  it('la tabla de "por tantos" tiene su propia pestaña de detalle con las novedades del período', async () => {
+    renderPage();
+    const fila = screen.getByRole('cell', { name: 'RELEVADOR PABLO' }).closest('tr')!;
+    expect(fila).toHaveTextContent(/ver detalle/i);
+
+    await userEvent.click(screen.getByText('RELEVADOR PABLO'));
+    expect(screen.getByText('Novedades del período')).toBeInTheDocument();
+    expect(screen.getByText('Sin novedades en el período.')).toBeInTheDocument();
   });
 
   it('la tabla de "por tantos" muestra km, monto bruto, horas y el extra ya sin ×1.5, etiquetado en B', () => {
