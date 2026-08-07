@@ -34,6 +34,7 @@ export function UsuarioEditRow({
     usuario.tiposNovedadHabilitados.map((t) => t.tipoNovedadId),
   );
   const [cargaNovedades, setCargaNovedades] = useState(usuario.tiposNovedadHabilitados.length > 0);
+  const [puedeCargarKm, setPuedeCargarKm] = useState(usuario.puedeCargarKmPorTantos);
   const [password, setPassword] = useState('');
 
   const origContratos = usuario.contratosHabilitados.map((c) => c.contratoId);
@@ -52,12 +53,14 @@ export function UsuarioEditRow({
   const tiposNovedadCambio =
     tiposNovedadIds.length !== origTiposNovedad.length ||
     tiposNovedadIds.some((id) => !origTiposNovedad.includes(id));
+  const puedeCargarKmCambio = puedeCargarKm !== usuario.puedeCargarKmPorTantos;
   const huboCambios =
     email.trim() !== usuario.email ||
     rolId !== usuario.rolId ||
     contratosCambio ||
     contratosJefeCambio ||
     tiposNovedadCambio ||
+    puedeCargarKmCambio ||
     password !== '';
 
   const puedeGuardar = emailValido && passwordValido && huboCambios && !editar.isPending;
@@ -86,6 +89,7 @@ export function UsuarioEditRow({
     setContratosJefeIds(origContratosJefe);
     setTiposNovedadIds(origTiposNovedad);
     setCargaNovedades(origTiposNovedad.length > 0);
+    setPuedeCargarKm(usuario.puedeCargarKmPorTantos);
     setPassword('');
   }
 
@@ -93,13 +97,14 @@ export function UsuarioEditRow({
     if (!puedeGuardar) return;
     const payload: {
       cuil: string; email?: string; rolId?: number; contratosIds?: number[];
-      contratosJefeIds?: number[]; tiposNovedadIds?: number[]; password?: string;
+      contratosJefeIds?: number[]; tiposNovedadIds?: number[]; puedeCargarKmPorTantos?: boolean; password?: string;
     } = { cuil: usuario.cuil };
     if (email.trim() !== usuario.email) payload.email = email.trim();
     if (rolId !== usuario.rolId) payload.rolId = rolId;
     if (contratosCambio) payload.contratosIds = contratosIds;
     if (contratosJefeCambio) payload.contratosJefeIds = contratosJefeIds;
     if (tiposNovedadCambio) payload.tiposNovedadIds = tiposNovedadIds;
+    if (puedeCargarKmCambio) payload.puedeCargarKmPorTantos = puedeCargarKm;
     if (password !== '') payload.password = password;
 
     const promesa = editar.mutateAsync(payload);
@@ -216,6 +221,16 @@ export function UsuarioEditRow({
                     })}
                   </div>
                 </div>
+              )}
+              {esJefeContrato && (
+                <label className="flex items-center gap-2 text-sm font-medium text-ink">
+                  <input
+                    type="checkbox"
+                    checked={puedeCargarKm}
+                    onChange={(e) => setPuedeCargarKm(e.target.checked)}
+                  />
+                  ¿Puede cargar Km por tantos?
+                </label>
               )}
               {esJefeCuadrilla && (
                 <div className="space-y-2">

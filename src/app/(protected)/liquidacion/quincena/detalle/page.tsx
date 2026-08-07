@@ -12,7 +12,6 @@ import {
   useMontosMensualizados,
   useCargarMontosMensualizados,
   useKmPorTantos,
-  useCargarKmPorTantos,
   mensajeDeError,
   type FilaDetalleEmpleado,
 } from '@/lib/api/liquidacion';
@@ -60,11 +59,15 @@ export default function DetalleQuincenaPage() {
   const { data, isLoading } = useDetalleQuincena(anio, mes, quincena, periodoValido);
   const { data: montosMensualizados } = useMontosMensualizados(anio, mes, quincena);
   const cargarMontos = useCargarMontosMensualizados();
+  // Solo lectura: el km de "por tantos" lo carga el Jefe de Contrato
+  // habilitado (o Admin) en /km-por-tantos, ver ADR-014.
   const { data: kmsPorTantos } = useKmPorTantos(anio, mes, quincena);
-  const cargarKms = useCargarKmPorTantos();
+  const kmPorCuil = useMemo(
+    () => new Map((kmsPorTantos ?? []).map((k) => [k.cuil, k.kmTotal])),
+    [kmsPorTantos],
+  );
 
   const [montoEdits, setMontoEdits] = useState<Record<string, string>>({});
-  const [kmEdits, setKmEdits] = useState<Record<string, string>>({});
 
   const [empleadoSel, setEmpleadoSel] = useState<string[]>([]);
   const [regimenSel, setRegimenSel] = useState<string[]>([]);
@@ -161,13 +164,6 @@ export default function DetalleQuincenaPage() {
     setMontoEdits(Object.fromEntries(montosMensualizados.map((m) => [m.cuil, m.monto ?? ''])));
   }, [montosMensualizados, clavePeriodo]);
 
-  const kmsSyncKey = useRef('');
-  useEffect(() => {
-    if (!kmsPorTantos || kmsSyncKey.current === clavePeriodo) return;
-    kmsSyncKey.current = clavePeriodo;
-    setKmEdits(Object.fromEntries(kmsPorTantos.map((k) => [k.cuil, k.kmTotal ?? ''])));
-  }, [kmsPorTantos, clavePeriodo]);
-
   function guardarMonto(cuil: string) {
     const v = montoEdits[cuil];
     if (v === undefined || v === '') return;
@@ -175,16 +171,6 @@ export default function DetalleQuincenaPage() {
       loading: 'Guardando monto…',
       success: 'Monto guardado',
       error: (e) => mensajeDeError(e, 'No se pudo guardar el monto'),
-    });
-  }
-
-  function guardarKm(cuil: string) {
-    const v = kmEdits[cuil];
-    if (v === undefined || v === '') return;
-    toast.promise(cargarKms.mutateAsync({ anio, mes, quincena, kms: [{ cuil, kmTotal: Number(v) }] }), {
-      loading: 'Guardando km…',
-      success: 'Km guardado',
-      error: (e) => mensajeDeError(e, 'No se pudo guardar el km'),
     });
   }
 
@@ -272,10 +258,7 @@ export default function DetalleQuincenaPage() {
                     onMontoEditChange={(v) => setMontoEdits((prev) => ({ ...prev, [f.cuil]: v }))}
                     onGuardarMonto={() => guardarMonto(f.cuil)}
                     guardandoMonto={cargarMontos.isPending}
-                    kmEdit={kmEdits[f.cuil] ?? ''}
-                    onKmEditChange={(v) => setKmEdits((prev) => ({ ...prev, [f.cuil]: v }))}
-                    onGuardarKm={() => guardarKm(f.cuil)}
-                    guardandoKm={cargarKms.isPending}
+                    kmTotal={kmPorCuil.get(f.cuil) ?? null}
                     contratosDestacados={contratoSel}
                   />
                 ))}

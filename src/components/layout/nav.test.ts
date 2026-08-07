@@ -3,8 +3,12 @@ import { navForRole } from './nav';
 import { canAccess } from '@/lib/auth/guards';
 import type { Rol } from '@/types/domain';
 
-function perfil(rol: Rol, tiposNovedadHabilitados: { tipoNovedad: { id: number; nombre: string } }[] = []) {
-  return { rol: { nombre: rol }, tiposNovedadHabilitados };
+function perfil(
+  rol: Rol,
+  tiposNovedadHabilitados: { tipoNovedad: { id: number; nombre: string } }[] = [],
+  puedeCargarKmPorTantos = false,
+) {
+  return { rol: { nombre: rol }, tiposNovedadHabilitados, puedeCargarKmPorTantos };
 }
 
 describe('navForRole', () => {
@@ -75,6 +79,18 @@ describe('navForRole', () => {
 
   it('Admin ve Combustible', () => {
     expect(navForRole(perfil('Admin')).map((i) => i.href)).toContain('/combustible');
+  });
+
+  it('JefeContrato sin el flag NO ve Km por tantos', () => {
+    expect(navForRole(perfil('JefeContrato')).map((i) => i.href)).not.toContain('/km-por-tantos');
+  });
+
+  it('JefeContrato con el flag habilitado SÍ ve Km por tantos', () => {
+    expect(navForRole(perfil('JefeContrato', [], true)).map((i) => i.href)).toContain('/km-por-tantos');
+  });
+
+  it('Admin ve Km por tantos siempre', () => {
+    expect(navForRole(perfil('Admin')).map((i) => i.href)).toContain('/km-por-tantos');
   });
 });
 

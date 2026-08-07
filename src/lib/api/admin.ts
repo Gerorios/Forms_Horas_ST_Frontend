@@ -18,6 +18,8 @@ export interface UsuarioAdmin {
   contratosComoJefe: { id: number; codigo: string }[];
   /** Tipos de novedad que puede cargar (solo aplica a JefeCuadrilla; ver ADR-007). */
   tiposNovedadHabilitados: { tipoNovedadId: number; tipoNovedad: { nombre: string } }[];
+  /** Habilita la pantalla "Km por tantos" (solo aplica a JefeContrato; ver ADR-014). */
+  puedeCargarKmPorTantos: boolean;
 }
 export interface AltaMasivaResp {
   creados: { cuil: string; apellido_nombre: string; email: string; password: string }[];
@@ -191,6 +193,7 @@ export function useEditarUsuario() {
       cuil: string; email?: string; password?: string; rolId?: number; activo?: boolean;
       nombreFueraNomina?: string;
       contratosIds?: number[]; contratosJefeIds?: number[]; tiposNovedadIds?: number[];
+      puedeCargarKmPorTantos?: boolean;
     }) => api.patch(`/admin/usuarios/${cuil}`, dto).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'usuarios'] });

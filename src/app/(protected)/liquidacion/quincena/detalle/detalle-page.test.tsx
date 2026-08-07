@@ -99,17 +99,41 @@ const filaMensualizado = {
   novedades: [],
 };
 
+const filaPorTantos = {
+  cuil: '20666666666',
+  nombre: 'RELEVADOR PABLO',
+  regimen: 'por_tantos',
+  categoria: 'Oficial UOCRA',
+  horasTotal: '15.30',
+  horasCct: '15.30',
+  basico: '62730.00',
+  montoExtra: '0.00',
+  presentismo: '12546.00',
+  totalPlus: '0.00',
+  noRemunerativo: '0.00',
+  total: '75276.00',
+  modalidadPago: 'en_b',
+  etiquetaNovedades: '',
+  datoFaltante: null,
+  pendientesAprobacion: 0,
+  duplicadoCruzado: false,
+  dias: [],
+  novedades: [],
+};
+
 // Los hooks de lectura se mockean con datos fijos (no dependen de la red);
-// los de escritura (useCargarMontosMensualizados / useCargarKmPorTantos) se
-// dejan con su implementación real para poder verificar la invalidación de
-// caché real de react-query tras un guardado exitoso.
+// el de escritura (useCargarMontosMensualizados, que sigue siendo editable
+// por el Liquidador) se deja con su implementación real para poder
+// verificar la invalidación de caché real de react-query tras un guardado
+// exitoso. useCargarKmPorTantos ya no lo usa esta página (el km "por
+// tantos" pasó a ser solo lectura acá, ver ADR-014).
 vi.mock('@/lib/api/liquidacion', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/liquidacion')>();
   return {
     ...actual,
     useDetalleQuincena: () => ({
       data: {
-        filas: [filaJornalizado, filaJornalizado2, filaMensualizado],
+        filas: [filaJornalizado, filaJornalizado2, filaMensualizado, filaPorTantos],
         sinPerfil: [{ cuil: '20444444444', nombre: 'SIN PERFIL PEDRO', horasAprobadas: '40.00', motivo: 'sin_perfil' }],
       },
       isLoading: false,
@@ -117,7 +141,7 @@ vi.mock('@/lib/api/liquidacion', async (importOriginal) => {
     useMontosMensualizados: () => ({
       data: [{ cuil: '20111111111', apellidoNombre: 'MENSUAL JUAN', monto: null }],
     }),
-    useKmPorTantos: () => ({ data: [] }),
+    useKmPorTantos: () => ({ data: [{ cuil: '20666666666', apellidoNombre: 'RELEVADOR PABLO', kmTotal: '150.00' }] }),
   };
 });
 vi.mock('sonner', () => ({ toast: { promise: vi.fn() } }));
@@ -204,7 +228,18 @@ describe('DetalleQuincenaPage', () => {
     expect(screen.getByRole('cell', { name: 'GOMEZ CARLOS' })).toBeInTheDocument();
     expect(screen.queryByText('PEREZ ANA')).not.toBeInTheDocument();
     expect(screen.queryByText('MENSUAL JUAN')).not.toBeInTheDocument();
-    expect(screen.getByText(/Mostrando 1 de 4 empleados/)).toBeInTheDocument();
+    expect(screen.getByText(/Mostrando 1 de 5 empleados/)).toBeInTheDocument();
+  });
+
+  it('el régimen "por tantos" muestra el km y las horas equivalentes de solo lectura', async () => {
+    renderPage();
+    await userEvent.click(screen.getByText('RELEVADOR PABLO'));
+    expect(screen.getByText('150.00')).toBeInTheDocument();
+    // "15.30" (horas) aparece dos veces: en la columna "Hs" de la fila colapsada
+    // y de nuevo en "Horas equivalentes" del detalle expandido.
+    expect(screen.getAllByText('15.30').length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByLabelText('Km — RELEVADOR PABLO')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /guardar km/i })).not.toBeInTheDocument();
   });
 
   it('tildar una categoría filtra las filas y acota las opciones de régimen', async () => {

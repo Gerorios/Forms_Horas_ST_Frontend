@@ -12,6 +12,7 @@ const PERFIL_FAKE = {
   empleado: { apellido_nombre: 'PEREZ JUAN', legajo: 10, cargo: 'Oficial' },
   contratosHabilitados: [],
   tiposNovedadHabilitados: [],
+  puedeCargarKmPorTantos: false,
 };
 
 function Probe() {

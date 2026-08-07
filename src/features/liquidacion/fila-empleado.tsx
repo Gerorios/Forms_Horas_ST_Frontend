@@ -24,10 +24,7 @@ export function FilaEmpleado({
   onMontoEditChange,
   onGuardarMonto,
   guardandoMonto,
-  kmEdit,
-  onKmEditChange,
-  onGuardarKm,
-  guardandoKm,
+  kmTotal,
   contratosDestacados,
 }: {
   fila: FilaDetalleEmpleado;
@@ -35,10 +32,8 @@ export function FilaEmpleado({
   onMontoEditChange: (v: string) => void;
   onGuardarMonto: () => void;
   guardandoMonto: boolean;
-  kmEdit: string;
-  onKmEditChange: (v: string) => void;
-  onGuardarKm: () => void;
-  guardandoKm: boolean;
+  /** Km cargado por el Jefe de Contrato para "por tantos" — solo lectura acá (ver ADR-014). */
+  kmTotal: string | null;
   /** Códigos de contrato tildados en el filtro de contrato — se resaltan los
    * días correspondientes en el expand (los totales de la fila no cambian). */
   contratosDestacados?: string[];
@@ -102,10 +97,7 @@ export function FilaEmpleado({
               onMontoEditChange={onMontoEditChange}
               onGuardarMonto={onGuardarMonto}
               guardandoMonto={guardandoMonto}
-              kmEdit={kmEdit}
-              onKmEditChange={onKmEditChange}
-              onGuardarKm={onGuardarKm}
-              guardandoKm={guardandoKm}
+              kmTotal={kmTotal}
               contratosDestacados={contratosDestacados}
             />
           </td>
