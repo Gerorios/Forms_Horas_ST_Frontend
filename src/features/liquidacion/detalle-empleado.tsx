@@ -14,7 +14,6 @@ export function DetalleEmpleado({
   onMontoEditChange,
   onGuardarMonto,
   guardandoMonto,
-  kmTotal,
   contratosDestacados = [],
 }: {
   fila: FilaDetalleEmpleado;
@@ -22,7 +21,6 @@ export function DetalleEmpleado({
   onMontoEditChange: (v: string) => void;
   onGuardarMonto: () => void;
   guardandoMonto: boolean;
-  kmTotal: string | null;
   contratosDestacados?: string[];
 }) {
   return (
@@ -60,25 +58,6 @@ export function DetalleEmpleado({
           >
             Guardar monto
           </button>
-        </div>
-      )}
-
-      {fila.regimen === 'por_tantos' && (
-        <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-md border border-line bg-surface p-2 text-xs text-slate">
-          <span>
-            Km de esta quincena:{' '}
-            <span className="text-ink">{kmTotal ?? 'sin cargar'}</span>
-          </span>
-          <span>
-            Horas equivalentes:{' '}
-            <span className="text-ink">
-              {fila.horasTotal !== null ? Number(fila.horasTotal).toFixed(2) : '—'}
-            </span>
-          </span>
-          <span className="w-full text-slate/80">
-            Lo carga el Jefe de Contrato habilitado (o Admin) en &quot;Km por tantos&quot; — acá es
-            solo lectura. Ver ADR-014.
-          </span>
         </div>
       )}
 

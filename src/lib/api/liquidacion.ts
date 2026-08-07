@@ -336,8 +336,11 @@ export interface FilaDetalleEmpleado {
   nombre: string;
   regimen: RegimenLiquidacion;
   categoria: string | null;
+  /** Solo "por tantos": km × precio del rango, antes de convertir a horas. Null para el resto. Ver ADR-015. */
+  montoKmBruto: string | null;
   horasTotal: string | null;
   horasCct: string | null;
+  horasExtra: string | null;
   basico: string;
   montoExtra: string;
   presentismo: string;

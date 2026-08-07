@@ -16,6 +16,7 @@ import {
   type FilaDetalleEmpleado,
 } from '@/lib/api/liquidacion';
 import { FilaEmpleado, REGIMEN_LABEL } from '@/features/liquidacion/fila-empleado';
+import { TablaPorTantos } from '@/features/liquidacion/tabla-por-tantos';
 
 function nombreQuincena(quincena: number, mes: number, anio: number) {
   const nombreMes = new Date(2000, mes - 1, 1).toLocaleDateString('es-AR', { month: 'long' });
@@ -74,8 +75,20 @@ export default function DetalleQuincenaPage() {
   const [categoriaSel, setCategoriaSel] = useState<string[]>([]);
   const [contratoSel, setContratoSel] = useState<string[]>([]);
 
+  // "Por tantos" se muestra en una tabla propia (columnas y regla de extra
+  // distintas — ver ADR-015), separada del resto de los regímenes.
   const filas = useMemo(
-    () => [...(data?.filas ?? [])].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+    () =>
+      [...(data?.filas ?? [])]
+        .filter((f) => f.regimen !== 'por_tantos')
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+    [data?.filas],
+  );
+  const filasPorTantos = useMemo(
+    () =>
+      [...(data?.filas ?? [])]
+        .filter((f) => f.regimen === 'por_tantos')
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
     [data?.filas],
   );
   const sinPerfil = useMemo(
@@ -86,21 +99,25 @@ export default function DetalleQuincenaPage() {
   const nombrePorCuil = useMemo(() => {
     const m = new Map<string, string>();
     for (const f of filas) m.set(f.cuil, f.nombre);
+    for (const f of filasPorTantos) m.set(f.cuil, f.nombre);
     for (const e of sinPerfil) m.set(e.cuil, e.nombre);
     return m;
-  }, [filas, sinPerfil]);
+  }, [filas, filasPorTantos, sinPerfil]);
 
+  // Empleado y Categoría se comparten entre las dos tablas (ver ADR-014);
+  // Régimen y Contrato solo aplican a la tabla principal (no a "por tantos").
   const opcionesEmpleado = useMemo(() => {
     // Las filas sin perfil no tienen régimen/categoría/contrato, así que esos
     // filtros no las excluyen de la lista de personas a elegir.
     const candidatos: { cuil: string }[] = [
       ...filas.filter((f) => pasaRegimen(f, regimenSel) && pasaCategoria(f, categoriaSel) && pasaContrato(f.dias, contratoSel)),
+      ...filasPorTantos.filter((f) => pasaCategoria(f, categoriaSel)),
       ...sinPerfil,
     ];
     return opcionesFacetadas(candidatos, (item) => item.cuil, empleadoSel, {
       labelDe: (cuil) => nombrePorCuil.get(cuil) ?? cuil,
     });
-  }, [filas, sinPerfil, regimenSel, categoriaSel, contratoSel, empleadoSel, nombrePorCuil]);
+  }, [filas, filasPorTantos, sinPerfil, regimenSel, categoriaSel, contratoSel, empleadoSel, nombrePorCuil]);
 
   const opcionesRegimen = useMemo(
     () =>
@@ -116,11 +133,14 @@ export default function DetalleQuincenaPage() {
   const opcionesCategoria = useMemo(
     () =>
       opcionesFacetadas(
-        filas.filter((f) => pasaEmpleado(f.cuil, empleadoSel) && pasaRegimen(f, regimenSel) && pasaContrato(f.dias, contratoSel)),
+        [
+          ...filas.filter((f) => pasaEmpleado(f.cuil, empleadoSel) && pasaRegimen(f, regimenSel) && pasaContrato(f.dias, contratoSel)),
+          ...filasPorTantos.filter((f) => pasaEmpleado(f.cuil, empleadoSel)),
+        ],
         (f) => f.categoria,
         categoriaSel,
       ),
-    [filas, empleadoSel, regimenSel, contratoSel, categoriaSel],
+    [filas, filasPorTantos, empleadoSel, regimenSel, contratoSel, categoriaSel],
   );
 
   const opcionesContrato = useMemo(
@@ -145,6 +165,9 @@ export default function DetalleQuincenaPage() {
   // de empleado las filtra) y se atenúan cuando hay un filtro de contrato
   // activo, para no desaparecer en silencio.
   const sinPerfilVisibles = sinPerfil.filter((e) => pasaEmpleado(e.cuil, empleadoSel));
+  const filasPorTantosVisibles = filasPorTantos.filter(
+    (f) => pasaEmpleado(f.cuil, empleadoSel) && pasaCategoria(f, categoriaSel),
+  );
 
   const hayFiltros = empleadoSel.length > 0 || regimenSel.length > 0 || categoriaSel.length > 0 || contratoSel.length > 0;
   function limpiarFiltros() {
@@ -258,7 +281,6 @@ export default function DetalleQuincenaPage() {
                     onMontoEditChange={(v) => setMontoEdits((prev) => ({ ...prev, [f.cuil]: v }))}
                     onGuardarMonto={() => guardarMonto(f.cuil)}
                     guardandoMonto={cargarMontos.isPending}
-                    kmTotal={kmPorCuil.get(f.cuil) ?? null}
                     contratosDestacados={contratoSel}
                   />
                 ))}
@@ -292,6 +314,13 @@ export default function DetalleQuincenaPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate">
+              Por tantos (relevadores)
+            </h2>
+            <TablaPorTantos filas={filasPorTantosVisibles} kmPorCuil={kmPorCuil} />
           </div>
         </>
       )}
