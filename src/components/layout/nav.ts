@@ -17,15 +17,23 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Ausencias', href: '/ausencias', roles: ['HyS'] },
   { label: 'Admin', href: '/admin', roles: ['Admin'] },
   { label: 'Liquidación', href: '/liquidacion', roles: ['Liquidador', 'Admin'] },
+  { label: 'Km por tantos', href: '/km-por-tantos', roles: ['JefeContrato', 'Admin'] },
 ];
 
-export function navForRole(perfil: Pick<Perfil, 'rol' | 'tiposNovedadHabilitados'>): NavItem[] {
+export function navForRole(
+  perfil: Pick<Perfil, 'rol' | 'tiposNovedadHabilitados' | 'puedeCargarKmPorTantos'>,
+): NavItem[] {
   return NAV_ITEMS.filter((item) => {
     if (!item.roles.includes(perfil.rol.nombre)) return false;
     // JefeCuadrilla sin ningún tipo de novedad habilitado no ve la opción
     // (ver ADR-007) — Supervisor sigue viéndola siempre, sin restricción.
     if (item.href === '/novedades' && perfil.rol.nombre === 'JefeCuadrilla') {
       return perfil.tiposNovedadHabilitados.length > 0;
+    }
+    // JefeContrato sin el permiso puntual no ve "Km por tantos" (ver ADR-014)
+    // — Admin siempre la ve.
+    if (item.href === '/km-por-tantos' && perfil.rol.nombre === 'JefeContrato') {
+      return perfil.puedeCargarKmPorTantos;
     }
     return true;
   });

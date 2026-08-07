@@ -12,7 +12,7 @@ export const REGIMEN_LABEL: Record<RegimenLiquidacion, string> = {
   administrativo: 'Administrativo',
 };
 
-const COLUMNAS = 12;
+const COLUMNAS = 14;
 
 export function formatMoney(v: string) {
   return Number(v).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
@@ -24,10 +24,6 @@ export function FilaEmpleado({
   onMontoEditChange,
   onGuardarMonto,
   guardandoMonto,
-  kmEdit,
-  onKmEditChange,
-  onGuardarKm,
-  guardandoKm,
   contratosDestacados,
 }: {
   fila: FilaDetalleEmpleado;
@@ -35,10 +31,6 @@ export function FilaEmpleado({
   onMontoEditChange: (v: string) => void;
   onGuardarMonto: () => void;
   guardandoMonto: boolean;
-  kmEdit: string;
-  onKmEditChange: (v: string) => void;
-  onGuardarKm: () => void;
-  guardandoKm: boolean;
   /** Códigos de contrato tildados en el filtro de contrato — se resaltan los
    * días correspondientes en el expand (los totales de la fila no cambian). */
   contratosDestacados?: string[];
@@ -56,6 +48,12 @@ export function FilaEmpleado({
         <td className="px-3 py-2.5">{fila.categoria ?? '—'}</td>
         <td className="px-3 py-2.5 tabular-nums">
           {fila.horasTotal !== null ? Number(fila.horasTotal).toFixed(2) : '—'}
+        </td>
+        <td className="px-3 py-2.5 tabular-nums">
+          {fila.horasCct !== null ? Number(fila.horasCct).toFixed(2) : '—'}
+        </td>
+        <td className="px-3 py-2.5 tabular-nums">
+          {fila.horasExtra !== null ? Number(fila.horasExtra).toFixed(2) : '—'}
         </td>
         <td className="px-3 py-2.5 tabular-nums">{formatMoney(fila.basico)}</td>
         <td className="px-3 py-2.5 tabular-nums">{formatMoney(fila.montoExtra)}</td>
@@ -102,10 +100,6 @@ export function FilaEmpleado({
               onMontoEditChange={onMontoEditChange}
               onGuardarMonto={onGuardarMonto}
               guardandoMonto={guardandoMonto}
-              kmEdit={kmEdit}
-              onKmEditChange={onKmEditChange}
-              onGuardarKm={onGuardarKm}
-              guardandoKm={guardandoKm}
               contratosDestacados={contratosDestacados}
             />
           </td>

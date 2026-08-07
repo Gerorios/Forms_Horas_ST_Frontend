@@ -30,6 +30,8 @@ export interface Perfil {
   contratosHabilitados: { contrato: ContratoResumen }[];
   /** Tipos de novedad que puede cargar (solo aplica a JefeCuadrilla; ver ADR-007). */
   tiposNovedadHabilitados: { tipoNovedad: { id: number; nombre: string } }[];
+  /** Habilita la pantalla "Km por tantos" (solo aplica a JefeContrato; ver ADR-014). */
+  puedeCargarKmPorTantos: boolean;
 }
 
 export interface LoginResponse {

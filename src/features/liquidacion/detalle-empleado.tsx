@@ -14,10 +14,6 @@ export function DetalleEmpleado({
   onMontoEditChange,
   onGuardarMonto,
   guardandoMonto,
-  kmEdit,
-  onKmEditChange,
-  onGuardarKm,
-  guardandoKm,
   contratosDestacados = [],
 }: {
   fila: FilaDetalleEmpleado;
@@ -25,10 +21,6 @@ export function DetalleEmpleado({
   onMontoEditChange: (v: string) => void;
   onGuardarMonto: () => void;
   guardandoMonto: boolean;
-  kmEdit: string;
-  onKmEditChange: (v: string) => void;
-  onGuardarKm: () => void;
-  guardandoKm: boolean;
   contratosDestacados?: string[];
 }) {
   return (
@@ -65,30 +57,6 @@ export function DetalleEmpleado({
             className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
           >
             Guardar monto
-          </button>
-        </div>
-      )}
-
-      {fila.regimen === 'por_tantos' && (
-        <div className="flex flex-wrap items-end gap-2 rounded-md border border-line bg-surface p-2">
-          <label className="flex flex-col text-xs font-medium text-slate">
-            Km de esta quincena
-            <input
-              aria-label={`Km — ${fila.nombre}`}
-              type="number"
-              step="0.01"
-              value={kmEdit}
-              onChange={(e) => onKmEditChange(e.target.value)}
-              className="mt-1 w-32 rounded-md border border-line bg-surface px-2 py-1.5 text-right tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={onGuardarKm}
-            disabled={guardandoKm}
-            className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-          >
-            Guardar km
           </button>
         </div>
       )}

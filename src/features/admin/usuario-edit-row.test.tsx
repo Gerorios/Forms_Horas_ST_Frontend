@@ -33,6 +33,7 @@ const USUARIO: UsuarioAdmin = {
   contratosHabilitados: [{ contratoId: 10, contrato: { codigo: 'K5' } }],
   contratosComoJefe: [],
   tiposNovedadHabilitados: [],
+  puedeCargarKmPorTantos: false,
 };
 
 const JEFE_CONTRATO: UsuarioAdmin = {
@@ -45,6 +46,7 @@ const JEFE_CONTRATO: UsuarioAdmin = {
   contratosHabilitados: [],
   contratosComoJefe: [{ id: 10, codigo: 'K5' }],
   tiposNovedadHabilitados: [],
+  puedeCargarKmPorTantos: false,
 };
 
 const JEFE_CUADRILLA: UsuarioAdmin = {
@@ -57,6 +59,7 @@ const JEFE_CUADRILLA: UsuarioAdmin = {
   contratosHabilitados: [],
   contratosComoJefe: [],
   tiposNovedadHabilitados: [{ tipoNovedadId: 21, tipoNovedad: { nombre: 'Viáticos' } }],
+  puedeCargarKmPorTantos: false,
 };
 
 // Helper: renderiza la fila dentro de una tabla válida.
@@ -127,6 +130,36 @@ describe('UsuarioEditRow', () => {
     renderRow();
     await userEvent.click(screen.getByRole('button', { name: /editar/i }));
     expect(screen.queryByText(/contratos de los que es jefe/i)).not.toBeInTheDocument();
+  });
+
+  it('el rol Operario no muestra "¿Puede cargar Km por tantos?"', async () => {
+    renderRow();
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    expect(screen.queryByRole('checkbox', { name: /puede cargar km por tantos/i })).not.toBeInTheDocument();
+  });
+
+  it('un JefeContrato ve el toggle de Km por tantos, destildado por defecto', async () => {
+    renderRow(JEFE_CONTRATO);
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    expect(screen.getByRole('checkbox', { name: /puede cargar km por tantos/i })).not.toBeChecked();
+  });
+
+  it('un JefeContrato con el flag ya habilitado lo precarga tildado', async () => {
+    renderRow({ ...JEFE_CONTRATO, puedeCargarKmPorTantos: true });
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    expect(screen.getByRole('checkbox', { name: /puede cargar km por tantos/i })).toBeChecked();
+  });
+
+  it('tildar el toggle de Km por tantos y guardar envía puedeCargarKmPorTantos', async () => {
+    renderRow(JEFE_CONTRATO);
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /puede cargar km por tantos/i }));
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    await waitFor(() =>
+      expect(editar).toHaveBeenCalledWith(
+        expect.objectContaining({ cuil: '20222222222', puedeCargarKmPorTantos: true }),
+      ),
+    );
   });
 
   it('un JefeContrato precarga sus contratos como jefe, y editarlos envía contratosJefeIds', async () => {
