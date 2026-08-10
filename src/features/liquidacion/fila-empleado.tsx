@@ -20,17 +20,9 @@ export function formatMoney(v: string) {
 
 export function FilaEmpleado({
   fila,
-  montoEdit,
-  onMontoEditChange,
-  onGuardarMonto,
-  guardandoMonto,
   contratosDestacados,
 }: {
   fila: FilaDetalleEmpleado;
-  montoEdit: string;
-  onMontoEditChange: (v: string) => void;
-  onGuardarMonto: () => void;
-  guardandoMonto: boolean;
   /** Códigos de contrato tildados en el filtro de contrato — se resaltan los
    * días correspondientes en el expand (los totales de la fila no cambian). */
   contratosDestacados?: string[];
@@ -94,14 +86,7 @@ export function FilaEmpleado({
       {expandido && (
         <tr className="border-b border-line last:border-0">
           <td colSpan={COLUMNAS} className="bg-sand/30 px-3 py-3">
-            <DetalleEmpleado
-              fila={fila}
-              montoEdit={montoEdit}
-              onMontoEditChange={onMontoEditChange}
-              onGuardarMonto={onGuardarMonto}
-              guardandoMonto={guardandoMonto}
-              contratosDestacados={contratosDestacados}
-            />
+            <DetalleEmpleado fila={fila} contratosDestacados={contratosDestacados} />
           </td>
         </tr>
       )}

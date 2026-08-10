@@ -1,20 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { BarraFiltros, MultiFiltro } from '@/components/ui/barra-filtros';
 import { opcionesFacetadas } from '@/lib/facetado';
-import {
-  useDetalleQuincena,
-  useMontosMensualizados,
-  useCargarMontosMensualizados,
-  useKmPorTantos,
-  mensajeDeError,
-  type FilaDetalleEmpleado,
-} from '@/lib/api/liquidacion';
+import { useDetalleQuincena, useKmPorTantos, type FilaDetalleEmpleado } from '@/lib/api/liquidacion';
 import { FilaEmpleado, REGIMEN_LABEL } from '@/features/liquidacion/fila-empleado';
 import { TablaPorTantos } from '@/features/liquidacion/tabla-por-tantos';
 
@@ -58,17 +50,15 @@ export default function DetalleQuincenaPage() {
   const periodoValido = periodoEsValido(anio, mes, quincena);
 
   const { data, isLoading } = useDetalleQuincena(anio, mes, quincena, periodoValido);
-  const { data: montosMensualizados } = useMontosMensualizados(anio, mes, quincena);
-  const cargarMontos = useCargarMontosMensualizados();
   // Solo lectura: el km de "por tantos" lo carga el Jefe de Contrato
-  // habilitado (o Admin) en /km-por-tantos, ver ADR-014.
+  // habilitado (o Admin) en /km-por-tantos, ver ADR-014. El sueldo de
+  // mensualizado se carga en Tarifas > Sueldos mensualizados, ver ADR-016 —
+  // acá también es solo lectura (ya viene resuelto en fila.basico).
   const { data: kmsPorTantos } = useKmPorTantos(anio, mes, quincena);
   const kmPorCuil = useMemo(
     () => new Map((kmsPorTantos ?? []).map((k) => [k.cuil, k.kmTotal])),
     [kmsPorTantos],
   );
-
-  const [montoEdits, setMontoEdits] = useState<Record<string, string>>({});
 
   const [empleadoSel, setEmpleadoSel] = useState<string[]>([]);
   const [regimenSel, setRegimenSel] = useState<string[]>([]);
@@ -177,26 +167,6 @@ export default function DetalleQuincenaPage() {
     setContratoSel([]);
   }
 
-  // Los edits se resincronizan solo cuando cambia la quincena elegida, no en
-  // cada refetch de la misma quincena (evita pisar lo que se está tipeando).
-  const clavePeriodo = `${anio}-${mes}-${quincena}`;
-  const montosSyncKey = useRef('');
-  useEffect(() => {
-    if (!montosMensualizados || montosSyncKey.current === clavePeriodo) return;
-    montosSyncKey.current = clavePeriodo;
-    setMontoEdits(Object.fromEntries(montosMensualizados.map((m) => [m.cuil, m.monto ?? ''])));
-  }, [montosMensualizados, clavePeriodo]);
-
-  function guardarMonto(cuil: string) {
-    const v = montoEdits[cuil];
-    if (v === undefined || v === '') return;
-    toast.promise(cargarMontos.mutateAsync({ anio, mes, quincena, montos: [{ cuil, monto: Number(v) }] }), {
-      loading: 'Guardando monto…',
-      success: 'Monto guardado',
-      error: (e) => mensajeDeError(e, 'No se pudo guardar el monto'),
-    });
-  }
-
   if (!periodoValido) {
     return (
       <section className="space-y-5">
@@ -276,15 +246,7 @@ export default function DetalleQuincenaPage() {
               </thead>
               <tbody>
                 {filasVisibles.map((f) => (
-                  <FilaEmpleado
-                    key={f.cuil}
-                    fila={f}
-                    montoEdit={montoEdits[f.cuil] ?? ''}
-                    onMontoEditChange={(v) => setMontoEdits((prev) => ({ ...prev, [f.cuil]: v }))}
-                    onGuardarMonto={() => guardarMonto(f.cuil)}
-                    guardandoMonto={cargarMontos.isPending}
-                    contratosDestacados={contratoSel}
-                  />
+                  <FilaEmpleado key={f.cuil} fila={f} contratosDestacados={contratoSel} />
                 ))}
                 {sinPerfilVisibles.map((e) => (
                   <tr

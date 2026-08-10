@@ -42,12 +42,14 @@ export interface CargarRondaTarifasInput {
   bonosNoRemunerativos: { categoriaUocraId: number; tipo: TipoBonoNoRemunerativo; valor: number }[];
 }
 
-// ---- Datos variables por quincena ----
-export interface MontoMensualizadoItem {
+// ---- Sueldos mensualizados (vigentes — ver ADR-016) ----
+export interface SueldoMensualizadoItem {
   cuil: string;
   apellidoNombre: string;
   monto: string | null;
 }
+
+// ---- Datos variables por quincena ----
 export interface KmPorTantosItem {
   cuil: string;
   apellidoNombre: string;
@@ -240,21 +242,24 @@ export function useEliminarPerfilLiquidacion() {
   });
 }
 
-// ---- Datos variables por quincena (mensualizado / por tantos) ----
-export function useMontosMensualizados(anio: number, mes: number, quincena: number) {
+export function useSueldosMensualizados(anio: number, mes: number) {
   return useQuery({
-    queryKey: ['liquidacion', 'montos-mensualizados', anio, mes, quincena],
-    queryFn: () => get<MontoMensualizadoItem[]>('/liquidacion/quincena/montos-mensualizados', { anio, mes, quincena }),
+    queryKey: ['liquidacion', 'sueldos-mensualizados', anio, mes],
+    queryFn: () => get<SueldoMensualizadoItem[]>('/liquidacion/tarifas/sueldos-mensualizados', { anio, mes }),
   });
 }
-export function useCargarMontosMensualizados() {
+export function useGuardarSueldosMensualizados() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dto: { anio: number; mes: number; quincena: number; montos: { cuil: string; monto: number }[] }) =>
-      api.post('/liquidacion/quincena/montos-mensualizados', dto).then((r) => r.data),
-    onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['liquidacion', 'montos-mensualizados', vars.anio, vars.mes, vars.quincena] });
+    mutationFn: (dto: { anio: number; mes: number; sueldos: { cuil: string; monto: number }[] }) =>
+      api.put<SueldoMensualizadoItem[]>('/liquidacion/tarifas/sueldos-mensualizados', dto).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'sueldos-mensualizados'] });
       qc.invalidateQueries({ queryKey: ['liquidacion', 'quincena-detalle'] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincenas'] });
+      // Cargar/completar meses puede crear RondaTarifas nuevas (huecos) —
+      // refresca "último período cargado" que muestra la pestaña de Precios.
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-estado'] });
     },
   });
 }

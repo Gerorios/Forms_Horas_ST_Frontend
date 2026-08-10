@@ -132,13 +132,10 @@ const filaPorTantos = {
   novedades: [],
 };
 
-// Los hooks de lectura se mockean con datos fijos (no dependen de la red);
-// el de escritura (useCargarMontosMensualizados, que sigue siendo editable
-// por el Liquidador) se deja con su implementación real para poder
-// verificar la invalidación de caché real de react-query tras un guardado
-// exitoso. useCargarKmPorTantos ya no lo usa esta página (el km "por
-// tantos" se carga en /km-por-tantos, ver ADR-014, y acá solo se lee para
-// mostrarlo en la tabla separada de por_tantos, ver ADR-015).
+// Los hooks de lectura se mockean con datos fijos (no dependen de la red).
+// Ni el sueldo mensualizado (Tarifas > Sueldos mensualizados, ADR-016) ni el
+// km "por tantos" (/km-por-tantos, ADR-014) se cargan desde esta página —
+// acá solo se leen a través de fila.basico/la tabla separada.
 vi.mock('@/lib/api/liquidacion', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/liquidacion')>();
   return {
@@ -149,9 +146,6 @@ vi.mock('@/lib/api/liquidacion', async (importOriginal) => {
         sinPerfil: [{ cuil: '20444444444', nombre: 'SIN PERFIL PEDRO', horasAprobadas: '40.00', motivo: 'sin_perfil' }],
       },
       isLoading: false,
-    }),
-    useMontosMensualizados: () => ({
-      data: [{ cuil: '20111111111', apellidoNombre: 'MENSUAL JUAN', monto: null }],
     }),
     useKmPorTantos: () => ({ data: [{ cuil: '20666666666', apellidoNombre: 'RELEVADOR PABLO', kmTotal: '175.00' }] }),
   };
@@ -224,27 +218,12 @@ describe('DetalleQuincenaPage', () => {
     expect(screen.getByRole('link', { name: /ir a perfiles/i })).toHaveAttribute('href', '/liquidacion/perfiles');
   });
 
-  it('permite editar inline el monto mensualizado, lo guarda e invalida el detalle en caché', async () => {
-    const { invalidateSpy } = renderPage();
+  it('mensualizado es de solo lectura acá — el sueldo se carga en Tarifas (ADR-016)', async () => {
+    renderPage();
     await userEvent.click(screen.getByText('MENSUAL JUAN'));
-    await userEvent.type(screen.getByLabelText('Monto — MENSUAL JUAN'), '500000');
-    await userEvent.click(screen.getByRole('button', { name: /guardar monto/i }));
-
-    await waitFor(() =>
-      expect(apiPost).toHaveBeenCalledWith(
-        '/liquidacion/quincena/montos-mensualizados',
-        expect.objectContaining({ montos: [{ cuil: '20111111111', monto: 500000 }] }),
-      ),
-    );
-
-    // La invalidación real de react-query debe alcanzar tanto la query de
-    // montos-mensualizados como el detalle de la quincena (por prefijo), que
-    // es lo que hace que la tabla no quede stale tras el edit inline.
-    await waitFor(() =>
-      expect(invalidateSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ queryKey: ['liquidacion', 'quincena-detalle'] }),
-      ),
-    );
+    expect(screen.queryByLabelText('Monto — MENSUAL JUAN')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /guardar monto/i })).not.toBeInTheDocument();
+    expect(apiPost).not.toHaveBeenCalled();
   });
 
   it('el filtro de empleado (MultiFiltro de personas) reduce las filas visibles', async () => {
