@@ -97,6 +97,21 @@ vi.mock('@/lib/api/panel-general', () => ({
   useDetalleDiario: vi.fn(() => ({ data: DETALLE, isLoading: false })),
 }));
 
+// Los gráficos (Recharts) necesitan medidas reales que jsdom no da:
+// passthrough de ResponsiveContainer con tamaño fijo, y router mockeado
+// para el clic del ranking.
+vi.mock('recharts', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('recharts')>();
+  const { cloneElement } = await import('react');
+  return {
+    ...orig,
+    ResponsiveContainer: ({ children }: { children: React.ReactElement }) =>
+      cloneElement(children, { width: 800, height: 400 } as object),
+  };
+});
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 vi.mock('@/lib/api/catalogos', () => ({
   useProvincias: vi.fn(() => ({
     data: [
@@ -180,10 +195,11 @@ describe('ControlGeneralPage', () => {
     expect(idxSinCarga).toBeGreaterThan(idxDetalle);
   });
 
-  it('el gráfico histórico recibe los datos del hook (barras con tooltip)', () => {
-    render(<ControlGeneralPage />);
-    expect(screen.getByTitle('1ra quincena jul 2026: 100 hs')).toBeInTheDocument();
-    expect(screen.getByTitle('2da quincena jul 2026: 50 hs')).toBeInTheDocument();
+  it('el gráfico histórico recibe los datos del hook (dos series con leyenda)', () => {
+    const { container } = render(<ControlGeneralPage />);
+    expect(screen.getByText('1ra quincena')).toBeInTheDocument();
+    expect(screen.getByText('2da quincena')).toBeInTheDocument();
+    expect(container.querySelectorAll('.recharts-bar').length).toBeGreaterThanOrEqual(2);
   });
 
   it('el detalle diario muestra las filas con contrato, operario linkeado y estado', () => {
