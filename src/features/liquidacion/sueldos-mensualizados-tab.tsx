@@ -86,7 +86,8 @@ export function SueldosMensualizadosTab() {
         }
       />
       <p className="text-sm text-slate">
-        El sueldo se carga una vez y aplica en todas las quincenas de ahí en adelante, hasta el
+        Cargá el monto que cobra <strong>por quincena</strong> (no el sueldo mensual completo): se
+        aplica igual en las dos quincenas del mes elegido, y sigue vigente hacia adelante hasta el
         próximo cambio. Un mensualizado nuevo sin sueldo cargado todavía queda con el campo vacío
         para cargarlo a mano.
       </p>
@@ -135,7 +136,12 @@ export function SueldosMensualizadosTab() {
             <thead>
               <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
                 <th className="px-4 py-2.5 font-medium">Empleado</th>
-                <th className="px-4 py-2.5 font-medium">Sueldo de {etiquetaMes(mes, anio)}</th>
+                <th className="px-4 py-2.5 font-medium">
+                  Sueldo de {etiquetaMes(mes, anio)}
+                  <span className="mt-0.5 block normal-case text-[11px] font-normal text-slate/70">
+                    Acá va el monto que cobrará en la quincena
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>
