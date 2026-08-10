@@ -8,11 +8,14 @@ import { PageHeader } from '@/components/page-header';
 const DESCRIPCION: Record<string, string> = {
   '/reporte': 'Cargar las horas trabajadas del día por operario, tarea y contrato.',
   '/mis-registros': 'Consultar tus horas registradas, por quincena.',
+  '/combustible': 'Registrar y consultar cargas de combustible con foto del ticket. Módulo en construcción.',
   '/aprobaciones': 'Revisar y aprobar las horas pendientes de tus contratos.',
+  '/control-general': 'Tablero de la quincena: horas totales, histórico, ranking, detalle diario y empleados sin carga.',
   '/novedades': 'Cargar y ver novedades: ausencias, accidentes, francos.',
   '/ausencias': 'Aprobar o rechazar las ausencias que requieren Higiene y Seguridad.',
   '/admin': 'Administrar catálogos, usuarios y contratos.',
   '/liquidacion': 'Total a cobrar por empleado y quincena: horas, categoría, extras y plus.',
+  '/km-por-tantos': 'Cargar los km relevados de cada quincena para el personal "por tantos".',
 };
 
 export default function HomePage() {
