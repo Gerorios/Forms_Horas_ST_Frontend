@@ -74,22 +74,34 @@ export default function ControlGeneralPage() {
   const [quincena, setQuincena] = useState<Quincena>(() => quincenaAnterior(quincenaDeFecha(new Date())));
   const [contratosSel, setContratosSel] = useState<string[]>([]);
   const [provinciasSel, setProvinciasSel] = useState<string[]>([]);
+  const [operariosSel, setOperariosSel] = useState<string[]>([]);
   const [sinCargaSel, setSinCargaSel] = useState<string[]>([]);
   const [visiblesDetalle, setVisiblesDetalle] = useState(PAGINA_DETALLE);
   const sinCargaRef = useRef<HTMLDivElement>(null);
 
-  // Filtros server-side (contrato/provincia) compartidos por resumen,
-  // histórico y detalle. Sin carga NO los recibe: es una vista compartida
-  // entre todos los jefes, no scopeada a contratos.
-  const filtros = useMemo<FiltrosPanel>(
+  // Filtros server-side compartidos. El resumen recibe solo contrato y
+  // provincia: sus filas por operario son la fuente de las OPCIONES del
+  // filtro de operario (si también se filtrara por operario en el server,
+  // al tildar uno desaparecerían los demás del desplegable) — tiles y
+  // ranking se filtran por operario en el cliente. Histórico y detalle sí
+  // reciben el filtro completo. Sin carga no recibe ninguno: es una vista
+  // compartida entre todos los jefes, no scopeada a contratos.
+  const filtrosBase = useMemo<FiltrosPanel>(
     () => ({
       ...(contratosSel.length ? { contratoIds: contratosSel.map(Number) } : {}),
       ...(provinciasSel.length ? { provinciaIds: provinciasSel.map(Number) } : {}),
     }),
     [contratosSel, provinciasSel],
   );
+  const filtros = useMemo<FiltrosPanel>(
+    () => ({
+      ...filtrosBase,
+      ...(operariosSel.length ? { operarioCuils: operariosSel } : {}),
+    }),
+    [filtrosBase, operariosSel],
+  );
 
-  const { data: resumen, isLoading: cargandoResumen } = useResumenOperarios(quincena, filtros);
+  const { data: resumen, isLoading: cargandoResumen } = useResumenOperarios(quincena, filtrosBase);
   const { data: sinCarga, isLoading: cargandoSinCarga } = useSinCarga(quincena);
   const { data: misContratos } = useMisContratos();
   const { data: provincias } = useProvincias();
@@ -99,6 +111,13 @@ export default function ControlGeneralPage() {
   const quincenaActual = useMemo(() => quincenaDeFecha(new Date()), []);
   const { data: historico, isLoading: cargandoHistorico } = useHistoricoQuincenas(quincenaActual, filtros);
   const { data: detalle, isLoading: cargandoDetalle } = useDetalleDiario(quincena, filtros);
+
+  // Tiles y ranking respetan el filtro de operario (en el cliente, sobre
+  // el resumen que ya viene filtrado por contrato/provincia del server).
+  const resumenFiltrado = useMemo(
+    () => (resumen ?? []).filter((r) => pasaPersona(r.cuil, operariosSel)),
+    [resumen, operariosSel],
+  );
 
   function irASinCarga() {
     sinCargaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -112,6 +131,23 @@ export default function ControlGeneralPage() {
   const opcionesProvincia = useMemo(
     () => (provincias ?? []).map((p) => ({ value: String(p.id), label: p.nombre })),
     [provincias],
+  );
+
+  // Los operarios elegibles son los que tienen carga en la quincena (según
+  // contrato/provincia ya aplicados) — mismo criterio que tenía el viejo
+  // buscador del resumen.
+  const nombrePorCuilResumen = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of resumen ?? []) m.set(r.cuil, r.apellido_nombre);
+    return m;
+  }, [resumen]);
+
+  const opcionesOperario = useMemo(
+    () =>
+      opcionesFacetadas(resumen ?? [], (r) => r.cuil, operariosSel, {
+        labelDe: (cuil) => nombrePorCuilResumen.get(cuil) ?? cuil,
+      }),
+    [resumen, operariosSel, nombrePorCuilResumen],
   );
 
   const nombrePorCuilSinCarga = useMemo(() => {
@@ -142,11 +178,11 @@ export default function ControlGeneralPage() {
       });
   }, [sinCarga, sinCargaSel]);
 
-  const conHorasExtra = (resumen ?? []).filter((r) => r.superaHorasExtra).length;
-  const filasPendientes = (resumen ?? []).reduce((s, r) => s + r.pendiente, 0);
+  const conHorasExtra = resumenFiltrado.filter((r) => r.superaHorasExtra).length;
+  const filasPendientes = resumenFiltrado.reduce((s, r) => s + r.pendiente, 0);
   // Réplica del stat tile "Horas Totales" del Looker: pendientes + aprobadas
   // (totalHoras ya excluye rechazadas), redondeado a 1 decimal.
-  const horasQuincena = Math.round((resumen ?? []).reduce((s, r) => s + r.totalHoras, 0) * 10) / 10;
+  const horasQuincena = Math.round(resumenFiltrado.reduce((s, r) => s + r.totalHoras, 0) * 10) / 10;
 
   const detalleVisible = (detalle ?? []).slice(0, visiblesDetalle);
 
@@ -168,11 +204,18 @@ export default function ControlGeneralPage() {
           seleccionados={provinciasSel}
           onChange={setProvinciasSel}
         />
+        <MultiFiltro
+          label="Operario"
+          ariaLabel="Filtrar por operario"
+          opciones={opcionesOperario}
+          seleccionados={operariosSel}
+          onChange={setOperariosSel}
+        />
       </QuincenaSelect>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatTile label="Horas de la quincena" value={horasQuincena} />
-        <StatTile label="Operarios con carga" value={(resumen ?? []).length} />
+        <StatTile label="Operarios con carga" value={resumenFiltrado.length} />
         <StatTile label="Con horas extra (+88hs)" value={conHorasExtra} tono="warn" />
         <StatTile label="Filas pendientes de revisar" value={filasPendientes} tono="warn" />
         <StatTile label="Sin carga" value={(sinCarga ?? []).length} tono="danger" onClick={irASinCarga} />
@@ -195,7 +238,7 @@ export default function ControlGeneralPage() {
           {cargandoResumen ? (
             <p className="text-slate">Cargando…</p>
           ) : (
-            <RankingOperarios resumen={resumen ?? []} />
+            <RankingOperarios resumen={resumenFiltrado} />
           )}
         </div>
       </div>

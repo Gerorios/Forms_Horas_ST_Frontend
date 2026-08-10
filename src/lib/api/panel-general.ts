@@ -30,6 +30,9 @@ export interface ResumenOperario {
 export interface FiltrosPanel {
   contratoIds?: number[];
   provinciaIds?: number[];
+  /** CUILs de operarios. Solo lo consumen histórico y detalle (server-side);
+   * el resumen se filtra por operario en el cliente. */
+  operarioCuils?: string[];
 }
 
 export interface MisContrato {
@@ -81,6 +84,7 @@ function paramsFiltros(f: FiltrosPanel = {}) {
   return {
     ...(f.contratoIds?.length ? { contratoIds: f.contratoIds.join(',') } : {}),
     ...(f.provinciaIds?.length ? { provinciaIds: f.provinciaIds.join(',') } : {}),
+    ...(f.operarioCuils?.length ? { operarioCuils: f.operarioCuils.join(',') } : {}),
   };
 }
 

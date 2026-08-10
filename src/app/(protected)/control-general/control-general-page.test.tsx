@@ -244,6 +244,25 @@ describe('ControlGeneralPage', () => {
     expect(vi.mocked(useDetalleDiario)).toHaveBeenLastCalledWith(expect.anything(), { contratoIds: [2] });
   });
 
+  it('el filtro por operario va al server en histórico/detalle y filtra tiles y ranking en el cliente', async () => {
+    render(<ControlGeneralPage />);
+    await userEvent.click(screen.getByLabelText('Filtrar por operario'));
+    await userEvent.click(screen.getByLabelText('GOMEZ ANA'));
+    await userEvent.keyboard('{Escape}');
+    // server-side: histórico y detalle reciben el cuil; el resumen NO (es la
+    // fuente de las opciones del propio filtro)
+    expect(vi.mocked(useHistoricoQuincenas)).toHaveBeenLastCalledWith(expect.anything(), {
+      operarioCuils: ['20222222222'],
+    });
+    expect(vi.mocked(useDetalleDiario)).toHaveBeenLastCalledWith(expect.anything(), {
+      operarioCuils: ['20222222222'],
+    });
+    expect(vi.mocked(useResumenOperarios)).toHaveBeenLastCalledWith(expect.anything(), {});
+    // client-side: el tile de horas pasa de 153 (40+95+18) a 40
+    expect(screen.getByText('40')).toBeInTheDocument();
+    expect(screen.queryByText('153')).not.toBeInTheDocument();
+  });
+
   it('el filtro por provincia pasa provinciaIds a los hooks', async () => {
     render(<ControlGeneralPage />);
     await userEvent.click(screen.getByLabelText('Filtrar por provincia'));
