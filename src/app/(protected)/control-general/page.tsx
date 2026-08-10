@@ -93,7 +93,11 @@ export default function ControlGeneralPage() {
   const { data: sinCarga, isLoading: cargandoSinCarga } = useSinCarga(quincena);
   const { data: misContratos } = useMisContratos();
   const { data: provincias } = useProvincias();
-  const { data: historico, isLoading: cargandoHistorico } = useHistoricoQuincenas(quincena, filtros);
+  // El histórico es contexto, no revisión: siempre llega hasta la quincena
+  // EN CURSO (hoy), sin importar qué quincena esté seleccionada arriba —
+  // si no, agosto desaparecía del gráfico al revisar julio.
+  const quincenaActual = useMemo(() => quincenaDeFecha(new Date()), []);
+  const { data: historico, isLoading: cargandoHistorico } = useHistoricoQuincenas(quincenaActual, filtros);
   const { data: detalle, isLoading: cargandoDetalle } = useDetalleDiario(quincena, filtros);
 
   function irASinCarga() {
