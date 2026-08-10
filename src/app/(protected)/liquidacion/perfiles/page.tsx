@@ -30,10 +30,6 @@ const MODALIDAD_PAGO_LABEL: Record<ModalidadPago, string> = {
   con_descuentos: 'Con descuentos (sueldo formal)',
 };
 
-// Categoría UOCRA solo tiene sentido para regímenes que se pagan por hora
-// (directa o convertida, en el caso de por_tantos) — ver ADR-009/ADR-011.
-const REGIMENES_SIN_CATEGORIA: RegimenLiquidacion[] = ['mensualizado', 'administrativo'];
-
 const POR_PAGINA = 20;
 
 function valorRegimenDe(perfil: PerfilLiquidacion | undefined) {
@@ -70,7 +66,6 @@ export default function PerfilesLiquidacionPage() {
   const [modalidadPago, setModalidadPago] = useState<ModalidadPago | ''>('');
 
   const esAdministrativo = regimen === 'administrativo';
-  const sinCategoria = regimen !== '' && REGIMENES_SIN_CATEGORIA.includes(regimen);
 
   const perfilPorCuil = useMemo(() => {
     return new Map((perfiles ?? []).map((p) => [p.cuil, p]));
@@ -182,8 +177,6 @@ export default function PerfilesLiquidacionPage() {
     if (valor === 'administrativo') {
       setCategoriaUocraId(null);
       setModalidadPago('');
-    } else if (valor !== '' && REGIMENES_SIN_CATEGORIA.includes(valor)) {
-      setCategoriaUocraId(null);
     }
   }
 
@@ -259,7 +252,7 @@ export default function PerfilesLiquidacionPage() {
             <select
               aria-label="Categoría UOCRA"
               value={categoriaUocraId ?? ''}
-              disabled={sinCategoria}
+              disabled={esAdministrativo}
               onChange={(e) => setCategoriaUocraId(e.target.value ? Number(e.target.value) : null)}
               className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 disabled:opacity-50"
             >

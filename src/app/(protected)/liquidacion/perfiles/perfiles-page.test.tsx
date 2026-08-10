@@ -117,6 +117,20 @@ describe('PerfilesLiquidacionPage', () => {
     await waitFor(() => expect(eliminar).toHaveBeenCalledWith('20111111111'));
   });
 
+  it('al elegir régimen Mensualizado, la categoría UOCRA sigue habilitada y se manda (importa para el bono)', async () => {
+    render(<PerfilesLiquidacionPage />);
+    await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));
+    await userEvent.selectOptions(screen.getByLabelText('Régimen'), 'mensualizado');
+    expect(screen.getByLabelText('Categoría UOCRA')).not.toBeDisabled();
+    await userEvent.selectOptions(screen.getByLabelText('Categoría UOCRA'), '1');
+    await userEvent.click(screen.getByRole('button', { name: /asignar a 1 seleccionado/i }));
+    await waitFor(() =>
+      expect(upsertMasivo).toHaveBeenCalledWith(
+        expect.objectContaining({ cuils: ['20222222222'], regimen: 'mensualizado', categoriaUocraId: 1 }),
+      ),
+    );
+  });
+
   it('al elegir régimen Administrativo, deshabilita categoría y modalidad y no las manda', async () => {
     render(<PerfilesLiquidacionPage />);
     await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));

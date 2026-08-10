@@ -87,9 +87,11 @@ const filaMensualizado = {
   regimen: 'mensualizado',
   categoria: null,
   montoKmBruto: null,
-  horasTotal: null,
-  horasCct: null,
-  horasExtra: null,
+  // horasTotal/horasCct son 1.00 siempre para mensualizado (real, no un
+  // centinela oculto) — así se ve la cuenta básico = monto × 1. Ver ADR-016.
+  horasTotal: '1.00',
+  horasCct: '1.00',
+  horasExtra: '0.00',
   basico: '0.00',
   montoExtra: '0.00',
   presentismo: '0.00',
@@ -98,7 +100,7 @@ const filaMensualizado = {
   total: '0.00',
   modalidadPago: null,
   etiquetaNovedades: '',
-  datoFaltante: 'Falta cargar el monto mensualizado de esta quincena',
+  datoFaltante: 'Falta cargar el sueldo mensualizado (Tarifas > Sueldos mensualizados)',
   pendientesAprobacion: 0,
   duplicadoCruzado: false,
   dias: [],
@@ -199,9 +201,10 @@ describe('DetalleQuincenaPage', () => {
     expect(fila).toHaveTextContent('16.00'); // horas extra
   });
 
-  it('muestra — para horas null de mensualizado y su chip de falta dato', () => {
+  it('mensualizado muestra Hs totales/Hs CCT en 1.00 (real, no oculto) y su chip de falta dato sin sueldo cargado', () => {
     renderPage();
-    expect(screen.getByText('MENSUAL JUAN')).toBeInTheDocument();
+    const fila = screen.getByText('MENSUAL JUAN').closest('tr')!;
+    expect(fila).toHaveTextContent('1.00');
     expect(screen.getByText(/falta dato/)).toBeInTheDocument();
   });
 
