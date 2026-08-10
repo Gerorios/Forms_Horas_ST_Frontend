@@ -17,6 +17,10 @@
   --color-danger: #c0492b;
   --color-warn: #b26a00;
   --color-alert: #c0492b;
+  /* Series de gráficos (panel Control general) — validados con el validador
+     de dataviz sobre superficie blanca; chart-1 es brand-deep. */
+  --color-chart-1: #a97a16;
+  --color-chart-2: #3b6fc4;
 }
 
 /* --- Mapeo a los tokens de shadcn/ui --- */
