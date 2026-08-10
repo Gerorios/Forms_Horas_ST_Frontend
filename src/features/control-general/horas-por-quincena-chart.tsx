@@ -70,10 +70,17 @@ export function HorasPorQuincenaChart({ datos }: { datos: PuntoHistorico[] }) {
     else fila.q2 = d.horas;
   }
 
+  // Solo meses con datos: se recortan los extremos vacíos (el sistema es
+  // nuevo, la cola de meses en cero no aporta nada), pero un hueco ENTRE
+  // meses con datos se conserva — ahí el cero sí es información.
+  const primero = meses.findIndex((m) => m.q1 > 0 || m.q2 > 0);
+  const ultimo = meses.length - 1 - [...meses].reverse().findIndex((m) => m.q1 > 0 || m.q2 > 0);
+  const mesesConDatos = meses.slice(primero, ultimo + 1);
+
   return (
-    <div className="h-72 w-full" role="img" aria-label="Horas por quincena, últimos 12 meses">
+    <div className="h-72 w-full" role="img" aria-label="Horas por quincena, meses con datos">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={meses} margin={{ top: 8, right: 8, bottom: 0, left: -12 }} barGap={2}>
+        <BarChart data={mesesConDatos} margin={{ top: 8, right: 8, bottom: 0, left: -12 }} barGap={2}>
           <CartesianGrid vertical={false} stroke="var(--color-line)" />
           <XAxis
             dataKey="etiqueta"

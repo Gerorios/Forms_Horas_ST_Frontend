@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {
   ResumenOperario,
@@ -125,22 +125,7 @@ vi.mock('@/lib/api/catalogos', () => ({
 import ControlGeneralPage from './page';
 import { useResumenOperarios, useHistoricoQuincenas, useDetalleDiario } from '@/lib/api/panel-general';
 
-/** El resumen por operario es siempre la primera tabla de la página
- * (el ranking es una lista, no una tabla) — con las secciones nuevas los
- * nombres se repiten en el ranking, así que las aserciones del resumen
- * van scopeadas acá. */
-function tablaResumen() {
-  return within(screen.getAllByRole('table')[0]);
-}
-
 describe('ControlGeneralPage', () => {
-  it('muestra el resumen por operario con el total real y la alerta de horas extra', () => {
-    render(<ControlGeneralPage />);
-    expect(tablaResumen().getByText('PEREZ JUAN')).toBeInTheDocument();
-    expect(tablaResumen().getByText('95')).toBeInTheDocument();
-    expect(tablaResumen().getByText('+88hs')).toBeInTheDocument();
-  });
-
   it('muestra la lista de sin carga', () => {
     render(<ControlGeneralPage />);
     expect(screen.getByText('TORRES LUIS')).toBeInTheDocument();
@@ -165,6 +150,13 @@ describe('ControlGeneralPage', () => {
     expect(screen.getByLabelText('Quincena')).toBeInTheDocument();
   });
 
+  it('los filtros de contrato y provincia viven dentro de la misma barra que mes/año/quincena', () => {
+    render(<ControlGeneralPage />);
+    const barra = screen.getByLabelText('Quincena').closest('div.rounded-xl')!;
+    expect(barra).toContainElement(screen.getByLabelText('Filtrar por contrato'));
+    expect(barra).toContainElement(screen.getByLabelText('Filtrar por provincia'));
+  });
+
   it('muestra los stat tiles con los totales de la quincena', () => {
     render(<ControlGeneralPage />);
     expect(screen.getByText('Operarios con carga')).toBeInTheDocument();
@@ -180,17 +172,21 @@ describe('ControlGeneralPage', () => {
     expect(screen.getByText('153')).toBeInTheDocument();
   });
 
-  it('renderiza las secciones nuevas Horas por quincena, Ranking y Detalle diario en orden', () => {
+  it('ya no existe la tabla de resumen por operario (decisión 2026-08-10)', () => {
+    render(<ControlGeneralPage />);
+    expect(screen.queryByText(/Resumen por operario/)).not.toBeInTheDocument();
+    expect(screen.queryByText('⚠ cruzado')).not.toBeInTheDocument();
+  });
+
+  it('renderiza las secciones Horas por quincena, Ranking, Detalle diario y Sin carga en orden', () => {
     render(<ControlGeneralPage />);
     const titulos = screen.getAllByRole('heading').map((h) => h.textContent ?? '');
     const idxHistorico = titulos.findIndex((t) => t.includes('Horas por quincena'));
-    const idxResumen = titulos.findIndex((t) => t.includes('Resumen por operario'));
     const idxRanking = titulos.findIndex((t) => t.includes('Ranking'));
     const idxDetalle = titulos.findIndex((t) => t.includes('Detalle diario'));
     const idxSinCarga = titulos.findIndex((t) => t.includes('Sin carga en esta quincena'));
     expect(idxHistorico).toBeGreaterThan(-1);
-    expect(idxResumen).toBeGreaterThan(idxHistorico);
-    expect(idxRanking).toBeGreaterThan(idxResumen);
+    expect(idxRanking).toBeGreaterThan(idxHistorico);
     expect(idxDetalle).toBeGreaterThan(idxRanking);
     expect(idxSinCarga).toBeGreaterThan(idxDetalle);
   });
@@ -200,6 +196,12 @@ describe('ControlGeneralPage', () => {
     expect(screen.getByText('1ra quincena')).toBeInTheDocument();
     expect(screen.getByText('2da quincena')).toBeInTheDocument();
     expect(container.querySelectorAll('.recharts-bar').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('el ranking muestra a los operarios del resumen', () => {
+    render(<ControlGeneralPage />);
+    expect(screen.getAllByText('PEREZ JUAN').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('GOMEZ ANA').length).toBeGreaterThan(0);
   });
 
   it('el detalle diario muestra las filas con contrato, operario linkeado y estado', () => {
@@ -231,52 +233,6 @@ describe('ControlGeneralPage', () => {
     expect(vi.mocked(useResumenOperarios)).toHaveBeenLastCalledWith(expect.anything(), { provinciaIds: [3] });
   });
 
-  it('ordena primero a quien necesita revisión (horas extra o alerta cruzada), el resto al final', () => {
-    render(<ControlGeneralPage />);
-    const filas = tablaResumen().getAllByRole('row').slice(1); // sin el header
-    const nombres = filas.map((f) => f.textContent);
-    expect(nombres[0]).toContain('PEREZ JUAN'); // horas extra + pendiente
-    expect(nombres[1]).toContain('ACEVEDO CRISTIAN'); // alerta cruzada
-    expect(nombres[2]).toContain('GOMEZ ANA'); // sin nada que revisar, al final
-  });
-
-  it('el nombre del operario es un link a Aprobaciones filtrado por ese operario', () => {
-    render(<ControlGeneralPage />);
-    const link = tablaResumen().getByRole('link', { name: 'ACEVEDO CRISTIAN' });
-    expect(link).toHaveAttribute('href', '/aprobaciones?operarioCuil=20444444444');
-  });
-
-  it('muestra el delta de horas aprobadas vs la quincena anterior', () => {
-    render(<ControlGeneralPage />);
-    expect(screen.getByText('+40hs')).toBeInTheDocument();
-    expect(screen.getByText('+8hs')).toBeInTheDocument();
-    expect(screen.getByText('0hs')).toBeInTheDocument();
-  });
-
-  it('marca "(nuevo)" cuando no tenía horas aprobadas la quincena anterior', () => {
-    render(<ControlGeneralPage />);
-    const filaGomez = tablaResumen().getByText('GOMEZ ANA').closest('tr')!;
-    expect(filaGomez).toHaveTextContent('(nuevo)');
-    const filaAcevedo = tablaResumen().getByText('ACEVEDO CRISTIAN').closest('tr')!;
-    expect(filaAcevedo).not.toHaveTextContent('(nuevo)');
-  });
-
-  it('muestra el badge de alerta cruzada solo para quien la tiene', () => {
-    render(<ControlGeneralPage />);
-    expect(screen.getByText('⚠ cruzado')).toBeInTheDocument();
-    const filaAcevedo = tablaResumen().getByText('ACEVEDO CRISTIAN').closest('tr');
-    expect(filaAcevedo).toContainElement(screen.getByText('⚠ cruzado'));
-  });
-
-  it('el MultiFiltro de operarios filtra el resumen por persona tildada', async () => {
-    render(<ControlGeneralPage />);
-    await userEvent.click(screen.getByLabelText('Buscar operario'));
-    await userEvent.click(screen.getByLabelText('GOMEZ ANA'));
-    await userEvent.keyboard('{Escape}');
-    expect(tablaResumen().getByText('GOMEZ ANA')).toBeInTheDocument();
-    expect(tablaResumen().queryByText('PEREZ JUAN')).not.toBeInTheDocument();
-  });
-
   it('el MultiFiltro de sin carga filtra por persona tildada', async () => {
     render(<ControlGeneralPage />);
     await userEvent.click(screen.getByLabelText('Buscar empleado sin carga'));
@@ -284,43 +240,6 @@ describe('ControlGeneralPage', () => {
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByText('TORRES LUIS')).not.toBeInTheDocument();
     expect(screen.getByText('DIAZ MARIA')).toBeInTheDocument();
-  });
-
-  it('clic en "Con horas extra" filtra el resumen a solo esos operarios', async () => {
-    render(<ControlGeneralPage />);
-    await userEvent.click(screen.getByText('Con horas extra (+88hs)'));
-    expect(tablaResumen().getByText('PEREZ JUAN')).toBeInTheDocument();
-    expect(tablaResumen().queryByText('GOMEZ ANA')).not.toBeInTheDocument();
-  });
-
-  it('clic de nuevo en la misma tarjeta activa quita el filtro (toggle)', async () => {
-    render(<ControlGeneralPage />);
-    const tile = screen.getByText('Con horas extra (+88hs)');
-    await userEvent.click(tile);
-    await userEvent.click(tile);
-    expect(tablaResumen().getByText('PEREZ JUAN')).toBeInTheDocument();
-    expect(tablaResumen().getByText('GOMEZ ANA')).toBeInTheDocument();
-  });
-
-  it('clic en "Filas pendientes de revisar" filtra a quienes tienen algo pendiente', async () => {
-    render(<ControlGeneralPage />);
-    await userEvent.click(screen.getByText('Filas pendientes de revisar'));
-    expect(tablaResumen().getByText('PEREZ JUAN')).toBeInTheDocument();
-    expect(tablaResumen().queryByText('GOMEZ ANA')).not.toBeInTheDocument();
-  });
-
-  it('clic en "Operarios con carga" vuelve a mostrar todos', async () => {
-    render(<ControlGeneralPage />);
-    await userEvent.click(screen.getByText('Filas pendientes de revisar'));
-    await userEvent.click(screen.getByText('Operarios con carga'));
-    expect(tablaResumen().getByText('GOMEZ ANA')).toBeInTheDocument();
-  });
-
-  it('con un filtro activo, aparece la etiqueta con opción de quitarlo', async () => {
-    render(<ControlGeneralPage />);
-    await userEvent.click(screen.getByText('Con horas extra (+88hs)'));
-    await userEvent.click(screen.getByLabelText('Quitar filtro'));
-    expect(tablaResumen().getByText('GOMEZ ANA')).toBeInTheDocument();
   });
 
   it('clic en "Sin carga" hace scroll hacia esa sección', async () => {

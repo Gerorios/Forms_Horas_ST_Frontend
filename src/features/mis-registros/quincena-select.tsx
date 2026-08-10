@@ -11,9 +11,14 @@ const MESES = [
 export function QuincenaSelect({
   value,
   onChange,
+  children,
 }: {
   value: Quincena;
   onChange: (q: Quincena) => void;
+  /** Filtros extra que se muestran dentro de la misma tarjeta (ej. los
+   * MultiFiltro de contrato/provincia de Control general) — así toda la
+   * barra de filtros es un solo bloque visual. */
+  children?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-3">
@@ -40,6 +45,7 @@ export function QuincenaSelect({
         ]}
         opcional={false}
       />
+      {children}
     </div>
   );
 }
