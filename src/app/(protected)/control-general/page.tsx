@@ -6,7 +6,19 @@ import { PageHeader } from '@/components/page-header';
 import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
 import { MultiFiltro } from '@/components/ui/barra-filtros';
 import { opcionesFacetadas } from '@/lib/facetado';
-import { useResumenOperarios, useSinCarga, type ResumenOperario, type OperarioSinCarga } from '@/lib/api/panel-general';
+import { HorasPorQuincenaChart } from '@/features/control-general/horas-por-quincena-chart';
+import { RankingOperarios } from '@/features/control-general/ranking-operarios';
+import {
+  useResumenOperarios,
+  useSinCarga,
+  useMisContratos,
+  useHistoricoQuincenas,
+  useDetalleDiario,
+  type ResumenOperario,
+  type OperarioSinCarga,
+  type FiltrosPanel,
+} from '@/lib/api/panel-general';
+import { useProvincias } from '@/lib/api/catalogos';
 import { quincenaDeFecha, quincenaAnterior, type Quincena } from '@/lib/quincena';
 
 function pasaPersona(cuil: string, seleccionados: string[]) {
@@ -14,6 +26,15 @@ function pasaPersona(cuil: string, seleccionados: string[]) {
 }
 
 type FiltroTile = 'todos' | 'extra' | 'pendientes';
+
+/** Cuántas filas del detalle diario se muestran por página ("Ver más"). */
+const PAGINA_DETALLE = 50;
+
+const ESTILO_ESTADO: Record<string, string> = {
+  pendiente: 'text-warn',
+  aprobado: 'text-approved',
+  desaprobado: 'text-danger',
+};
 
 function StatTile({
   label,
@@ -52,13 +73,31 @@ function StatTile({
 
 export default function ControlGeneralPage() {
   const [quincena, setQuincena] = useState<Quincena>(() => quincenaAnterior(quincenaDeFecha(new Date())));
+  const [contratosSel, setContratosSel] = useState<string[]>([]);
+  const [provinciasSel, setProvinciasSel] = useState<string[]>([]);
   const [resumenSel, setResumenSel] = useState<string[]>([]);
   const [sinCargaSel, setSinCargaSel] = useState<string[]>([]);
   const [filtroTile, setFiltroTile] = useState<FiltroTile>('todos');
+  const [visiblesDetalle, setVisiblesDetalle] = useState(PAGINA_DETALLE);
   const sinCargaRef = useRef<HTMLDivElement>(null);
 
-  const { data: resumen, isLoading: cargandoResumen } = useResumenOperarios(quincena);
+  // Filtros server-side (contrato/provincia) compartidos por resumen,
+  // histórico y detalle. Sin carga NO los recibe: es una vista compartida
+  // entre todos los jefes, no scopeada a contratos.
+  const filtros = useMemo<FiltrosPanel>(
+    () => ({
+      ...(contratosSel.length ? { contratoIds: contratosSel.map(Number) } : {}),
+      ...(provinciasSel.length ? { provinciaIds: provinciasSel.map(Number) } : {}),
+    }),
+    [contratosSel, provinciasSel],
+  );
+
+  const { data: resumen, isLoading: cargandoResumen } = useResumenOperarios(quincena, filtros);
   const { data: sinCarga, isLoading: cargandoSinCarga } = useSinCarga(quincena);
+  const { data: misContratos } = useMisContratos();
+  const { data: provincias } = useProvincias();
+  const { data: historico, isLoading: cargandoHistorico } = useHistoricoQuincenas(quincena, filtros);
+  const { data: detalle, isLoading: cargandoDetalle } = useDetalleDiario(quincena, filtros);
 
   function alternarFiltro(tile: FiltroTile) {
     setFiltroTile((prev) => (prev === tile ? 'todos' : tile));
@@ -67,6 +106,16 @@ export default function ControlGeneralPage() {
   function irASinCarga() {
     sinCargaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  const opcionesContrato = useMemo(
+    () => (misContratos ?? []).map((c) => ({ value: String(c.id), label: `${c.codigo} — ${c.nombre}` })),
+    [misContratos],
+  );
+
+  const opcionesProvincia = useMemo(
+    () => (provincias ?? []).map((p) => ({ value: String(p.id), label: p.nombre })),
+    [provincias],
+  );
 
   // Lo que necesita revisión sube primero: horas extra, después filas
   // pendientes, y recién ahí por total de horas — así no hay que escanear
@@ -142,6 +191,11 @@ export default function ControlGeneralPage() {
 
   const conHorasExtra = (resumen ?? []).filter((r) => r.superaHorasExtra).length;
   const filasPendientes = (resumen ?? []).reduce((s, r) => s + r.pendiente, 0);
+  // Réplica del stat tile "Horas Totales" del Looker: pendientes + aprobadas
+  // (totalHoras ya excluye rechazadas), redondeado a 1 decimal.
+  const horasQuincena = Math.round((resumen ?? []).reduce((s, r) => s + r.totalHoras, 0) * 10) / 10;
+
+  const detalleVisible = (detalle ?? []).slice(0, visiblesDetalle);
 
   const ETIQUETA_FILTRO: Record<FiltroTile, string> = {
     todos: '',
@@ -152,9 +206,26 @@ export default function ControlGeneralPage() {
   return (
     <section className="space-y-6">
       <PageHeader eyebrow="Jefe de contrato" title="Control general" />
-      <QuincenaSelect value={quincena} onChange={setQuincena} />
+      <div className="flex flex-wrap items-end gap-3">
+        <QuincenaSelect value={quincena} onChange={setQuincena} />
+        <MultiFiltro
+          label="Contrato"
+          ariaLabel="Filtrar por contrato"
+          opciones={opcionesContrato}
+          seleccionados={contratosSel}
+          onChange={setContratosSel}
+        />
+        <MultiFiltro
+          label="Provincia"
+          ariaLabel="Filtrar por provincia"
+          opciones={opcionesProvincia}
+          seleccionados={provinciasSel}
+          onChange={setProvinciasSel}
+        />
+      </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <StatTile label="Horas de la quincena" value={horasQuincena} />
         <StatTile
           label="Operarios con carga"
           value={(resumen ?? []).length}
@@ -178,115 +249,210 @@ export default function ControlGeneralPage() {
         <StatTile label="Sin carga" value={(sinCarga ?? []).length} tono="danger" onClick={irASinCarga} />
       </div>
 
+      <div className="space-y-3 rounded-xl border border-line bg-surface p-4">
+        <h2 className="font-display text-sm font-semibold text-ink">
+          Horas por quincena (últimos 12 meses)
+        </h2>
+        {cargandoHistorico ? (
+          <p className="text-slate">Cargando…</p>
+        ) : (
+          <HorasPorQuincenaChart datos={historico ?? []} />
+        )}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-sm font-semibold text-ink">
+              Resumen por operario (de mis contratos)
+              {filtroTile !== 'todos' && (
+                <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-brand-deep">
+                  {ETIQUETA_FILTRO[filtroTile]}
+                  <button
+                    type="button"
+                    aria-label="Quitar filtro"
+                    onClick={() => setFiltroTile('todos')}
+                    className="ml-1.5 text-brand-deep/70 hover:text-brand-deep"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+            </h2>
+            <MultiFiltro
+              label="Operario"
+              ariaLabel="Buscar operario"
+              opciones={opcionesResumen}
+              seleccionados={resumenSel}
+              onChange={setResumenSel}
+            />
+          </div>
+          {cargandoResumen ? (
+            <p className="text-slate">Cargando…</p>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-line bg-surface">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
+                    <th className="px-4 py-2.5 font-medium">Operario</th>
+                    <th className="px-4 py-2.5 font-medium">Total hs</th>
+                    <th className="px-4 py-2.5 font-medium">Pendiente</th>
+                    <th className="px-4 py-2.5 font-medium">Aprobado</th>
+                    <th className="px-4 py-2.5 font-medium">Rechazado</th>
+                    <th className="px-4 py-2.5 font-medium">Extra</th>
+                    <th className="px-4 py-2.5 font-medium">Cruzado</th>
+                    <th className="px-4 py-2.5 font-medium">Δ aprobadas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resumenOrdenado.map((r) => (
+                    <tr
+                      key={r.cuil}
+                      className={`border-b border-line text-ink last:border-0 ${
+                        r.superaHorasExtra || r.tieneAlertaCruzada ? 'bg-warn/5' : ''
+                      }`}
+                    >
+                      <td className="px-4 py-2.5">
+                        <Link
+                          href={`/aprobaciones?operarioCuil=${r.cuil}`}
+                          className="underline decoration-line hover:text-brand-deep hover:decoration-brand-deep"
+                          title="Ver los registros de este operario en Aprobaciones"
+                        >
+                          {r.apellido_nombre}
+                        </Link>
+                      </td>
+                      <td className="tabular-nums px-4 py-2.5">{r.totalHoras}</td>
+                      <td className="tabular-nums px-4 py-2.5">{r.pendiente}</td>
+                      <td className="tabular-nums px-4 py-2.5">{r.aprobado}</td>
+                      <td className="tabular-nums px-4 py-2.5">{r.desaprobado}</td>
+                      <td className="px-4 py-2.5">
+                        {r.superaHorasExtra && (
+                          <span
+                            className="rounded bg-warn/10 px-1 text-xs font-medium text-warn"
+                            title="Supera las 88hs de la quincena (umbral de hora extra, ver ADR-009)"
+                          >
+                            +88hs
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {r.tieneAlertaCruzada && (
+                          <span
+                            className="rounded bg-warn/10 px-1 text-xs font-medium text-warn"
+                            title="Algún día de la quincena tuvo horas en más de un lote, o ≥16hs entre todos los contratos"
+                          >
+                            ⚠ cruzado
+                          </span>
+                        )}
+                      </td>
+                      <td className="tabular-nums px-4 py-2.5">
+                        <span
+                          className={r.deltaHorasAprobadas > 0 ? 'font-medium text-warn' : 'text-slate'}
+                          title={`${r.horasAprobadas}hs esta quincena vs ${r.horasAprobadasAnterior}hs la anterior`}
+                        >
+                          {r.deltaHorasAprobadas > 0 ? '+' : ''}
+                          {r.deltaHorasAprobadas}hs
+                        </span>
+                        {r.horasAprobadasAnterior === 0 && r.horasAprobadas > 0 && (
+                          <span className="ml-1 text-xs italic text-slate">(nuevo)</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {resumenOrdenado.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-3 text-sm text-slate">
+                        {(resumen ?? []).length === 0
+                          ? 'Sin registros en esta quincena.'
+                          : 'Nadie coincide con el filtro/búsqueda actual.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <h2 className="font-display text-sm font-semibold text-ink">
+            Ranking — mayor cantidad de horas
+          </h2>
+          {cargandoResumen ? (
+            <p className="text-slate">Cargando…</p>
+          ) : (
+            <div className="rounded-xl border border-line bg-surface p-4">
+              <RankingOperarios resumen={resumen ?? []} />
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-sm font-semibold text-ink">
-            Resumen por operario (de mis contratos)
-            {filtroTile !== 'todos' && (
-              <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-brand-deep">
-                {ETIQUETA_FILTRO[filtroTile]}
-                <button
-                  type="button"
-                  aria-label="Quitar filtro"
-                  onClick={() => setFiltroTile('todos')}
-                  className="ml-1.5 text-brand-deep/70 hover:text-brand-deep"
-                >
-                  ×
-                </button>
-              </span>
-            )}
-          </h2>
-          <MultiFiltro
-            label="Operario"
-            ariaLabel="Buscar operario"
-            opciones={opcionesResumen}
-            seleccionados={resumenSel}
-            onChange={setResumenSel}
-          />
+          <h2 className="font-display text-sm font-semibold text-ink">Detalle diario</h2>
+          {(detalle ?? []).length > 0 && (
+            <span className="text-xs text-slate">
+              mostrando {detalleVisible.length} de {(detalle ?? []).length}
+            </span>
+          )}
         </div>
-        {cargandoResumen ? (
+        {cargandoDetalle ? (
           <p className="text-slate">Cargando…</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-line bg-surface">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
+                  <th className="px-4 py-2.5 font-medium">Fecha</th>
+                  <th className="px-4 py-2.5 font-medium">Contrato</th>
                   <th className="px-4 py-2.5 font-medium">Operario</th>
-                  <th className="px-4 py-2.5 font-medium">Total hs</th>
-                  <th className="px-4 py-2.5 font-medium">Pendiente</th>
-                  <th className="px-4 py-2.5 font-medium">Aprobado</th>
-                  <th className="px-4 py-2.5 font-medium">Rechazado</th>
-                  <th className="px-4 py-2.5 font-medium">Extra</th>
-                  <th className="px-4 py-2.5 font-medium">Cruzado</th>
-                  <th className="px-4 py-2.5 font-medium">Δ aprobadas</th>
+                  <th className="px-4 py-2.5 font-medium">Horas</th>
+                  <th className="px-4 py-2.5 font-medium">Estado</th>
                 </tr>
               </thead>
               <tbody>
-                {resumenOrdenado.map((r) => (
-                  <tr
-                    key={r.cuil}
-                    className={`border-b border-line text-ink last:border-0 ${
-                      r.superaHorasExtra || r.tieneAlertaCruzada ? 'bg-warn/5' : ''
-                    }`}
-                  >
+                {detalleVisible.map((f) => (
+                  <tr key={f.id} className="border-b border-line text-ink last:border-0">
+                    <td className="tabular-nums px-4 py-2.5">{f.fecha}</td>
+                    <td className="px-4 py-2.5">{f.contratoCodigo}</td>
                     <td className="px-4 py-2.5">
                       <Link
-                        href={`/aprobaciones?operarioCuil=${r.cuil}`}
+                        href={`/aprobaciones?operarioCuil=${f.operarioCuil}`}
                         className="underline decoration-line hover:text-brand-deep hover:decoration-brand-deep"
                         title="Ver los registros de este operario en Aprobaciones"
                       >
-                        {r.apellido_nombre}
+                        {f.operarioNombre}
                       </Link>
                     </td>
-                    <td className="tabular-nums px-4 py-2.5">{r.totalHoras}</td>
-                    <td className="tabular-nums px-4 py-2.5">{r.pendiente}</td>
-                    <td className="tabular-nums px-4 py-2.5">{r.aprobado}</td>
-                    <td className="tabular-nums px-4 py-2.5">{r.desaprobado}</td>
+                    <td className="tabular-nums px-4 py-2.5">{f.horas}</td>
                     <td className="px-4 py-2.5">
-                      {r.superaHorasExtra && (
-                        <span
-                          className="rounded bg-warn/10 px-1 text-xs font-medium text-warn"
-                          title="Supera las 88hs de la quincena (umbral de hora extra, ver ADR-009)"
-                        >
-                          +88hs
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {r.tieneAlertaCruzada && (
-                        <span
-                          className="rounded bg-warn/10 px-1 text-xs font-medium text-warn"
-                          title="Algún día de la quincena tuvo horas en más de un lote, o ≥16hs entre todos los contratos"
-                        >
-                          ⚠ cruzado
-                        </span>
-                      )}
-                    </td>
-                    <td className="tabular-nums px-4 py-2.5">
-                      <span
-                        className={r.deltaHorasAprobadas > 0 ? 'font-medium text-warn' : 'text-slate'}
-                        title={`${r.horasAprobadas}hs esta quincena vs ${r.horasAprobadasAnterior}hs la anterior`}
-                      >
-                        {r.deltaHorasAprobadas > 0 ? '+' : ''}
-                        {r.deltaHorasAprobadas}hs
+                      <span className={`text-xs font-medium ${ESTILO_ESTADO[f.estado] ?? 'text-slate'}`}>
+                        {f.estado}
                       </span>
-                      {r.horasAprobadasAnterior === 0 && r.horasAprobadas > 0 && (
-                        <span className="ml-1 text-xs italic text-slate">(nuevo)</span>
-                      )}
                     </td>
                   </tr>
                 ))}
-                {resumenOrdenado.length === 0 && (
+                {detalleVisible.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-3 text-sm text-slate">
-                      {(resumen ?? []).length === 0
-                        ? 'Sin registros en esta quincena.'
-                        : 'Nadie coincide con el filtro/búsqueda actual.'}
+                    <td colSpan={5} className="px-4 py-3 text-sm text-slate">
+                      Sin registros en esta quincena.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+            {(detalle ?? []).length > visiblesDetalle && (
+              <div className="border-t border-line p-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => setVisiblesDetalle((v) => v + PAGINA_DETALLE)}
+                  className="rounded-md px-3 py-1 text-xs font-medium text-slate underline transition hover:text-ink"
+                >
+                  Ver más
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
