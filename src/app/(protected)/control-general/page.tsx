@@ -219,6 +219,7 @@ export default function ControlGeneralPage() {
                   <th className="px-4 py-2.5 font-medium">Fecha</th>
                   <th className="px-4 py-2.5 font-medium">Contrato</th>
                   <th className="px-4 py-2.5 font-medium">Operario</th>
+                  <th className="px-4 py-2.5 font-medium">Tareas</th>
                   <th className="px-4 py-2.5 font-medium">Horas</th>
                   <th className="px-4 py-2.5 font-medium">Estado</th>
                 </tr>
@@ -237,6 +238,9 @@ export default function ControlGeneralPage() {
                         {f.operarioNombre}
                       </Link>
                     </td>
+                    <td className="max-w-72 px-4 py-2.5 text-slate">
+                      {f.tareas.length > 0 ? f.tareas.join(', ') : '—'}
+                    </td>
                     <td className="tabular-nums px-4 py-2.5">{f.horas}</td>
                     <td className="px-4 py-2.5">
                       <span className={`text-xs font-medium ${ESTILO_ESTADO[f.estado] ?? 'text-slate'}`}>
@@ -247,7 +251,7 @@ export default function ControlGeneralPage() {
                 ))}
                 {detalleVisible.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-3 text-sm text-slate">
+                    <td colSpan={6} className="px-4 py-3 text-sm text-slate">
                       Sin registros en esta quincena.
                     </td>
                   </tr>

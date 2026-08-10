@@ -76,6 +76,7 @@ const DETALLE: FilaDetalleDiario[] = [
     operarioNombre: 'ROJAS PEDRO',
     horas: 8,
     estado: 'pendiente',
+    tareas: ['Zanjeo', 'Tendido de cañería'],
   },
   {
     id: 11,
@@ -86,6 +87,7 @@ const DETALLE: FilaDetalleDiario[] = [
     operarioNombre: 'SOSA MARTA',
     horas: 4,
     estado: 'aprobado',
+    tareas: [],
   },
 ];
 
@@ -213,6 +215,14 @@ describe('ControlGeneralPage', () => {
     const filaRojas = link.closest('tr')!;
     expect(filaRojas).toHaveTextContent('pendiente');
     expect(filaRojas).toHaveTextContent('K5');
+  });
+
+  it('el detalle diario muestra las tareas del registro, o un guion si no tiene', () => {
+    render(<ControlGeneralPage />);
+    const filaRojas = screen.getByRole('link', { name: 'ROJAS PEDRO' }).closest('tr')!;
+    expect(filaRojas).toHaveTextContent('Zanjeo, Tendido de cañería');
+    const filaSosa = screen.getByRole('link', { name: 'SOSA MARTA' }).closest('tr')!;
+    expect(filaSosa).toHaveTextContent('—');
   });
 
   it('el filtro por contrato pasa contratoIds a los hooks de resumen, histórico y detalle', async () => {

@@ -58,6 +58,8 @@ export interface FilaDetalleDiario {
   operarioNombre: string;
   horas: number;
   estado: 'pendiente' | 'aprobado' | 'desaprobado';
+  /** Nombres de las tareas del maestro asociadas al registro (M:N). */
+  tareas: string[];
 }
 
 export interface OperarioSinCarga {
