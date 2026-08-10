@@ -25,6 +25,41 @@ export interface ResumenOperario {
   deltaHorasAprobadas: number;
 }
 
+/** Filtros server-side del panel Control general (contrato y provincia del
+ * registro). Ausentes o vacíos = sin filtro. */
+export interface FiltrosPanel {
+  contratoIds?: number[];
+  provinciaIds?: number[];
+}
+
+export interface MisContrato {
+  id: number;
+  codigo: string;
+  nombre: string;
+}
+
+/** Un punto del histórico "Horas Por Quincena" (réplica del Looker):
+ * horas pendientes + aprobadas de esa quincena calendario. */
+export interface PuntoHistorico {
+  anio: number;
+  mes: number;
+  quincena: 1 | 2;
+  horas: number;
+}
+
+/** Una fila de la tabla "Detalle Diario": un registro de horas plano,
+ * con contrato y nombre ya resueltos. */
+export interface FilaDetalleDiario {
+  id: number;
+  fecha: string;
+  contratoId: number;
+  contratoCodigo: string;
+  operarioCuil: string;
+  operarioNombre: string;
+  horas: number;
+  estado: 'pendiente' | 'aprobado' | 'desaprobado';
+}
+
 export interface OperarioSinCarga {
   cuil: string;
   apellido_nombre: string;
@@ -35,13 +70,74 @@ export interface OperarioSinCarga {
   ultimaCarga: string | null;
 }
 
-export function useResumenOperarios(quincena: Quincena) {
+/** Convierte los filtros a query params comma-separated, solo con las
+ * claves presentes y no vacías (ausente = sin filtro en el back). */
+function paramsFiltros(f: FiltrosPanel = {}) {
+  return {
+    ...(f.contratoIds?.length ? { contratoIds: f.contratoIds.join(',') } : {}),
+    ...(f.provinciaIds?.length ? { provinciaIds: f.provinciaIds.join(',') } : {}),
+  };
+}
+
+export function useResumenOperarios(quincena: Quincena, filtros: FiltrosPanel = {}) {
   return useQuery({
-    queryKey: ['resumen-operarios', quincena],
+    queryKey: ['resumen-operarios', quincena, filtros],
     queryFn: async () =>
       (
         await api.get<ResumenOperario[]>('/registros-horas/resumen-operarios', {
-          params: { anio: quincena.anio, mes: quincena.mes, quincena: quincena.parte },
+          params: {
+            anio: quincena.anio,
+            mes: quincena.mes,
+            quincena: quincena.parte,
+            ...paramsFiltros(filtros),
+          },
+        })
+      ).data,
+  });
+}
+
+/** Contratos donde soy jefe (Admin: todos los activos) — opciones del
+ * filtro por contrato del panel Control general. */
+export function useMisContratos() {
+  return useQuery({
+    queryKey: ['mis-contratos'],
+    queryFn: async () => (await api.get<MisContrato[]>('/registros-horas/mis-contratos')).data,
+  });
+}
+
+/** Histórico de 24 quincenas (12 meses) terminando en la seleccionada,
+ * en orden cronológico ascendente. */
+export function useHistoricoQuincenas(quincena: Quincena, filtros: FiltrosPanel = {}) {
+  return useQuery({
+    queryKey: ['historico-quincenas', quincena, filtros],
+    queryFn: async () =>
+      (
+        await api.get<PuntoHistorico[]>('/registros-horas/historico-quincenas', {
+          params: {
+            anio: quincena.anio,
+            mes: quincena.mes,
+            quincena: quincena.parte,
+            ...paramsFiltros(filtros),
+          },
+        })
+      ).data,
+  });
+}
+
+/** Detalle plano de la quincena: una fila por registro, orden fecha desc
+ * + nombre asc (lo garantiza el back). */
+export function useDetalleDiario(quincena: Quincena, filtros: FiltrosPanel = {}) {
+  return useQuery({
+    queryKey: ['detalle-diario', quincena, filtros],
+    queryFn: async () =>
+      (
+        await api.get<FilaDetalleDiario[]>('/registros-horas/detalle-diario', {
+          params: {
+            anio: quincena.anio,
+            mes: quincena.mes,
+            quincena: quincena.parte,
+            ...paramsFiltros(filtros),
+          },
         })
       ).data,
   });
