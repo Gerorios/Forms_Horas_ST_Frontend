@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ResumenOperario, OperarioSinCarga } from '@/lib/api/panel-general';
+import type {
+  ResumenOperario,
+  OperarioSinCarga,
+  MisContrato,
+  PuntoHistorico,
+  FilaDetalleDiario,
+} from '@/lib/api/panel-general';
 
 const RESUMEN: ResumenOperario[] = [
   {
@@ -50,21 +56,80 @@ const SIN_CARGA: OperarioSinCarga[] = [
   { cuil: '20333333333', apellido_nombre: 'TORRES LUIS', legajo: 123, cargo: 'Peón', ultimaCarga: '2026-07-10' },
 ];
 
+const MIS_CONTRATOS: MisContrato[] = [
+  { id: 1, codigo: 'K5', nombre: 'Gasnor K5' },
+  { id: 2, codigo: 'K7', nombre: 'Gasnor K7' },
+];
+
+const HISTORICO: PuntoHistorico[] = [
+  { anio: 2026, mes: 7, quincena: 1, horas: 100 },
+  { anio: 2026, mes: 7, quincena: 2, horas: 50 },
+];
+
+const DETALLE: FilaDetalleDiario[] = [
+  {
+    id: 10,
+    fecha: '2026-08-03',
+    contratoId: 1,
+    contratoCodigo: 'K5',
+    operarioCuil: '20666666666',
+    operarioNombre: 'ROJAS PEDRO',
+    horas: 8,
+    estado: 'pendiente',
+    tareas: ['Zanjeo', 'Tendido de cañería'],
+    observacion: 'Viaje a Metán por reparación de fuga urgente',
+  },
+  {
+    id: 11,
+    fecha: '2026-08-02',
+    contratoId: 2,
+    contratoCodigo: 'K7',
+    operarioCuil: '20777777777',
+    operarioNombre: 'SOSA MARTA',
+    horas: 4,
+    estado: 'aprobado',
+    tareas: [],
+    observacion: null,
+  },
+];
+
 vi.mock('@/lib/api/panel-general', () => ({
-  useResumenOperarios: () => ({ data: RESUMEN, isLoading: false }),
-  useSinCarga: () => ({ data: SIN_CARGA, isLoading: false }),
+  useResumenOperarios: vi.fn(() => ({ data: RESUMEN, isLoading: false })),
+  useSinCarga: vi.fn(() => ({ data: SIN_CARGA, isLoading: false })),
+  useMisContratos: vi.fn(() => ({ data: MIS_CONTRATOS, isLoading: false })),
+  useHistoricoQuincenas: vi.fn(() => ({ data: HISTORICO, isLoading: false })),
+  useDetalleDiario: vi.fn(() => ({ data: DETALLE, isLoading: false })),
+}));
+
+// Los gráficos (Recharts) necesitan medidas reales que jsdom no da:
+// passthrough de ResponsiveContainer con tamaño fijo, y router mockeado
+// para el clic del ranking.
+vi.mock('recharts', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('recharts')>();
+  const { cloneElement } = await import('react');
+  return {
+    ...orig,
+    ResponsiveContainer: ({ children }: { children: React.ReactElement }) =>
+      cloneElement(children, { width: 800, height: 400 } as object),
+  };
+});
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
+vi.mock('@/lib/api/catalogos', () => ({
+  useProvincias: vi.fn(() => ({
+    data: [
+      { id: 3, nombre: 'Salta' },
+      { id: 4, nombre: 'Tucumán' },
+    ],
+    isLoading: false,
+  })),
 }));
 
 import ControlGeneralPage from './page';
+import { useResumenOperarios, useHistoricoQuincenas, useDetalleDiario } from '@/lib/api/panel-general';
 
 describe('ControlGeneralPage', () => {
-  it('muestra el resumen por operario con el total real y la alerta de horas extra', () => {
-    render(<ControlGeneralPage />);
-    expect(screen.getByText('PEREZ JUAN')).toBeInTheDocument();
-    expect(screen.getByText('95')).toBeInTheDocument();
-    expect(screen.getByText('+88hs')).toBeInTheDocument();
-  });
-
   it('muestra la lista de sin carga', () => {
     render(<ControlGeneralPage />);
     expect(screen.getByText('TORRES LUIS')).toBeInTheDocument();
@@ -89,6 +154,13 @@ describe('ControlGeneralPage', () => {
     expect(screen.getByLabelText('Quincena')).toBeInTheDocument();
   });
 
+  it('los filtros de contrato y provincia viven dentro de la misma barra que mes/año/quincena', () => {
+    render(<ControlGeneralPage />);
+    const barra = screen.getByLabelText('Quincena').closest('div.rounded-xl')!;
+    expect(barra).toContainElement(screen.getByLabelText('Filtrar por contrato'));
+    expect(barra).toContainElement(screen.getByLabelText('Filtrar por provincia'));
+  });
+
   it('muestra los stat tiles con los totales de la quincena', () => {
     render(<ControlGeneralPage />);
     expect(screen.getByText('Operarios con carga')).toBeInTheDocument();
@@ -97,50 +169,106 @@ describe('ControlGeneralPage', () => {
     expect(screen.getByText('Sin carga')).toBeInTheDocument();
   });
 
-  it('ordena primero a quien necesita revisión (horas extra o alerta cruzada), el resto al final', () => {
+  it('muestra el tile "Horas de la quincena" con la suma de totalHoras', () => {
     render(<ControlGeneralPage />);
-    const filas = screen.getAllByRole('row').slice(1); // sin el header
-    const nombres = filas.map((f) => f.textContent);
-    expect(nombres[0]).toContain('PEREZ JUAN'); // horas extra + pendiente
-    expect(nombres[1]).toContain('ACEVEDO CRISTIAN'); // alerta cruzada
-    expect(nombres[2]).toContain('GOMEZ ANA'); // sin nada que revisar, al final
+    expect(screen.getByText('Horas de la quincena')).toBeInTheDocument();
+    // 40 + 95 + 18 = 153
+    expect(screen.getByText('153')).toBeInTheDocument();
   });
 
-  it('el nombre del operario es un link a Aprobaciones filtrado por ese operario', () => {
+  it('ya no existe la tabla de resumen por operario (decisión 2026-08-10)', () => {
     render(<ControlGeneralPage />);
-    const link = screen.getByRole('link', { name: 'ACEVEDO CRISTIAN' });
-    expect(link).toHaveAttribute('href', '/aprobaciones?operarioCuil=20444444444');
+    expect(screen.queryByText(/Resumen por operario/)).not.toBeInTheDocument();
+    expect(screen.queryByText('⚠ cruzado')).not.toBeInTheDocument();
   });
 
-  it('muestra el delta de horas aprobadas vs la quincena anterior', () => {
+  it('renderiza las secciones Horas por quincena, Ranking, Detalle diario y Sin carga en orden', () => {
     render(<ControlGeneralPage />);
-    expect(screen.getByText('+40hs')).toBeInTheDocument();
-    expect(screen.getByText('+8hs')).toBeInTheDocument();
-    expect(screen.getByText('0hs')).toBeInTheDocument();
+    const titulos = screen.getAllByRole('heading').map((h) => h.textContent ?? '');
+    const idxHistorico = titulos.findIndex((t) => t.includes('Horas por quincena'));
+    const idxRanking = titulos.findIndex((t) => t.includes('Ranking'));
+    const idxDetalle = titulos.findIndex((t) => t.includes('Detalle diario'));
+    const idxSinCarga = titulos.findIndex((t) => t.includes('Sin carga en esta quincena'));
+    expect(idxHistorico).toBeGreaterThan(-1);
+    expect(idxRanking).toBeGreaterThan(idxHistorico);
+    expect(idxDetalle).toBeGreaterThan(idxRanking);
+    expect(idxSinCarga).toBeGreaterThan(idxDetalle);
   });
 
-  it('marca "(nuevo)" cuando no tenía horas aprobadas la quincena anterior', () => {
-    render(<ControlGeneralPage />);
-    const filaGomez = screen.getByText('GOMEZ ANA').closest('tr')!;
-    expect(filaGomez).toHaveTextContent('(nuevo)');
-    const filaAcevedo = screen.getByText('ACEVEDO CRISTIAN').closest('tr')!;
-    expect(filaAcevedo).not.toHaveTextContent('(nuevo)');
+  it('el gráfico histórico recibe los datos del hook (dos series con leyenda)', () => {
+    const { container } = render(<ControlGeneralPage />);
+    expect(screen.getByText('1ra quincena')).toBeInTheDocument();
+    expect(screen.getByText('2da quincena')).toBeInTheDocument();
+    expect(container.querySelectorAll('.recharts-bar').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('muestra el badge de alerta cruzada solo para quien la tiene', () => {
+  it('el ranking muestra a los operarios del resumen', () => {
     render(<ControlGeneralPage />);
-    expect(screen.getByText('⚠ cruzado')).toBeInTheDocument();
-    const filaAcevedo = screen.getByText('ACEVEDO CRISTIAN').closest('tr');
-    expect(filaAcevedo).toContainElement(screen.getByText('⚠ cruzado'));
+    expect(screen.getAllByText('PEREZ JUAN').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('GOMEZ ANA').length).toBeGreaterThan(0);
   });
 
-  it('el MultiFiltro de operarios filtra el resumen por persona tildada', async () => {
+  it('el detalle diario muestra las filas con contrato, operario linkeado y estado', () => {
     render(<ControlGeneralPage />);
-    await userEvent.click(screen.getByLabelText('Buscar operario'));
+    expect(screen.getByText('2026-08-03')).toBeInTheDocument();
+    expect(screen.getByText('mostrando 2 de 2')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: 'ROJAS PEDRO' });
+    expect(link).toHaveAttribute('href', '/aprobaciones?operarioCuil=20666666666');
+    const filaRojas = link.closest('tr')!;
+    expect(filaRojas).toHaveTextContent('pendiente');
+    expect(filaRojas).toHaveTextContent('K5');
+  });
+
+  it('el detalle diario muestra las tareas del registro, o un guion si no tiene', () => {
+    render(<ControlGeneralPage />);
+    const filaRojas = screen.getByRole('link', { name: 'ROJAS PEDRO' }).closest('tr')!;
+    expect(filaRojas).toHaveTextContent('Zanjeo, Tendido de cañería');
+    const filaSosa = screen.getByRole('link', { name: 'SOSA MARTA' }).closest('tr')!;
+    expect(filaSosa).toHaveTextContent('—');
+  });
+
+  it('el detalle diario muestra la observación truncada con el texto completo en el title', () => {
+    render(<ControlGeneralPage />);
+    const obs = screen.getByText('Viaje a Metán por reparación de fuga urgente');
+    expect(obs).toHaveAttribute('title', 'Viaje a Metán por reparación de fuga urgente');
+    expect(obs.className).toContain('truncate');
+  });
+
+  it('el filtro por contrato pasa contratoIds a los hooks de resumen, histórico y detalle', async () => {
+    render(<ControlGeneralPage />);
+    await userEvent.click(screen.getByLabelText('Filtrar por contrato'));
+    await userEvent.click(screen.getByLabelText('K7 — Gasnor K7'));
+    await userEvent.keyboard('{Escape}');
+    expect(vi.mocked(useResumenOperarios)).toHaveBeenLastCalledWith(expect.anything(), { contratoIds: [2] });
+    expect(vi.mocked(useHistoricoQuincenas)).toHaveBeenLastCalledWith(expect.anything(), { contratoIds: [2] });
+    expect(vi.mocked(useDetalleDiario)).toHaveBeenLastCalledWith(expect.anything(), { contratoIds: [2] });
+  });
+
+  it('el filtro por operario va al server en histórico/detalle y filtra tiles y ranking en el cliente', async () => {
+    render(<ControlGeneralPage />);
+    await userEvent.click(screen.getByLabelText('Filtrar por operario'));
     await userEvent.click(screen.getByLabelText('GOMEZ ANA'));
     await userEvent.keyboard('{Escape}');
-    expect(screen.getByText('GOMEZ ANA')).toBeInTheDocument();
-    expect(screen.queryByText('PEREZ JUAN')).not.toBeInTheDocument();
+    // server-side: histórico y detalle reciben el cuil; el resumen NO (es la
+    // fuente de las opciones del propio filtro)
+    expect(vi.mocked(useHistoricoQuincenas)).toHaveBeenLastCalledWith(expect.anything(), {
+      operarioCuils: ['20222222222'],
+    });
+    expect(vi.mocked(useDetalleDiario)).toHaveBeenLastCalledWith(expect.anything(), {
+      operarioCuils: ['20222222222'],
+    });
+    expect(vi.mocked(useResumenOperarios)).toHaveBeenLastCalledWith(expect.anything(), {});
+    // client-side: el tile de horas pasa de 153 (40+95+18) a 40
+    expect(screen.getByText('40')).toBeInTheDocument();
+    expect(screen.queryByText('153')).not.toBeInTheDocument();
+  });
+
+  it('el filtro por provincia pasa provinciaIds a los hooks', async () => {
+    render(<ControlGeneralPage />);
+    await userEvent.click(screen.getByLabelText('Filtrar por provincia'));
+    await userEvent.click(screen.getByLabelText('Salta'));
+    await userEvent.keyboard('{Escape}');
+    expect(vi.mocked(useResumenOperarios)).toHaveBeenLastCalledWith(expect.anything(), { provinciaIds: [3] });
   });
 
   it('el MultiFiltro de sin carga filtra por persona tildada', async () => {
@@ -150,43 +278,6 @@ describe('ControlGeneralPage', () => {
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByText('TORRES LUIS')).not.toBeInTheDocument();
     expect(screen.getByText('DIAZ MARIA')).toBeInTheDocument();
-  });
-
-  it('clic en "Con horas extra" filtra el resumen a solo esos operarios', async () => {
-    render(<ControlGeneralPage />);
-    await userEvent.click(screen.getByText('Con horas extra (+88hs)'));
-    expect(screen.getByText('PEREZ JUAN')).toBeInTheDocument();
-    expect(screen.queryByText('GOMEZ ANA')).not.toBeInTheDocument();
-  });
-
-  it('clic de nuevo en la misma tarjeta activa quita el filtro (toggle)', async () => {
-    render(<ControlGeneralPage />);
-    const tile = screen.getByText('Con horas extra (+88hs)');
-    await userEvent.click(tile);
-    await userEvent.click(tile);
-    expect(screen.getByText('PEREZ JUAN')).toBeInTheDocument();
-    expect(screen.getByText('GOMEZ ANA')).toBeInTheDocument();
-  });
-
-  it('clic en "Filas pendientes de revisar" filtra a quienes tienen algo pendiente', async () => {
-    render(<ControlGeneralPage />);
-    await userEvent.click(screen.getByText('Filas pendientes de revisar'));
-    expect(screen.getByText('PEREZ JUAN')).toBeInTheDocument();
-    expect(screen.queryByText('GOMEZ ANA')).not.toBeInTheDocument();
-  });
-
-  it('clic en "Operarios con carga" vuelve a mostrar todos', async () => {
-    render(<ControlGeneralPage />);
-    await userEvent.click(screen.getByText('Filas pendientes de revisar'));
-    await userEvent.click(screen.getByText('Operarios con carga'));
-    expect(screen.getByText('GOMEZ ANA')).toBeInTheDocument();
-  });
-
-  it('con un filtro activo, aparece la etiqueta con opción de quitarlo', async () => {
-    render(<ControlGeneralPage />);
-    await userEvent.click(screen.getByText('Con horas extra (+88hs)'));
-    await userEvent.click(screen.getByLabelText('Quitar filtro'));
-    expect(screen.getByText('GOMEZ ANA')).toBeInTheDocument();
   });
 
   it('clic en "Sin carga" hace scroll hacia esa sección', async () => {
