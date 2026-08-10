@@ -77,6 +77,7 @@ const DETALLE: FilaDetalleDiario[] = [
     horas: 8,
     estado: 'pendiente',
     tareas: ['Zanjeo', 'Tendido de cañería'],
+    observacion: 'Viaje a Metán por reparación de fuga urgente',
   },
   {
     id: 11,
@@ -88,6 +89,7 @@ const DETALLE: FilaDetalleDiario[] = [
     horas: 4,
     estado: 'aprobado',
     tareas: [],
+    observacion: null,
   },
 ];
 
@@ -223,6 +225,13 @@ describe('ControlGeneralPage', () => {
     expect(filaRojas).toHaveTextContent('Zanjeo, Tendido de cañería');
     const filaSosa = screen.getByRole('link', { name: 'SOSA MARTA' }).closest('tr')!;
     expect(filaSosa).toHaveTextContent('—');
+  });
+
+  it('el detalle diario muestra la observación truncada con el texto completo en el title', () => {
+    render(<ControlGeneralPage />);
+    const obs = screen.getByText('Viaje a Metán por reparación de fuga urgente');
+    expect(obs).toHaveAttribute('title', 'Viaje a Metán por reparación de fuga urgente');
+    expect(obs.className).toContain('truncate');
   });
 
   it('el filtro por contrato pasa contratoIds a los hooks de resumen, histórico y detalle', async () => {

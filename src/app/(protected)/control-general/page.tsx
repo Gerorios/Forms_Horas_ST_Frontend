@@ -220,6 +220,7 @@ export default function ControlGeneralPage() {
                   <th className="px-4 py-2.5 font-medium">Contrato</th>
                   <th className="px-4 py-2.5 font-medium">Operario</th>
                   <th className="px-4 py-2.5 font-medium">Tareas</th>
+                  <th className="px-4 py-2.5 font-medium">Observación</th>
                   <th className="px-4 py-2.5 font-medium">Horas</th>
                   <th className="px-4 py-2.5 font-medium">Estado</th>
                 </tr>
@@ -241,6 +242,18 @@ export default function ControlGeneralPage() {
                     <td className="max-w-72 px-4 py-2.5 text-slate">
                       {f.tareas.length > 0 ? f.tareas.join(', ') : '—'}
                     </td>
+                    <td className="px-4 py-2.5 text-slate">
+                      {/* Texto libre potencialmente largo: una sola línea con
+                          elipsis y el contenido completo en el tooltip, para
+                          que la fila nunca se estire ni rompa el layout. */}
+                      {f.observacion ? (
+                        <span className="block max-w-52 truncate" title={f.observacion}>
+                          {f.observacion}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td className="tabular-nums px-4 py-2.5">{f.horas}</td>
                     <td className="px-4 py-2.5">
                       <span className={`text-xs font-medium ${ESTILO_ESTADO[f.estado] ?? 'text-slate'}`}>
@@ -251,7 +264,7 @@ export default function ControlGeneralPage() {
                 ))}
                 {detalleVisible.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-3 text-sm text-slate">
+                    <td colSpan={7} className="px-4 py-3 text-sm text-slate">
                       Sin registros en esta quincena.
                     </td>
                   </tr>

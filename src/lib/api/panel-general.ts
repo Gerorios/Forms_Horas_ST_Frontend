@@ -60,6 +60,9 @@ export interface FilaDetalleDiario {
   estado: 'pendiente' | 'aprobado' | 'desaprobado';
   /** Nombres de las tareas del maestro asociadas al registro (M:N). */
   tareas: string[];
+  /** Texto libre de la línea de carga (compartido por los operarios de esa
+   * carga en ese contrato, ver ADR-005). null si no se cargó ninguna. */
+  observacion: string | null;
 }
 
 export interface OperarioSinCarga {
