@@ -105,6 +105,45 @@ export function useResumenOperarios(quincena: Quincena, filtros: FiltrosPanel = 
   });
 }
 
+/** Una carga puntual dentro de un día que superó el umbral de control. */
+export interface RegistroControlDiario {
+  id: number;
+  contratoCodigo: string;
+  horas: number;
+  estado: 'pendiente' | 'aprobado' | 'desaprobado';
+  tareas: string[];
+  observacion: string | null;
+}
+
+/** Un operario-día con más de 13hs sumadas cruzando todos los contratos —
+ * la "zona de revisión" del panel (convive con la alerta de ≥16hs, que es
+ * otra cosa: esta tabla es auditoría fina, no alarma). */
+export interface DiaControlDiario {
+  operarioCuil: string;
+  operarioNombre: string;
+  fecha: string;
+  totalHoras: number;
+  contratos: string[];
+  registros: RegistroControlDiario[];
+}
+
+export function useControlDiario(quincena: Quincena, filtros: FiltrosPanel = {}) {
+  return useQuery({
+    queryKey: ['control-diario', quincena, filtros],
+    queryFn: async () =>
+      (
+        await api.get<DiaControlDiario[]>('/registros-horas/control-diario', {
+          params: {
+            anio: quincena.anio,
+            mes: quincena.mes,
+            quincena: quincena.parte,
+            ...paramsFiltros(filtros),
+          },
+        })
+      ).data,
+  });
+}
+
 /** Contratos donde soy jefe (Admin: todos los activos) — opciones del
  * filtro por contrato del panel Control general. */
 export function useMisContratos() {

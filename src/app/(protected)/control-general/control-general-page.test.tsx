@@ -93,12 +93,28 @@ const DETALLE: FilaDetalleDiario[] = [
   },
 ];
 
+const CONTROL_DIARIO = [
+  {
+    operarioCuil: '20888888888',
+    operarioNombre: 'VILLEGAS OSCAR',
+    fecha: '2026-08-04',
+    totalHoras: 14,
+    contratos: ['K5', 'K9'],
+    registros: [
+      { id: 51, contratoCodigo: 'K5', horas: 7, estado: 'aprobado', tareas: ['Zanjeo'], observacion: null },
+      { id: 52, contratoCodigo: 'K9', horas: 7, estado: 'pendiente', tareas: [], observacion: 'Viaje a Metán por fuga' },
+      { id: 53, contratoCodigo: 'K5', horas: 2, estado: 'desaprobado', tareas: [], observacion: null },
+    ],
+  },
+];
+
 vi.mock('@/lib/api/panel-general', () => ({
   useResumenOperarios: vi.fn(() => ({ data: RESUMEN, isLoading: false })),
   useSinCarga: vi.fn(() => ({ data: SIN_CARGA, isLoading: false })),
   useMisContratos: vi.fn(() => ({ data: MIS_CONTRATOS, isLoading: false })),
   useHistoricoQuincenas: vi.fn(() => ({ data: HISTORICO, isLoading: false })),
   useDetalleDiario: vi.fn(() => ({ data: DETALLE, isLoading: false })),
+  useControlDiario: vi.fn(() => ({ data: CONTROL_DIARIO, isLoading: false })),
 }));
 
 // Los gráficos (Recharts) necesitan medidas reales que jsdom no da:
@@ -206,6 +222,28 @@ describe('ControlGeneralPage', () => {
     render(<ControlGeneralPage />);
     expect(screen.getAllByText('PEREZ JUAN').length).toBeGreaterThan(0);
     expect(screen.getAllByText('GOMEZ ANA').length).toBeGreaterThan(0);
+  });
+
+  it('la zona de revisión lista los días con más de 13hs, colapsados', () => {
+    render(<ControlGeneralPage />);
+    expect(screen.getByText(/más de 13/)).toBeInTheDocument();
+    expect(screen.getByText('VILLEGAS OSCAR')).toBeInTheDocument();
+    expect(screen.getByText('14')).toBeInTheDocument();
+    expect(screen.getByText('K5, K9')).toBeInTheDocument();
+    // el detalle arranca colapsado
+    expect(screen.queryByText('Zanjeo')).not.toBeInTheDocument();
+  });
+
+  it('expandir un día de la zona de revisión muestra tareas, observación y las rechazadas marcadas', async () => {
+    render(<ControlGeneralPage />);
+    await userEvent.click(screen.getByRole('button', { name: /VILLEGAS OSCAR/ }));
+    expect(screen.getByText('Zanjeo')).toBeInTheDocument();
+    expect(screen.getByText(/Viaje a Metán por fuga/)).toBeInTheDocument();
+    // la rechazada aparece en el detalle aunque no sume al total
+    expect(screen.getByText('desaprobado')).toBeInTheDocument();
+    // colapsa de nuevo
+    await userEvent.click(screen.getByRole('button', { name: /VILLEGAS OSCAR/ }));
+    expect(screen.queryByText('Zanjeo')).not.toBeInTheDocument();
   });
 
   it('el detalle diario muestra las filas con contrato, operario linkeado y estado', () => {
