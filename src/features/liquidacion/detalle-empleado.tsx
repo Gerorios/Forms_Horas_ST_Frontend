@@ -10,17 +10,9 @@ const MODALIDAD_LABEL: Record<ModalidadPago, string> = {
 
 export function DetalleEmpleado({
   fila,
-  montoEdit,
-  onMontoEditChange,
-  onGuardarMonto,
-  guardandoMonto,
   contratosDestacados = [],
 }: {
   fila: FilaDetalleEmpleado;
-  montoEdit: string;
-  onMontoEditChange: (v: string) => void;
-  onGuardarMonto: () => void;
-  guardandoMonto: boolean;
   contratosDestacados?: string[];
 }) {
   return (
@@ -36,30 +28,6 @@ export function DetalleEmpleado({
           Novedades: <span className="text-ink">{fila.etiquetaNovedades || '—'}</span>
         </span>
       </div>
-
-      {fila.regimen === 'mensualizado' && (
-        <div className="flex flex-wrap items-end gap-2 rounded-md border border-line bg-surface p-2">
-          <label className="flex flex-col text-xs font-medium text-slate">
-            Monto mensualizado de esta quincena
-            <input
-              aria-label={`Monto — ${fila.nombre}`}
-              type="number"
-              step="0.01"
-              value={montoEdit}
-              onChange={(e) => onMontoEditChange(e.target.value)}
-              className="mt-1 w-32 rounded-md border border-line bg-surface px-2 py-1.5 text-right tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={onGuardarMonto}
-            disabled={guardandoMonto}
-            className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-          >
-            Guardar monto
-          </button>
-        </div>
-      )}
 
       <div>
         <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate">Días aprobados</h3>
