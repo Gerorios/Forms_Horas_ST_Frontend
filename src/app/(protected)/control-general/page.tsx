@@ -14,6 +14,7 @@ import {
   useMisContratos,
   useHistoricoQuincenas,
   useDetalleDiario,
+  useControlDiario,
   type OperarioSinCarga,
   type FiltrosPanel,
 } from '@/lib/api/panel-general';
@@ -70,6 +71,67 @@ function StatTile({
   return <div className="rounded-xl border border-line bg-surface p-4">{contenido}</div>;
 }
 
+/** Fila de la zona de revisión (>13hs/día): compacta, expandible al detalle
+ * de cada carga del día — tareas y observación completas (acá es el lugar
+ * de leerlas, sin truncar). */
+function FragmentoControlDiario({
+  dia,
+  abierto,
+  onToggle,
+}: {
+  dia: import('@/lib/api/panel-general').DiaControlDiario;
+  abierto: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <tr className="border-b border-line text-ink last:border-0">
+        <td className="tabular-nums px-4 py-2.5">{dia.fecha}</td>
+        <td className="px-4 py-2.5">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={abierto}
+            className="text-left underline decoration-line hover:text-brand-deep hover:decoration-brand-deep"
+            title={abierto ? 'Ocultar el detalle del día' : 'Ver qué hizo ese día'}
+          >
+            {dia.operarioNombre}
+          </button>
+        </td>
+        <td className="tabular-nums px-4 py-2.5 font-medium">{dia.totalHoras}</td>
+        <td className="px-4 py-2.5 text-slate">{dia.contratos.join(', ')}</td>
+        <td className="px-4 py-2.5 text-slate">{abierto ? '▾' : '▸'}</td>
+      </tr>
+      {abierto && (
+        <tr className="border-b border-line bg-sand/60 last:border-0">
+          <td colSpan={5} className="px-4 py-3">
+            <ul className="space-y-2">
+              {dia.registros.map((r) => (
+                <li key={r.id} className="text-sm">
+                  <span className="font-medium text-ink">{r.contratoCodigo}</span>
+                  <span className="tabular-nums text-ink"> · {r.horas} hs · </span>
+                  <span className={`text-xs font-medium ${ESTILO_ESTADO[r.estado] ?? 'text-slate'}`}>
+                    {r.estado}
+                  </span>
+                  {r.estado === 'desaprobado' && (
+                    <span className="ml-1 text-xs italic text-slate">(no suma al total)</span>
+                  )}
+                  <div className="text-slate">
+                    {r.tareas.length > 0 ? r.tareas.join(', ') : 'Sin tareas'}
+                    {r.observacion && (
+                      <span className="block italic">“{r.observacion}”</span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
 export default function ControlGeneralPage() {
   const [quincena, setQuincena] = useState<Quincena>(() => quincenaAnterior(quincenaDeFecha(new Date())));
   const [contratosSel, setContratosSel] = useState<string[]>([]);
@@ -111,6 +173,18 @@ export default function ControlGeneralPage() {
   const quincenaActual = useMemo(() => quincenaDeFecha(new Date()), []);
   const { data: historico, isLoading: cargandoHistorico } = useHistoricoQuincenas(quincenaActual, filtros);
   const { data: detalle, isLoading: cargandoDetalle } = useDetalleDiario(quincena, filtros);
+  const { data: controlDiario, isLoading: cargandoControl } = useControlDiario(quincena, filtros);
+  // Días expandidos de la zona de revisión (clave operarioCuil|fecha).
+  const [diasExpandidos, setDiasExpandidos] = useState<Set<string>>(new Set());
+
+  function alternarDia(clave: string) {
+    setDiasExpandidos((prev) => {
+      const s = new Set(prev);
+      if (s.has(clave)) s.delete(clave);
+      else s.add(clave);
+      return s;
+    });
+  }
 
   // Tiles y ranking respetan el filtro de operario (en el cliente, sobre
   // el resumen que ya viene filtrado por contrato/provincia del server).
@@ -241,6 +315,55 @@ export default function ControlGeneralPage() {
             <RankingOperarios resumen={resumenFiltrado} />
           )}
         </div>
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="font-display text-sm font-semibold text-ink">
+          Control — más de 13 hs en un día
+        </h2>
+        <p className="text-xs text-slate">
+          Zona de revisión: jornadas que superan las 13hs sumando todos los contratos (no es la
+          alerta de 16hs — esto es para mirar en detalle qué se hizo ese día). Las rechazadas no
+          suman al total, pero se muestran al expandir.
+        </p>
+        {cargandoControl ? (
+          <p className="text-slate">Cargando…</p>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-line bg-surface">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
+                  <th className="px-4 py-2.5 font-medium">Fecha</th>
+                  <th className="px-4 py-2.5 font-medium">Operario</th>
+                  <th className="px-4 py-2.5 font-medium">Total hs</th>
+                  <th className="px-4 py-2.5 font-medium">Contratos</th>
+                  <th className="w-10 px-4 py-2.5" />
+                </tr>
+              </thead>
+              <tbody>
+                {(controlDiario ?? []).map((d) => {
+                  const clave = `${d.operarioCuil}|${d.fecha}`;
+                  const abierto = diasExpandidos.has(clave);
+                  return (
+                    <FragmentoControlDiario
+                      key={clave}
+                      dia={d}
+                      abierto={abierto}
+                      onToggle={() => alternarDia(clave)}
+                    />
+                  );
+                })}
+                {(controlDiario ?? []).length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-3 text-sm text-slate">
+                      Ningún operario superó las 13hs en un día esta quincena.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">
