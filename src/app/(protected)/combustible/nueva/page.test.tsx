@@ -61,6 +61,8 @@ function extraccionBase(sugerencias: Partial<NonNullable<ExtraccionTicket['suger
       patente: null,
       km: null,
       movilId: null,
+      tipoCombustibleLeido: null,
+      cuitEstacionLeido: null,
       ...sugerencias,
     },
   };

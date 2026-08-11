@@ -215,14 +215,14 @@ export function useAdminEstacionesServicio() {
 export function useCrearEstacionServicio() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dto: { nombre: string; localidad?: string }) => api.post('/admin/estaciones-servicio', dto).then((r) => r.data),
+    mutationFn: (dto: { nombre: string; localidad?: string; cuit?: string }) => api.post('/admin/estaciones-servicio', dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'estaciones-servicio'] }),
   });
 }
 export function useActualizarEstacionServicio() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...dto }: { id: number; nombre?: string; localidad?: string }) =>
+    mutationFn: ({ id, ...dto }: { id: number; nombre?: string; localidad?: string; cuit?: string | null }) =>
       api.patch(`/admin/estaciones-servicio/${id}`, dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'estaciones-servicio'] }),
   });
@@ -251,6 +251,14 @@ export function useActualizarTipoCombustible() {
   return useMutation({
     mutationFn: ({ id, ...dto }: { id: number; nombre?: string }) =>
       api.patch(`/admin/tipos-combustible/${id}`, dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'tipos-combustible'] }),
+  });
+}
+export function useGuardarAliasTipoCombustible() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, alias }: { id: number; alias: string[] }) =>
+      api.put(`/admin/tipos-combustible/${id}/alias`, { alias }).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'tipos-combustible'] }),
   });
 }
