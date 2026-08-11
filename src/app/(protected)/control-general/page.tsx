@@ -85,15 +85,19 @@ function FragmentoControlDiario({
 }) {
   return (
     <>
-      <tr className="border-b border-line text-ink last:border-0">
+      {/* Toda la fila expande (no solo el nombre) — el onClick va en el <tr>
+          y el clic del botón burbujea hasta ahí, así el teclado también anda. */}
+      <tr
+        onClick={onToggle}
+        className="cursor-pointer border-b border-line text-ink transition last:border-0 hover:bg-sand/60"
+        title={abierto ? 'Ocultar el detalle del día' : 'Ver qué hizo ese día'}
+      >
         <td className="tabular-nums px-4 py-2.5">{dia.fecha}</td>
         <td className="px-4 py-2.5">
           <button
             type="button"
-            onClick={onToggle}
             aria-expanded={abierto}
             className="text-left underline decoration-line hover:text-brand-deep hover:decoration-brand-deep"
-            title={abierto ? 'Ocultar el detalle del día' : 'Ver qué hizo ese día'}
           >
             {dia.operarioNombre}
           </button>
