@@ -14,17 +14,30 @@ export default function EstacionesServicioAdminPage() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [nombre, setNombre] = useState('');
   const [localidad, setLocalidad] = useState('');
+  const [cuit, setCuit] = useState('');
 
   function cerrarForm() {
     setMostrarForm(false);
     setNombre('');
     setLocalidad('');
+    setCuit('');
   }
 
   function agregar() {
     if (!nombre.trim()) return;
+    // Mismo criterio que la fila de edición: se aceptan guiones/espacios pero
+    // se guarda solo dígitos; si hay algo cargado y no son 11, no se envía.
+    const cuitLimpio = cuit.replace(/\D/g, '');
+    if (cuitLimpio.length > 0 && cuitLimpio.length !== 11) {
+      toast.error('El CUIT debe tener 11 dígitos');
+      return;
+    }
     toast.promise(
-      crear.mutateAsync({ nombre: nombre.trim(), localidad: localidad.trim() || undefined }),
+      crear.mutateAsync({
+        nombre: nombre.trim(),
+        localidad: localidad.trim() || undefined,
+        ...(cuitLimpio.length === 11 ? { cuit: cuitLimpio } : {}),
+      }),
       { loading: 'Guardando…', success: 'Estación creada', error: 'No se pudo crear' },
     );
     cerrarForm();
@@ -70,6 +83,13 @@ export default function EstacionesServicioAdminPage() {
             value={localidad}
             onChange={(e) => setLocalidad(e.target.value)}
             placeholder="Localidad (opcional)"
+            className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+          />
+          <input
+            aria-label="CUIT"
+            value={cuit}
+            onChange={(e) => setCuit(e.target.value)}
+            placeholder="CUIT 30-12345678-9 (opcional)"
             className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
           />
           <button
