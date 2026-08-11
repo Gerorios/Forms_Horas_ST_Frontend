@@ -191,4 +191,53 @@ describe('NuevaCargaCombustiblePage — sugerencias v2', () => {
     const select = screen.getByRole('combobox', { name: 'Móvil' }) as HTMLSelectElement;
     expect(select.value).toBe('');
   });
+
+  it('muestra el hint de tipo leído cuando no matchea el catálogo', async () => {
+    extraerTicket.mockResolvedValue(
+      extraccionBase({ tipoCombustibleLeido: 'INFINIA DIESEL', tipoCombustibleId: null }),
+    );
+    render(<NuevaCargaCombustiblePage />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sacar foto del ticket' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Tipo leído del ticket: «INFINIA DIESEL»/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/agregarlo como alias/i)).toBeInTheDocument();
+  });
+
+  it('muestra el hint de CUIT leído formateado cuando no matchea el maestro', async () => {
+    extraerTicket.mockResolvedValue(
+      extraccionBase({ cuitEstacionLeido: '30999999995', estacionId: null }),
+    );
+    render(<NuevaCargaCombustiblePage />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sacar foto del ticket' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/CUIT leído: 30-99999999-5/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/no está en el maestro de estaciones/)).toBeInTheDocument();
+  });
+
+  it('no muestra hints cuando el tipo y la estación sí matchearon', async () => {
+    extraerTicket.mockResolvedValue(
+      extraccionBase({
+        tipoCombustibleId: 1,
+        tipoCombustibleLeido: 'Diesel',
+        estacionId: 1,
+        cuitEstacionLeido: '30111111118',
+      }),
+    );
+    render(<NuevaCargaCombustiblePage />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sacar foto del ticket' }));
+
+    await waitFor(() => {
+      const select = screen.getByRole('combobox', { name: 'Tipo de combustible' }) as HTMLSelectElement;
+      expect(select.value).toBe('1');
+    });
+    expect(screen.queryByText(/Tipo leído del ticket/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/CUIT leído/)).not.toBeInTheDocument();
+  });
 });
