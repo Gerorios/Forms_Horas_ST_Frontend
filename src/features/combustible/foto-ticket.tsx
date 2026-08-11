@@ -47,11 +47,13 @@ export function FotoTicket({
 
   return (
     <div className="space-y-3">
+      {/* Sin `capture`: con ese atributo el celular abre la cámara directo y
+          no deja elegir de la galería. Sin él, el selector nativo ofrece
+          cámara, galería o archivos (pedido del dueño de producto 2026-08-11). */}
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         aria-label="Foto del ticket"
         className="hidden"
         onChange={elegirArchivo}
@@ -71,7 +73,7 @@ export function FotoTicket({
             onClick={() => inputRef.current?.click()}
             className="rounded-md border border-brand px-3 py-1.5 text-sm font-medium text-brand-deep transition hover:bg-accent disabled:opacity-50"
           >
-            Sacar otra foto
+            Cambiar foto
           </button>
         </div>
       ) : (
