@@ -8,28 +8,43 @@ import type { EstacionServicio } from '@/types/domain';
 const inputCls =
   'rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
 
+const soloDigitos = (s: string) => s.replace(/\D/g, '');
+const fmtCuit = (c: string) => `${c.slice(0, 2)}-${c.slice(2, 10)}-${c.slice(10)}`;
+
 export function EstacionEditRow({ estacion, pill }: { estacion: EstacionServicio; pill: ReactNode }) {
   const actualizar = useActualizarEstacionServicio();
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState(estacion.nombre);
   const [localidad, setLocalidad] = useState(estacion.localidad ?? '');
+  const [cuit, setCuit] = useState(estacion.cuit ?? '');
 
+  const cuitLimpio = soloDigitos(cuit);
   const nombreValido = nombre.trim().length > 0;
   const huboCambios =
-    nombre.trim() !== estacion.nombre || localidad.trim() !== (estacion.localidad ?? '');
+    nombre.trim() !== estacion.nombre ||
+    localidad.trim() !== (estacion.localidad ?? '') ||
+    cuitLimpio !== (estacion.cuit ?? '');
   const puedeGuardar = nombreValido && huboCambios && !actualizar.isPending;
 
   function cerrar() {
     setAbierto(false);
     setNombre(estacion.nombre);
     setLocalidad(estacion.localidad ?? '');
+    setCuit(estacion.cuit ?? '');
   }
 
   async function guardar() {
     if (!puedeGuardar) return;
-    const payload: { id: number; nombre?: string; localidad?: string } = { id: estacion.id };
+    if (cuitLimpio.length !== 0 && cuitLimpio.length !== 11) {
+      toast.error('El CUIT debe tener 11 dígitos');
+      return;
+    }
+    const payload: { id: number; nombre?: string; localidad?: string; cuit?: string | null } = {
+      id: estacion.id,
+    };
     if (nombre.trim() !== estacion.nombre) payload.nombre = nombre.trim();
     if (localidad.trim() !== (estacion.localidad ?? '')) payload.localidad = localidad.trim() || undefined;
+    if (cuitLimpio !== (estacion.cuit ?? '')) payload.cuit = cuitLimpio.length === 11 ? cuitLimpio : null;
 
     const promesa = actualizar.mutateAsync(payload);
     toast.promise(promesa, {
@@ -50,6 +65,7 @@ export function EstacionEditRow({ estacion, pill }: { estacion: EstacionServicio
       <div className="flex items-center gap-3 px-4 py-2.5 text-sm">
         <span className="font-medium text-ink">{estacion.nombre}</span>
         <span className="text-slate">{estacion.localidad ?? ''}</span>
+        {estacion.cuit && <span className="text-xs text-slate tabular-nums">{fmtCuit(estacion.cuit)}</span>}
         <span className="ml-auto flex items-center gap-2">
           {pill}
           <button
@@ -71,6 +87,16 @@ export function EstacionEditRow({ estacion, pill }: { estacion: EstacionServicio
             <label className="flex flex-col gap-1 text-sm font-medium text-ink">
               Localidad
               <input aria-label="Localidad" value={localidad} onChange={(e) => setLocalidad(e.target.value)} className={inputCls} />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium text-ink">
+              CUIT
+              <input
+                aria-label="CUIT"
+                value={cuit}
+                onChange={(e) => setCuit(e.target.value)}
+                placeholder="30-12345678-9"
+                className={inputCls}
+              />
             </label>
           </div>
           <div className="flex gap-2">
