@@ -46,6 +46,28 @@ describe('EstacionesServicioAdminPage', () => {
     );
   });
 
+  it('crea una estación con CUIT (acepta guiones, envía solo dígitos)', async () => {
+    render(<EstacionesServicioAdminPage />);
+    await userEvent.click(screen.getByRole('button', { name: /nueva estación/i }));
+    await userEvent.type(screen.getByLabelText('Nombre'), 'Axion Acceso Norte');
+    await userEvent.type(screen.getByLabelText('CUIT'), '30-22222222-9');
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    await waitFor(() =>
+      expect(crear).toHaveBeenCalledWith({ nombre: 'Axion Acceso Norte', cuit: '30222222229' }),
+    );
+  });
+
+  it('CUIT inválido en el alta: no crea y avisa', async () => {
+    const { toast } = await import('sonner');
+    render(<EstacionesServicioAdminPage />);
+    await userEvent.click(screen.getByRole('button', { name: /nueva estación/i }));
+    await userEvent.type(screen.getByLabelText('Nombre'), 'Puma Sur');
+    await userEvent.type(screen.getByLabelText('CUIT'), '30-123');
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    expect(crear).not.toHaveBeenCalled();
+    expect(vi.mocked(toast.error)).toHaveBeenCalled();
+  });
+
   it('el toggle de activo llama la mutación', async () => {
     render(<EstacionesServicioAdminPage />);
     await userEvent.click(screen.getByRole('button', { name: /activo/i }));
