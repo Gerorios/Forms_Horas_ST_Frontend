@@ -151,12 +151,16 @@ export interface EstacionServicio {
   id: number;
   nombre: string;
   localidad: string | null;
+  /** CUIT del emisor, solo dígitos (11). Null en estaciones cargadas antes de esta feature. */
+  cuit: string | null;
   activo?: boolean;
 }
 
 export interface TipoCombustible {
   id: number;
   nombre: string;
+  /** Nombres comerciales como vienen impresos en el ticket ("INFINIA DIESEL"). */
+  aliases: string[];
   activo?: boolean;
 }
 
@@ -207,5 +211,9 @@ export interface ExtraccionTicket {
     patente: string | null;
     km: number | null;
     movilId: number | null;
+    /** Texto del tipo tal como vino impreso, para el hint cuando no matchea el catálogo. */
+    tipoCombustibleLeido: string | null;
+    /** CUIT del emisor leído (solo dígitos), para el hint cuando no matchea el maestro. */
+    cuitEstacionLeido: string | null;
   };
 }
