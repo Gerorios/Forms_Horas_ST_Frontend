@@ -383,3 +383,46 @@ export function useDetalleQuincena(anio: number, mes: number, quincena: number, 
     enabled,
   });
 }
+
+// ---- Análisis de la quincena (KPIs, composición, prorrateo por contrato) ----
+// Contrato de datos compartido con el backend (plan 2026-08-12-analisis-quincena).
+export interface AnalisisQuincena {
+  periodo: { anio: number; mes: number; quincena: number };
+  totales: {
+    total: number;            // suma de fila.total de la quincena
+    empleados: number;
+    empleadosNuevos: number;  // sin fila en la quincena anterior
+    horasCct: number;
+    horasExtra: number;
+    costoPromedio: number;    // total / empleados (0 si no hay empleados)
+  };
+  anterior: { total: number; empleados: number; costoPromedio: number } | null; // null si el motor devuelve 0 filas para la anterior
+  composicion: { basico: number; extras: number; presentismo: number; plus: number; bono: number };
+  topCobradores: {            // top 10 por total desc
+    cuil: string; nombre: string; total: number;
+    totalAnterior: number | null; deltaPct: number | null; // null = nuevo
+    diasTrabajados: number;
+  }[];
+  contratos: {                // orden: monto desc; el bucket sin contrato va último
+    contratoId: number | null;         // null = "Sin contrato asignable"
+    codigo: string;                    // 'Sin contrato asignable' para el bucket
+    nombre: string;
+    monto: number;                     // prorrateo por horas del total de cada empleado
+    horas: number;                     // horas aprobadas del contrato en la quincena (0 en el bucket)
+    pctDelTotal: number;               // monto / totales.total * 100, 1 decimal
+  }[];
+  historico: { anio: number; mes: number; quincena: number; total: number }[]; // 8 quincenas asc, incluida la actual
+  variaciones: {              // TODOS los empleados; orden |deltaPct| desc, los nuevos (delta null) al final
+    cuil: string; nombre: string; regimen: string;
+    total: number; totalAnterior: number | null;
+    deltaMonto: number | null; deltaPct: number | null;
+    diasTrabajados: number;
+  }[];
+}
+
+export function useAnalisisQuincena(anio: number, mes: number, quincena: number) {
+  return useQuery({
+    queryKey: ['liquidacion', 'analisis', anio, mes, quincena],
+    queryFn: () => get<AnalisisQuincena>('/liquidacion/analisis', { anio, mes, quincena }),
+  });
+}
