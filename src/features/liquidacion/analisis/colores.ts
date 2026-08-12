@@ -21,6 +21,11 @@ export function fmtMoneda(n: number, decimales = 0): string {
   });
 }
 
+/** Horas es-AR con hasta 2 decimales (sin colas de floats tipo 45,99999999). */
+export function fmtHoras(n: number): string {
+  return n.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+}
+
 /** Porcentaje es-AR con 1 decimal y signo explícito para deltas (+10,5 %). */
 export function fmtPct(n: number, conSigno = false): string {
   const texto = `${n.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`;

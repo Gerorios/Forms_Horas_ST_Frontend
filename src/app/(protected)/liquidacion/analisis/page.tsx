@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/page-header';
 import { FiltroNumero, FiltroSelect } from '@/components/ui/barra-filtros';
 import { useAnalisisQuincena } from '@/lib/api/liquidacion';
 import { quincenaAnterior, quincenaDeFecha } from '@/lib/quincena';
-import { fmtMoneda, fmtPct } from '@/features/liquidacion/analisis/colores';
+import { fmtHoras, fmtMoneda, fmtPct } from '@/features/liquidacion/analisis/colores';
 import { ComposicionPago } from '@/features/liquidacion/analisis/composicion-pago';
 import { TopCobradores, claseDelta } from '@/features/liquidacion/analisis/top-cobradores';
 import { ContratosChart } from '@/features/liquidacion/analisis/contratos-chart';
@@ -117,8 +117,8 @@ export default function AnalisisQuincenaPage() {
             />
             <StatTile
               label="Horas pagadas"
-              value={`${data.totales.horasCct.toLocaleString('es-AR')} CCT`}
-              sub={<span className="text-warn">+ {data.totales.horasExtra.toLocaleString('es-AR')} extra</span>}
+              value={`${fmtHoras(data.totales.horasCct)} CCT`}
+              sub={<span className="text-warn">+ {fmtHoras(data.totales.horasExtra)} extra</span>}
             />
             <StatTile
               label="Costo promedio por empleado"

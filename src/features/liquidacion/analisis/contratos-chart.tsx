@@ -2,7 +2,7 @@
 
 import { Bar, BarChart, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { AnalisisQuincena } from '@/lib/api/liquidacion';
-import { COLOR_EXTRAS, fmtMoneda, fmtPct } from './colores';
+import { COLOR_EXTRAS, fmtHoras, fmtMoneda, fmtPct } from './colores';
 
 type ContratoAnalisis = AnalisisQuincena['contratos'][number];
 
@@ -23,7 +23,7 @@ function TooltipContrato({
     <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-md">
       <p className="font-medium text-ink">{c.contratoId === null ? c.codigo : `${c.codigo} — ${c.nombre}`}</p>
       <p className="tabular-nums text-slate">
-        {fmtMoneda(c.monto)} · {fmtPct(c.pctDelTotal)} del total · {c.horas} hs aprobadas
+        {fmtMoneda(c.monto)} · {fmtPct(c.pctDelTotal)} del total · {fmtHoras(c.horas)} hs aprobadas
       </p>
     </div>
   );
@@ -94,7 +94,7 @@ export function ContratosChart({ contratos }: { contratos: ContratoAnalisis[] })
               <td className="py-1.5 pr-2 font-medium">{c.codigo}</td>
               <td className="py-1.5 pr-2">{c.contratoId === null ? '—' : c.nombre}</td>
               <td className="tabular-nums py-1.5 pr-2 text-right">{fmtMoneda(c.monto)}</td>
-              <td className="tabular-nums py-1.5 pr-2 text-right">{c.horas}</td>
+              <td className="tabular-nums py-1.5 pr-2 text-right">{fmtHoras(c.horas)}</td>
               <td className="tabular-nums py-1.5 text-right">{fmtPct(c.pctDelTotal)}</td>
             </tr>
           ))}
