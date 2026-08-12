@@ -37,10 +37,16 @@ describe('ReportePage', () => {
     h.isPending = false;
   });
 
+  it('la fecha arranca VACÍA, sin default de hoy (decisión 2026-08-12)', () => {
+    render(<ReportePage />);
+    expect((screen.getByLabelText('Fecha') as HTMLInputElement).value).toBe('');
+  });
+
   it('no envía si faltan campos obligatorios, y marca los errores al intentar', async () => {
     render(<ReportePage />);
     await userEvent.click(screen.getByRole('button', { name: /reportar/i }));
     expect(mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText('Elegí la fecha del reporte.')).toBeInTheDocument();
     expect(screen.getByText('Elegí al menos un móvil.')).toBeInTheDocument();
     expect(screen.getByText('Agregá al menos un operario.')).toBeInTheDocument();
     expect(screen.getByText('Elegí un contrato.')).toBeInTheDocument();
@@ -48,8 +54,40 @@ describe('ReportePage', () => {
     expect(screen.getByText('Agregá una descripción de la tarea.')).toBeInTheDocument();
   });
 
+  it('con todo completo menos la fecha, NO envía', async () => {
+    render(<ReportePage />);
+    await userEvent.type(screen.getByPlaceholderText(/buscar operario/i), 'gomez');
+    await userEvent.click(await screen.findByText(/GOMEZ/));
+    await userEvent.click(screen.getByText('Buscar móvil…'));
+    await userEvent.click(screen.getByText('M-01'));
+    await userEvent.selectOptions(screen.getByLabelText('Contrato'), '1');
+    await userEvent.click(screen.getByRole('button', { name: 'Excavación' }));
+    await userEvent.type(screen.getByLabelText('Horas'), '8');
+    await userEvent.type(screen.getByLabelText('Observación'), 'Tarea de excavación');
+    await userEvent.click(screen.getByRole('button', { name: /reportar/i }));
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText('Elegí la fecha del reporte.')).toBeInTheDocument();
+  });
+
+  it('tras un envío exitoso, la fecha vuelve a vacío (hay que elegirla de nuevo)', async () => {
+    render(<ReportePage />);
+    await userEvent.type(screen.getByLabelText('Fecha'), '2026-08-11');
+    await userEvent.type(screen.getByPlaceholderText(/buscar operario/i), 'gomez');
+    await userEvent.click(await screen.findByText(/GOMEZ/));
+    await userEvent.click(screen.getByText('Buscar móvil…'));
+    await userEvent.click(screen.getByText('M-01'));
+    await userEvent.selectOptions(screen.getByLabelText('Contrato'), '1');
+    await userEvent.click(screen.getByRole('button', { name: 'Excavación' }));
+    await userEvent.type(screen.getByLabelText('Horas'), '8');
+    await userEvent.type(screen.getByLabelText('Observación'), 'Tarea de excavación');
+    await userEvent.click(screen.getByRole('button', { name: /reportar/i }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect((screen.getByLabelText('Fecha') as HTMLInputElement).value).toBe(''));
+  });
+
   it('con todos los campos completos (incluido móvil y observación) envía el batch', async () => {
     render(<ReportePage />);
+    await userEvent.type(screen.getByLabelText('Fecha'), '2026-08-11');
     await userEvent.type(screen.getByPlaceholderText(/buscar operario/i), 'gomez');
     await userEvent.click(await screen.findByText(/GOMEZ/));
     await userEvent.click(screen.getByText('Buscar móvil…'));
@@ -67,6 +105,7 @@ describe('ReportePage', () => {
       { contratoId: 1, horas: 8, tareaIds: [9], observacion: 'Tarea de excavación' },
     ]);
     expect(payload.provinciaId).toBe(1);
+    expect(payload.fecha).toBe('2026-08-11');
   });
 
   it('muestra el modal de carga mientras la mutación está pendiente', () => {
