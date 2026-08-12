@@ -5,7 +5,10 @@ import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { useCategoriasUocra, useCrearCategoriaUocra, useToggleCategoriaUocra, mensajeDeError } from '@/lib/api/liquidacion';
 
-export default function CategoriasUocraPage() {
+/** ABM del catálogo de categorías UOCRA. Vivía en Liquidación; se movió a
+ * Admin (decisión 2026-08-12): el Liquidador usa las categorías (perfiles,
+ * tarifas) pero no administra el catálogo. */
+export default function CategoriasUocraAdminPage() {
   const { data: categorias, isLoading } = useCategoriasUocra();
   const crearCategoria = useCrearCategoriaUocra();
   const toggleCategoria = useToggleCategoriaUocra();
@@ -24,10 +27,10 @@ export default function CategoriasUocraPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Categorías UOCRA" />
+      <PageHeader eyebrow="Admin" title="Categorías UOCRA" />
       <p className="text-sm text-slate">
-        Solo el catálogo de categorías. Los precios se cargan desde{' '}
-        <span className="font-medium text-ink">Tarifas</span>, en la ronda mensual.
+        Solo el catálogo de categorías. Los precios los carga el Liquidador desde{' '}
+        <span className="font-medium text-ink">Liquidación → Tarifas</span>, en la ronda mensual.
       </p>
 
       <div className="flex gap-2">
