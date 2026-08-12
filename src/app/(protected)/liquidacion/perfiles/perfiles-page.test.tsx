@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const upsertMasivo = vi.fn().mockResolvedValue({ asignados: 1, omitidos: [] });
+const upsertUno = vi.fn().mockResolvedValue({});
 const eliminar = vi.fn().mockResolvedValue({});
 
 vi.mock('@/lib/api/liquidacion', () => ({
@@ -13,14 +14,31 @@ vi.mock('@/lib/api/liquidacion', () => ({
         regimen: 'jornalizado',
         categoriaUocraId: 1,
         modalidadPago: 'en_b',
+        contratosImputacionIds: [],
         empleado: { apellido_nombre: 'GOMEZ JUAN', legajo: 1, cargo: 'OF' },
         categoria: { id: 1, nombre: 'OFICIAL UOCRA' },
+      },
+      {
+        cuil: '20444444444',
+        regimen: 'mensualizado',
+        categoriaUocraId: null,
+        modalidadPago: null,
+        contratosImputacionIds: [1],
+        empleado: { apellido_nombre: 'SOSA MARIA', legajo: 4, cargo: 'OF' },
+        categoria: null,
       },
     ],
     isLoading: false,
   }),
   useCategoriasUocra: () => ({ data: [{ id: 1, nombre: 'OFICIAL UOCRA', activo: true }] }),
+  useContratosLiquidacion: () => ({
+    data: [
+      { id: 1, codigo: 'K5', nombre: 'Gasnor K5' },
+      { id: 2, codigo: 'K9', nombre: 'Gasnor K9' },
+    ],
+  }),
   useUpsertPerfilesMasivo: () => ({ mutateAsync: upsertMasivo, isPending: false }),
+  useUpsertPerfilLiquidacion: () => ({ mutateAsync: upsertUno, isPending: false }),
   useEliminarPerfilLiquidacion: () => ({ mutateAsync: eliminar, isPending: false }),
 }));
 vi.mock('@/lib/api/empleados', () => ({
@@ -29,6 +47,7 @@ vi.mock('@/lib/api/empleados', () => ({
       { cuil: '20111111111', apellido_nombre: 'GOMEZ JUAN', legajo: 1, cargo: 'OF' },
       { cuil: '20222222222', apellido_nombre: 'PEREZ ANA', legajo: 2, cargo: 'AY' },
       { cuil: '20333333333', apellido_nombre: 'RUIZ LUIS', legajo: 3, cargo: 'AD' },
+      { cuil: '20444444444', apellido_nombre: 'SOSA MARIA', legajo: 4, cargo: 'OF' },
     ],
     isLoading: false,
   }),
@@ -38,7 +57,7 @@ vi.mock('sonner', () => ({ toast: { promise: vi.fn(), success: vi.fn(), error: v
 import PerfilesLiquidacionPage from './page';
 
 describe('PerfilesLiquidacionPage', () => {
-  beforeEach(() => { upsertMasivo.mockClear(); eliminar.mockClear(); });
+  beforeEach(() => { upsertMasivo.mockClear(); upsertUno.mockClear(); eliminar.mockClear(); });
 
   it('lista todos los empleados activos, con el perfil ya asignado si lo tienen', () => {
     render(<PerfilesLiquidacionPage />);
@@ -113,8 +132,37 @@ describe('PerfilesLiquidacionPage', () => {
 
   it('quitar un perfil llama a eliminar con el cuil', async () => {
     render(<PerfilesLiquidacionPage />);
-    await userEvent.click(screen.getByRole('button', { name: /quitar/i }));
+    await userEvent.click(screen.getAllByRole('button', { name: /quitar/i })[0]);
     await waitFor(() => expect(eliminar).toHaveBeenCalledWith('20111111111'));
+  });
+
+  it('muestra el selector de contratos de imputación solo para mensualizado/fijo/por_tantos', () => {
+    render(<PerfilesLiquidacionPage />);
+    expect(screen.getByLabelText('Contratos de imputación de SOSA MARIA')).toBeInTheDocument();
+    // jornalizado y sin perfil no lo muestran
+    expect(screen.queryByLabelText('Contratos de imputación de GOMEZ JUAN')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Contratos de imputación de PEREZ ANA')).not.toBeInTheDocument();
+    // hint corto de imputación
+    expect(
+      screen.getByText(/se imputa a estos contratos en partes iguales en el Análisis/i),
+    ).toBeInTheDocument();
+  });
+
+  it('guardar los contratos de imputación manda contratosImputacionIds por el upsert individual', async () => {
+    render(<PerfilesLiquidacionPage />);
+    await userEvent.click(screen.getByLabelText('Contratos de imputación de SOSA MARIA'));
+    await userEvent.click(screen.getByLabelText('K9 — Gasnor K9'));
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar contratos de SOSA MARIA' }));
+    await waitFor(() =>
+      expect(upsertUno).toHaveBeenCalledWith({
+        cuil: '20444444444',
+        regimen: 'mensualizado',
+        categoriaUocraId: undefined,
+        modalidadPago: undefined,
+        contratosImputacionIds: [1, 2],
+      }),
+    );
   });
 
   it('al elegir régimen Mensualizado, la categoría UOCRA sigue habilitada y se manda (importa para el bono)', async () => {
