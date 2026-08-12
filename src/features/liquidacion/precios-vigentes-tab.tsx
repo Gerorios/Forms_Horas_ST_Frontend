@@ -13,6 +13,7 @@ import {
   mensajeDeError,
   type TipoBonoNoRemunerativo,
 } from '@/lib/api/liquidacion';
+import { aplicarIncremento } from './incremento';
 
 const NOMBRES_MES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -79,6 +80,10 @@ export function PreciosVigentesTab() {
   const [dialogConfirmacion, setDialogConfirmacion] = useState(false);
 
   const [importes, setImportes] = useState<Record<number, string>>({});
+  // Atajo de aumento UOCRA: prellena todas las categorías con +N% sobre lo
+  // que haya en los campos (no guarda — se revisa y confirma con el guardado
+  // normal). Mismo patrón que sueldos mensualizados, ADR-016.
+  const [pctCategorias, setPctCategorias] = useState('');
   const [montos, setMontos] = useState<Record<number, string>>({});
   const [rangos, setRangos] = useState<Rango[]>(RANGOS_DEFAULT);
   const [bonos, setBonos] = useState<Record<number, Bono>>({});
@@ -437,7 +442,34 @@ export function PreciosVigentesTab() {
               )}
 
               <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
-                <h2 className="font-display text-sm font-semibold text-ink">Categorías UOCRA (por hora)</h2>
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <h2 className="font-display text-sm font-semibold text-ink">Categorías UOCRA (por hora)</h2>
+                  <div className="flex items-end gap-2">
+                    <label className="flex flex-col text-xs text-slate">
+                      Incremento (%)
+                      <input
+                        aria-label="Porcentaje de incremento de categorías"
+                        type="number"
+                        step="0.01"
+                        value={pctCategorias}
+                        onChange={(e) => setPctCategorias(e.target.value)}
+                        className="w-28 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={!pctCategorias || Number.isNaN(Number(pctCategorias))}
+                      onClick={() => setImportes((prev) => aplicarIncremento(prev, Number(pctCategorias)))}
+                      className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60 disabled:opacity-50"
+                    >
+                      Aplicar a categorías
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-slate">
+                  El % solo prellena los campos con el aumento (podés retocar cualquiera después);
+                  no se guarda nada hasta confirmar.
+                </p>
                 {(estado?.categorias ?? []).map((c) => (
                   <label key={c.id} className="flex items-center justify-between gap-3 text-sm text-ink">
                     {c.nombre}
