@@ -82,8 +82,19 @@ export function PreciosVigentesTab() {
   const [importes, setImportes] = useState<Record<number, string>>({});
   // Atajo de aumento UOCRA: prellena todas las categorías con +N% sobre lo
   // que haya en los campos (no guarda — se revisa y confirma con el guardado
-  // normal). Mismo patrón que sueldos mensualizados, ADR-016.
+  // normal). Mismo patrón que sueldos mensualizados, ADR-016. Con modal de
+  // confirmación previo: un clic silencioso que cambia todos los precios
+  // pasaba desapercibido (feedback del Liquidador probando, 2026-08-12).
   const [pctCategorias, setPctCategorias] = useState('');
+  const [dialogPct, setDialogPct] = useState(false);
+
+  function aplicarPctCategorias() {
+    setImportes((prev) => aplicarIncremento(prev, Number(pctCategorias)));
+    setDialogPct(false);
+    toast.success(
+      `Categorías prellenadas con ${Number(pctCategorias) >= 0 ? 'un aumento' : 'una baja'} del ${Math.abs(Number(pctCategorias))}% — revisá y confirmá con el guardado.`,
+    );
+  }
   const [montos, setMontos] = useState<Record<number, string>>({});
   const [rangos, setRangos] = useState<Rango[]>(RANGOS_DEFAULT);
   const [bonos, setBonos] = useState<Record<number, Bono>>({});
@@ -459,7 +470,7 @@ export function PreciosVigentesTab() {
                     <button
                       type="button"
                       disabled={!pctCategorias || Number.isNaN(Number(pctCategorias))}
-                      onClick={() => setImportes((prev) => aplicarIncremento(prev, Number(pctCategorias)))}
+                      onClick={() => setDialogPct(true)}
                       className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60 disabled:opacity-50"
                     >
                       Aplicar a categorías
@@ -603,6 +614,41 @@ export function PreciosVigentesTab() {
             </>
           )}
         </>
+      )}
+
+      {dialogPct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md space-y-4 rounded-xl bg-surface p-6">
+            <h3 className="font-display text-base font-semibold text-ink">
+              {Number(pctCategorias) >= 0 ? 'Aumentar' : 'Bajar'} todas las categorías un{' '}
+              {Math.abs(Number(pctCategorias))}%
+            </h3>
+            <p className="text-sm text-slate">
+              Se van a prellenar <strong>todas las categorías UOCRA</strong> con el{' '}
+              {Number(pctCategorias) >= 0 ? 'aumento' : 'descuento'} del{' '}
+              {Math.abs(Number(pctCategorias))}% sobre los valores que están ahora en los campos.
+              Después podés retocar cualquiera a mano — nada queda guardado hasta que confirmes el
+              guardado de los precios.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDialogPct(false)}
+                className="rounded-md px-3 py-2 text-sm font-medium text-ink hover:bg-accent/50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={aplicarPctCategorias}
+                className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95"
+              >
+                Sí, aplicar {Number(pctCategorias) >= 0 ? '+' : ''}
+                {Number(pctCategorias)}%
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {dialogConfirmacion && (
