@@ -7,8 +7,9 @@ import { COLOR_BASICO, fmtMoneda, fmtPct } from './colores';
 type Cobrador = AnalisisQuincena['topCobradores'][number];
 
 /** Acá subir es COSTO: la suba fuerte va en rojo, la suba normal en warn y
- * la baja queda neutra (slate). */
-function claseDelta(deltaPct: number) {
+ * la baja queda neutra (slate). Lo reusa la tabla de variaciones de la
+ * página para que el código de color sea el mismo. */
+export function claseDelta(deltaPct: number) {
   if (deltaPct > 25) return 'text-danger';
   if (deltaPct > 0) return 'text-warn';
   return 'text-slate';
