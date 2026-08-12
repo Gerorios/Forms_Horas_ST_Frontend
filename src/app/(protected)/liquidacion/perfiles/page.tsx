@@ -403,7 +403,10 @@ export default function PerfilesLiquidacionPage() {
         <p className="text-slate">Cargando…</p>
       ) : (
         <>
-          <div className="overflow-hidden rounded-xl border border-line bg-surface">
+          {/* overflow-visible (no hidden): el popover del MultiFiltro de
+              contratos de imputación se abre DENTRO de esta tarjeta y con
+              overflow-hidden quedaba recortado por el borde. */}
+          <div className="overflow-visible rounded-xl border border-line bg-surface">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
