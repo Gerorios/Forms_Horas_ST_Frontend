@@ -6,8 +6,8 @@ import { COLOR_EXTRAS, fmtHoras, fmtMoneda, fmtPct } from './colores';
 
 type ContratoAnalisis = AnalisisQuincena['contratos'][number];
 
-/** Gris neutro para el bucket "Sin contrato asignable" (mensualizados puros,
- * por tantos sin registros) — es un resto, no un contrato más. */
+/** Gris neutro para el bucket "Sin contrato asignable" (empleados sin horas
+ * aprobadas ni contratos de imputación) — es un resto, no un contrato más. */
 const COLOR_SIN_CONTRATO = '#9a9ea3';
 
 function TooltipContrato({
@@ -100,6 +100,12 @@ export function ContratosChart({ contratos }: { contratos: ContratoAnalisis[] })
           ))}
         </tbody>
       </table>
+      {contratos.some((c) => c.contratoId === null) && (
+        <p className="text-xs text-slate">
+          Sin contrato asignable: empleados sin horas aprobadas ni contratos de imputación
+          asignados (se asignan en Perfiles).
+        </p>
+      )}
     </div>
   );
 }

@@ -108,6 +108,23 @@ describe('ContratosChart', () => {
     expect(screen.getAllByText('K9').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Sin contrato asignable').length).toBeGreaterThan(0);
     expect(screen.getByText('Gasnor K5')).toBeInTheDocument();
+    // hint de imputación del bucket (addendum 2026-08-12)
+    expect(
+      screen.getByText(
+        /Sin contrato asignable: empleados sin horas aprobadas ni contratos de imputación asignados \(se asignan en Perfiles\)\./,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('sin bucket no muestra el hint de imputación', () => {
+    render(
+      <ContratosChart
+        contratos={[
+          { contratoId: 1, codigo: 'K5', nombre: 'Gasnor K5', monto: 600, horas: 60, pctDelTotal: 100 },
+        ]}
+      />,
+    );
+    expect(screen.queryByText(/se asignan en Perfiles/)).not.toBeInTheDocument();
   });
 
   it('sin datos muestra vacío accesible', () => {
