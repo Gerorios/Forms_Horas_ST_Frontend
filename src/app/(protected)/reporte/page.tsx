@@ -13,13 +13,6 @@ import { useGeolocation } from '@/features/reporte/use-geolocation';
 import { PageHeader } from '@/components/page-header';
 import type { EmpleadoBusqueda } from '@/types/domain';
 
-function hoyISO() {
-  const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
-
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-line bg-surface p-5">
@@ -39,7 +32,10 @@ export default function ReportePage() {
   const { coords, estado: gps } = useGeolocation();
   const crear = useCrearReporteBatch();
 
-  const [fecha, setFecha] = useState(hoyISO());
+  // Sin default de hoy: cargas con fecha equivocada porque nadie tocaba el
+  // campo (decisión del dueño de producto 2026-08-12). Se elige siempre a
+  // mano y se vuelve a vaciar después de cada envío.
+  const [fecha, setFecha] = useState('');
   const [provinciaId, setProvinciaId] = useState<number | null>(null);
   const [movilIds, setMovilIds] = useState<number[]>([]);
   const [operarios, setOperarios] = useState<EmpleadoBusqueda[]>([]);
@@ -65,8 +61,9 @@ export default function ReportePage() {
   );
   const movilesValidos = movilIds.length > 0;
   const operariosValidos = operarios.length > 0;
+  const fechaValida = fecha !== '';
   const formularioValido =
-    operariosValidos && movilesValidos && lineasValidas && provinciaSel != null;
+    fechaValida && operariosValidos && movilesValidos && lineasValidas && provinciaSel != null;
 
   async function enviar() {
     if (provinciaSel == null) return;
@@ -95,6 +92,7 @@ export default function ReportePage() {
     });
     try {
       await promesa;
+      setFecha('');
       setOperarios([]);
       setMovilIds([]);
       setLineas([{ contratoId: null, horas: null, tareaIds: [], observacion: '' }]);
@@ -131,8 +129,13 @@ export default function ReportePage() {
               type="date"
               value={fecha}
               onChange={(e) => setFecha(e.target.value)}
-              className="mt-1 rounded-md border border-line bg-surface px-3 py-2 text-ink tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              className={`mt-1 rounded-md border bg-surface px-3 py-2 text-ink tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 ${
+                intentoEnviar && !fechaValida ? 'border-danger' : 'border-line'
+              }`}
             />
+            {intentoEnviar && !fechaValida && (
+              <p className="mt-1 text-xs font-normal text-danger">Elegí la fecha del reporte.</p>
+            )}
           </label>
           <label className="flex flex-col text-sm font-medium text-ink">
             Provincia

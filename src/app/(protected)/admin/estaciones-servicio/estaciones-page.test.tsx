@@ -8,7 +8,7 @@ const toggle = vi.fn().mockResolvedValue({});
 
 vi.mock('@/lib/api/admin', () => ({
   useAdminEstacionesServicio: () => ({
-    data: [{ id: 1, nombre: 'YPF Ruta 3', localidad: 'Trelew', activo: true }],
+    data: [{ id: 1, nombre: 'YPF Ruta 3', localidad: 'Trelew', cuit: '30111111118', activo: true }],
     isLoading: false,
   }),
   useCrearEstacionServicio: () => ({ mutateAsync: crear, isPending: false }),
@@ -46,6 +46,28 @@ describe('EstacionesServicioAdminPage', () => {
     );
   });
 
+  it('crea una estación con CUIT (acepta guiones, envía solo dígitos)', async () => {
+    render(<EstacionesServicioAdminPage />);
+    await userEvent.click(screen.getByRole('button', { name: /nueva estación/i }));
+    await userEvent.type(screen.getByLabelText('Nombre'), 'Axion Acceso Norte');
+    await userEvent.type(screen.getByLabelText('CUIT'), '30-22222222-9');
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    await waitFor(() =>
+      expect(crear).toHaveBeenCalledWith({ nombre: 'Axion Acceso Norte', cuit: '30222222229' }),
+    );
+  });
+
+  it('CUIT inválido en el alta: no crea y avisa', async () => {
+    const { toast } = await import('sonner');
+    render(<EstacionesServicioAdminPage />);
+    await userEvent.click(screen.getByRole('button', { name: /nueva estación/i }));
+    await userEvent.type(screen.getByLabelText('Nombre'), 'Puma Sur');
+    await userEvent.type(screen.getByLabelText('CUIT'), '30-123');
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    expect(crear).not.toHaveBeenCalled();
+    expect(vi.mocked(toast.error)).toHaveBeenCalled();
+  });
+
   it('el toggle de activo llama la mutación', async () => {
     render(<EstacionesServicioAdminPage />);
     await userEvent.click(screen.getByRole('button', { name: /activo/i }));
@@ -60,5 +82,38 @@ describe('EstacionesServicioAdminPage', () => {
     await userEvent.type(nombre, 'YPF Ruta 3 Norte');
     await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
     await waitFor(() => expect(actualizar).toHaveBeenCalledWith({ id: 1, nombre: 'YPF Ruta 3 Norte' }));
+  });
+
+  it('muestra el CUIT formateado en la fila cerrada', () => {
+    render(<EstacionesServicioAdminPage />);
+    expect(screen.getByText('30-11111111-8')).toBeInTheDocument();
+  });
+
+  it('edita el CUIT aceptando guiones y envía solo dígitos', async () => {
+    render(<EstacionesServicioAdminPage />);
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    const cuit = screen.getByLabelText('CUIT');
+    await userEvent.clear(cuit);
+    await userEvent.type(cuit, '30-12345678-9');
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    await waitFor(() => expect(actualizar).toHaveBeenCalledWith({ id: 1, cuit: '30123456789' }));
+  });
+
+  it('CUIT vacío envía null para borrarlo', async () => {
+    render(<EstacionesServicioAdminPage />);
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    await userEvent.clear(screen.getByLabelText('CUIT'));
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    await waitFor(() => expect(actualizar).toHaveBeenCalledWith({ id: 1, cuit: null }));
+  });
+
+  it('CUIT con menos de 11 dígitos no envía la mutación', async () => {
+    render(<EstacionesServicioAdminPage />);
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }));
+    const cuit = screen.getByLabelText('CUIT');
+    await userEvent.clear(cuit);
+    await userEvent.type(cuit, '123');
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+    expect(actualizar).not.toHaveBeenCalled();
   });
 });

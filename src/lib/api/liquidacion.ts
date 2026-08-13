@@ -48,6 +48,9 @@ export interface CargarRondaTarifasInput {
 export interface SueldoMensualizadoItem {
   cuil: string;
   apellidoNombre: string;
+  /** Nombre de la categoría UOCRA del perfil (define el bono no remunerativo,
+   * no el sueldo fijo). null si el perfil no tiene categoría asignada. */
+  categoria: string | null;
   monto: string | null;
 }
 

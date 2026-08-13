@@ -136,6 +136,7 @@ export function SueldosMensualizadosTab() {
             <thead>
               <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
                 <th className="px-4 py-2.5 font-medium">Empleado</th>
+                <th className="px-4 py-2.5 font-medium">Categoría</th>
                 <th className="px-4 py-2.5 font-medium">
                   Sueldo de {etiquetaMes(mes, anio)}
                   <span className="mt-0.5 block normal-case text-[11px] font-normal text-slate/70">
@@ -148,6 +149,7 @@ export function SueldosMensualizadosTab() {
               {(data ?? []).map((s) => (
                 <tr key={s.cuil} className="border-b border-line last:border-0">
                   <td className="px-4 py-2.5 text-ink">{s.apellidoNombre}</td>
+                  <td className="px-4 py-2.5 text-slate">{s.categoria ?? '—'}</td>
                   <td className="px-4 py-2.5">
                     <input
                       aria-label={`Sueldo de ${s.apellidoNombre}`}

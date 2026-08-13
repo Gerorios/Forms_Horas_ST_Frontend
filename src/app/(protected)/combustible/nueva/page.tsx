@@ -30,6 +30,8 @@ const CAMPOS_SUGERIBLES = [
 ] as const;
 type CampoSugerible = (typeof CAMPOS_SUGERIBLES)[number];
 
+const fmtCuit = (c: string) => `${c.slice(0, 2)}-${c.slice(2, 10)}-${c.slice(10)}`;
+
 function hoyISO() {
   const d = new Date();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -107,6 +109,8 @@ export default function NuevaCargaCombustiblePage() {
   const [lineaOrigenNumero, setLineaOrigenNumero] = useState<string | null>(null);
   const [advertenciaCoherencia, setAdvertenciaCoherencia] = useState<string | null>(null);
   const [patenteSinMatch, setPatenteSinMatch] = useState<string | null>(null);
+  const [tipoSinMatch, setTipoSinMatch] = useState<string | null>(null);
+  const [cuitSinMatch, setCuitSinMatch] = useState<string | null>(null);
 
   // Refs espejo del estado "tiene valor/tocado" por campo sugerible. Se actualizan
   // sincrónicamente en cada onChange y al setear un valor (incluidas las sugerencias
@@ -143,6 +147,8 @@ export default function NuevaCargaCombustiblePage() {
     setLineaOrigenNumero(null);
     setAdvertenciaCoherencia(null);
     setPatenteSinMatch(null);
+    setTipoSinMatch(null);
+    setCuitSinMatch(null);
     try {
       const resultado = await extraerTicket.mutateAsync(blob);
       if (resultado.legible === false) setNoLegible(true);
@@ -209,6 +215,9 @@ export default function NuevaCargaCombustiblePage() {
         aplicados.add('km');
       }
       setPatenteSinMatch(s.patente != null && !movilAplicable ? s.patente : null);
+      // Hints "leído pero sin match" (mismo criterio que la patente: solo aviso, sin auto-alta).
+      setTipoSinMatch(s.tipoCombustibleLeido != null && s.tipoCombustibleId == null ? s.tipoCombustibleLeido : null);
+      setCuitSinMatch(s.cuitEstacionLeido != null && s.estacionId == null ? s.cuitEstacionLeido : null);
 
       if (aplicados.size > 0) {
         setSugeridos((prev) => new Set([...prev, ...aplicados]));
@@ -552,6 +561,11 @@ export default function NuevaCargaCombustiblePage() {
                 </option>
               ))}
             </select>
+            {cuitSinMatch && (
+              <span className="mt-1 text-[11px] text-slate">
+                CUIT leído: {fmtCuit(cuitSinMatch)} — no está en el maestro de estaciones.
+              </span>
+            )}
             {intentoEnviar && estacionId == null && (
               <span className="mt-1 text-[11px] text-danger">Elegí la estación.</span>
             )}
@@ -576,6 +590,12 @@ export default function NuevaCargaCombustiblePage() {
                 </option>
               ))}
             </select>
+            {tipoSinMatch && (
+              <span className="mt-1 text-[11px] text-slate">
+                Tipo leído del ticket: «{tipoSinMatch}» — no está en el catálogo. Podés agregarlo como
+                alias en Admin → Tipos de combustible.
+              </span>
+            )}
             {intentoEnviar && tipoCombustibleId == null && (
               <span className="mt-1 text-[11px] text-danger">Elegí el tipo de combustible.</span>
             )}

@@ -13,6 +13,7 @@ import {
   mensajeDeError,
   type TipoBonoNoRemunerativo,
 } from '@/lib/api/liquidacion';
+import { aplicarIncremento } from './incremento';
 
 const NOMBRES_MES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -79,6 +80,21 @@ export function PreciosVigentesTab() {
   const [dialogConfirmacion, setDialogConfirmacion] = useState(false);
 
   const [importes, setImportes] = useState<Record<number, string>>({});
+  // Atajo de aumento UOCRA: prellena todas las categorías con +N% sobre lo
+  // que haya en los campos (no guarda — se revisa y confirma con el guardado
+  // normal). Mismo patrón que sueldos mensualizados, ADR-016. Con modal de
+  // confirmación previo: un clic silencioso que cambia todos los precios
+  // pasaba desapercibido (feedback del Liquidador probando, 2026-08-12).
+  const [pctCategorias, setPctCategorias] = useState('');
+  const [dialogPct, setDialogPct] = useState(false);
+
+  function aplicarPctCategorias() {
+    setImportes((prev) => aplicarIncremento(prev, Number(pctCategorias)));
+    setDialogPct(false);
+    toast.success(
+      `Categorías prellenadas con ${Number(pctCategorias) >= 0 ? 'un aumento' : 'una baja'} del ${Math.abs(Number(pctCategorias))}% — revisá y confirmá con el guardado.`,
+    );
+  }
   const [montos, setMontos] = useState<Record<number, string>>({});
   const [rangos, setRangos] = useState<Rango[]>(RANGOS_DEFAULT);
   const [bonos, setBonos] = useState<Record<number, Bono>>({});
@@ -437,7 +453,34 @@ export function PreciosVigentesTab() {
               )}
 
               <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
-                <h2 className="font-display text-sm font-semibold text-ink">Categorías UOCRA (por hora)</h2>
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <h2 className="font-display text-sm font-semibold text-ink">Categorías UOCRA (por hora)</h2>
+                  <div className="flex items-end gap-2">
+                    <label className="flex flex-col text-xs text-slate">
+                      Incremento (%)
+                      <input
+                        aria-label="Porcentaje de incremento de categorías"
+                        type="number"
+                        step="0.01"
+                        value={pctCategorias}
+                        onChange={(e) => setPctCategorias(e.target.value)}
+                        className="w-28 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={!pctCategorias || Number.isNaN(Number(pctCategorias))}
+                      onClick={() => setDialogPct(true)}
+                      className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60 disabled:opacity-50"
+                    >
+                      Aplicar a categorías
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-slate">
+                  El % solo prellena los campos con el aumento (podés retocar cualquiera después);
+                  no se guarda nada hasta confirmar.
+                </p>
                 {(estado?.categorias ?? []).map((c) => (
                   <label key={c.id} className="flex items-center justify-between gap-3 text-sm text-ink">
                     {c.nombre}
@@ -571,6 +614,41 @@ export function PreciosVigentesTab() {
             </>
           )}
         </>
+      )}
+
+      {dialogPct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md space-y-4 rounded-xl bg-surface p-6">
+            <h3 className="font-display text-base font-semibold text-ink">
+              {Number(pctCategorias) >= 0 ? 'Aumentar' : 'Bajar'} todas las categorías un{' '}
+              {Math.abs(Number(pctCategorias))}%
+            </h3>
+            <p className="text-sm text-slate">
+              Se van a prellenar <strong>todas las categorías UOCRA</strong> con el{' '}
+              {Number(pctCategorias) >= 0 ? 'aumento' : 'descuento'} del{' '}
+              {Math.abs(Number(pctCategorias))}% sobre los valores que están ahora en los campos.
+              Después podés retocar cualquiera a mano — nada queda guardado hasta que confirmes el
+              guardado de los precios.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDialogPct(false)}
+                className="rounded-md px-3 py-2 text-sm font-medium text-ink hover:bg-accent/50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={aplicarPctCategorias}
+                className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95"
+              >
+                Sí, aplicar {Number(pctCategorias) >= 0 ? '+' : ''}
+                {Number(pctCategorias)}%
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {dialogConfirmacion && (

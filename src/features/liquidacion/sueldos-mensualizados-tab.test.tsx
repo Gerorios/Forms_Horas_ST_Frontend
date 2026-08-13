@@ -7,8 +7,8 @@ const guardar = vi.fn().mockResolvedValue([]);
 vi.mock('@/lib/api/liquidacion', () => ({
   useSueldosMensualizados: () => ({
     data: [
-      { cuil: '20111111111', apellidoNombre: 'PEREZ JUAN', monto: '500000.00' },
-      { cuil: '20222222222', apellidoNombre: 'GOMEZ ANA', monto: null },
+      { cuil: '20111111111', apellidoNombre: 'PEREZ JUAN', categoria: 'Oficial especializado', monto: '500000.00' },
+      { cuil: '20222222222', apellidoNombre: 'GOMEZ ANA', categoria: null, monto: null },
     ],
     isLoading: false,
   }),
@@ -26,6 +26,14 @@ describe('SueldosMensualizadosTab', () => {
     render(<SueldosMensualizadosTab />);
     expect(screen.getByLabelText('Sueldo de PEREZ JUAN')).toHaveValue(500000);
     expect(screen.getByLabelText('Sueldo de GOMEZ ANA')).toHaveValue(null);
+  });
+
+  it('muestra la categoría de cada empleado, o un guion si no tiene asignada', () => {
+    render(<SueldosMensualizadosTab />);
+    expect(screen.getByText('Categoría')).toBeInTheDocument();
+    expect(screen.getByText('Oficial especializado')).toBeInTheDocument();
+    const filaGomez = screen.getByText('GOMEZ ANA').closest('tr')!;
+    expect(filaGomez).toHaveTextContent('—');
   });
 
   it('"Aplicar a todos" recalcula solo a quienes tienen sueldo vigente, sin guardar todavía', async () => {
