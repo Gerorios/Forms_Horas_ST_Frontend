@@ -110,6 +110,13 @@ function valorModalidadDe(perfil: PerfilLiquidacion | undefined) {
   return perfil?.modalidadPago ?? 'sin_modalidad';
 }
 
+/** Solo "mensualizado" puede tener permiteHorasExtra — ver ADR-017. */
+function etiquetaRegimenDe(perfil: PerfilLiquidacion | undefined) {
+  if (!perfil) return '—';
+  const base = REGIMEN_LABEL[perfil.regimen];
+  return perfil.regimen === 'mensualizado' && perfil.permiteHorasExtra ? `${base} + horas extra` : base;
+}
+
 function pasaMulti(valor: string, seleccionados: string[]) {
   return seleccionados.length === 0 || seleccionados.includes(valor);
 }
@@ -131,8 +138,10 @@ export default function PerfilesLiquidacionPage() {
   const [regimen, setRegimen] = useState<RegimenLiquidacion | ''>('');
   const [categoriaUocraId, setCategoriaUocraId] = useState<number | null>(null);
   const [modalidadPago, setModalidadPago] = useState<ModalidadPago | ''>('');
+  const [permiteHorasExtra, setPermiteHorasExtra] = useState(false);
 
   const esAdministrativo = regimen === 'administrativo';
+  const esMensualizado = regimen === 'mensualizado';
 
   const perfilPorCuil = useMemo(() => {
     return new Map((perfiles ?? []).map((p) => [p.cuil, p]));
@@ -245,6 +254,9 @@ export default function PerfilesLiquidacionPage() {
       setCategoriaUocraId(null);
       setModalidadPago('');
     }
+    if (valor !== 'mensualizado') {
+      setPermiteHorasExtra(false);
+    }
   }
 
   const isLoading = cargandoEmpleados || cargandoPerfiles;
@@ -271,6 +283,7 @@ export default function PerfilesLiquidacionPage() {
       regimen: regimen as RegimenLiquidacion,
       categoriaUocraId: categoriaUocraId ?? undefined,
       modalidadPago: modalidadPago || undefined,
+      permiteHorasExtra: esMensualizado ? permiteHorasExtra : undefined,
     });
     toast.promise(promesa, {
       loading: `Asignando a ${seleccionados.length} empleado(s)…`,
@@ -344,6 +357,16 @@ export default function PerfilesLiquidacionPage() {
               ))}
             </select>
           </label>
+          {esMensualizado && (
+            <label className="flex items-center gap-2 text-sm font-medium text-ink sm:col-span-3">
+              <input
+                type="checkbox"
+                checked={permiteHorasExtra}
+                onChange={(e) => setPermiteHorasExtra(e.target.checked)}
+              />
+              Permite horas extra (además del monto fijo, cobra lo declarado como excedente × 1.5 — necesita categoría UOCRA — ver ADR-017)
+            </label>
+          )}
         </div>
         <button
           type="button"
@@ -440,7 +463,7 @@ export default function PerfilesLiquidacionPage() {
                         />
                       </td>
                       <td className="px-4 py-2.5">{e.apellido_nombre}</td>
-                      <td className="px-4 py-2.5">{perfil ? REGIMEN_LABEL[perfil.regimen] : '—'}</td>
+                      <td className="px-4 py-2.5">{etiquetaRegimenDe(perfil)}</td>
                       <td className="px-4 py-2.5">{perfil?.categoria?.nombre ?? '—'}</td>
                       <td className="px-4 py-2.5">
                         {perfil?.modalidadPago ? MODALIDAD_PAGO_LABEL[perfil.modalidadPago] : '—'}

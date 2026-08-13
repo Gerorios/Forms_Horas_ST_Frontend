@@ -179,6 +179,31 @@ describe('PerfilesLiquidacionPage', () => {
     );
   });
 
+  it('el checkbox "Permite horas extra" solo aparece con régimen Mensualizado (ADR-017)', async () => {
+    render(<PerfilesLiquidacionPage />);
+    expect(screen.queryByText(/Permite horas extra/i)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));
+    await userEvent.selectOptions(screen.getByLabelText('Régimen'), 'mensualizado');
+    expect(screen.getByText(/Permite horas extra/i)).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText('Régimen'), 'jornalizado');
+    expect(screen.queryByText(/Permite horas extra/i)).not.toBeInTheDocument();
+  });
+
+  it('tildar "Permite horas extra" con régimen Mensualizado lo manda en la asignación', async () => {
+    render(<PerfilesLiquidacionPage />);
+    await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));
+    await userEvent.selectOptions(screen.getByLabelText('Régimen'), 'mensualizado');
+    await userEvent.click(screen.getByText(/Permite horas extra/i));
+    await userEvent.click(screen.getByRole('button', { name: /asignar a 1 seleccionado/i }));
+    await waitFor(() =>
+      expect(upsertMasivo).toHaveBeenCalledWith(
+        expect.objectContaining({ cuils: ['20222222222'], regimen: 'mensualizado', permiteHorasExtra: true }),
+      ),
+    );
+  });
+
   it('al elegir régimen Administrativo, deshabilita categoría y modalidad y no las manda', async () => {
     render(<PerfilesLiquidacionPage />);
     await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));
