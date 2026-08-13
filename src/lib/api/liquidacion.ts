@@ -16,6 +16,8 @@ export interface PerfilLiquidacion {
   regimen: RegimenLiquidacion;
   categoriaUocraId: number | null;
   modalidadPago: ModalidadPago | null;
+  /** Solo tiene sentido con regimen='fijo': además del básico fijo, cobra horas extra sobre lo declarado (ver ADR-017). */
+  permiteHorasExtra: boolean;
   empleado: { apellido_nombre: string; legajo: number; cargo: string };
   categoria: { id: number; nombre: string } | null;
 }
@@ -230,6 +232,7 @@ export function useUpsertPerfilesMasivo() {
       regimen: RegimenLiquidacion;
       categoriaUocraId?: number;
       modalidadPago?: ModalidadPago;
+      permiteHorasExtra?: boolean;
     }) => api.post<{ asignados: number; omitidos: string[] }>('/liquidacion/perfiles/masivo', dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'perfiles'] }),
   });
