@@ -21,6 +21,11 @@
      de dataviz sobre superficie blanca; chart-1 es brand-deep. */
   --color-chart-1: #a97a16;
   --color-chart-2: #3b6fc4;
+  /* chart-3/4/5 completan la paleta categórica de 5 series (composición del
+     pago en Liquidación → Análisis), también validada sobre blanco. */
+  --color-chart-3: #1f8a70;
+  --color-chart-4: #7d5bc6;
+  --color-chart-5: #b3543e;
 }
 
 /* --- Mapeo a los tokens de shadcn/ui --- */

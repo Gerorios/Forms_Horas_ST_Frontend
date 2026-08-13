@@ -16,10 +16,22 @@ export interface PerfilLiquidacion {
   regimen: RegimenLiquidacion;
   categoriaUocraId: number | null;
   modalidadPago: ModalidadPago | null;
+  /** Contratos de imputación para el corte por contrato del Análisis: solo
+   * aplica a mensualizado/fijo/por_tantos; el costo se reparte en partes
+   * iguales entre estos contratos (plan 2026-08-12, addendum). */
+  contratosImputacionIds: number[];
   /** Solo tiene sentido con regimen='fijo': además del básico fijo, cobra horas extra sobre lo declarado (ver ADR-017). */
   permiteHorasExtra: boolean;
   empleado: { apellido_nombre: string; legajo: number; cargo: string };
   categoria: { id: number; nombre: string } | null;
+}
+
+/** Contrato visible para el Liquidador (GET /liquidacion/contratos — el
+ * Liquidador no puede usar /admin/contratos). */
+export interface ContratoLiquidacion {
+  id: number;
+  codigo: string;
+  nombre: string;
 }
 
 // ---- Ronda mensual de tarifas (ver ADR-010 y ADR-011) ----
@@ -240,6 +252,29 @@ export function useUpsertPerfilesMasivo() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'perfiles'] }),
   });
 }
+export function useContratosLiquidacion() {
+  return useQuery({
+    queryKey: ['liquidacion', 'contratos'],
+    queryFn: () => get<ContratoLiquidacion[]>('/liquidacion/contratos'),
+  });
+}
+export function useUpsertPerfilLiquidacion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      cuil,
+      ...dto
+    }: {
+      cuil: string;
+      regimen: RegimenLiquidacion;
+      categoriaUocraId?: number;
+      modalidadPago?: ModalidadPago;
+      /** Reemplaza el set completo; ausente = no tocar. */
+      contratosImputacionIds?: number[];
+    }) => api.post(`/liquidacion/perfiles/${cuil}`, dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'perfiles'] }),
+  });
+}
 export function useEliminarPerfilLiquidacion() {
   const qc = useQueryClient();
   return useMutation({
@@ -384,5 +419,48 @@ export function useDetalleQuincena(anio: number, mes: number, quincena: number, 
     queryKey: ['liquidacion', 'quincena-detalle', anio, mes, quincena],
     queryFn: () => get<DetalleQuincena>('/liquidacion/quincena/detalle', { anio, mes, quincena }),
     enabled,
+  });
+}
+
+// ---- Análisis de la quincena (KPIs, composición, prorrateo por contrato) ----
+// Contrato de datos compartido con el backend (plan 2026-08-12-analisis-quincena).
+export interface AnalisisQuincena {
+  periodo: { anio: number; mes: number; quincena: number };
+  totales: {
+    total: number;            // suma de fila.total de la quincena
+    empleados: number;
+    empleadosNuevos: number;  // sin fila en la quincena anterior
+    horasCct: number;
+    horasExtra: number;
+    costoPromedio: number;    // total / empleados (0 si no hay empleados)
+  };
+  anterior: { total: number; empleados: number; costoPromedio: number } | null; // null si el motor devuelve 0 filas para la anterior
+  composicion: { basico: number; extras: number; presentismo: number; plus: number; bono: number };
+  topCobradores: {            // top 10 por total desc
+    cuil: string; nombre: string; total: number;
+    totalAnterior: number | null; deltaPct: number | null; // null = nuevo
+    diasTrabajados: number;
+  }[];
+  contratos: {                // orden: monto desc; el bucket sin contrato va último
+    contratoId: number | null;         // null = "Sin contrato asignable"
+    codigo: string;                    // 'Sin contrato asignable' para el bucket
+    nombre: string;
+    monto: number;                     // prorrateo por horas del total de cada empleado
+    horas: number;                     // horas aprobadas del contrato en la quincena (0 en el bucket)
+    pctDelTotal: number;               // monto / totales.total * 100, 1 decimal
+  }[];
+  historico: { anio: number; mes: number; quincena: number; total: number }[]; // 8 quincenas asc, incluida la actual
+  variaciones: {              // TODOS los empleados; orden |deltaPct| desc, los nuevos (delta null) al final
+    cuil: string; nombre: string; regimen: string;
+    total: number; totalAnterior: number | null;
+    deltaMonto: number | null; deltaPct: number | null;
+    diasTrabajados: number;
+  }[];
+}
+
+export function useAnalisisQuincena(anio: number, mes: number, quincena: number) {
+  return useQuery({
+    queryKey: ['liquidacion', 'analisis', anio, mes, quincena],
+    queryFn: () => get<AnalisisQuincena>('/liquidacion/analisis', { anio, mes, quincena }),
   });
 }
