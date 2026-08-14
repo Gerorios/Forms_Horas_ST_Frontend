@@ -66,7 +66,7 @@ export function FilaEmpleado({
             {fila.duplicadoCruzado && (
               <span
                 className="rounded bg-danger/10 px-1 text-xs font-medium text-danger"
-                title="Mismo cuil y fecha cargado en más de un lote"
+                title="Registro duplicado exacto: dos cargas idénticas (mismas horas, contrato, tareas y móviles) el mismo día"
               >
                 ⚠ duplicado
               </span>

@@ -167,9 +167,9 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
                       {f.duplicadoCruzado && (
                         <span
                           className="ml-1 rounded bg-danger/10 px-1 text-xs font-medium text-danger"
-                          title="Este operario tiene carga en otro contrato/lote ese mismo día — coordiná con el otro jefe de contrato antes de aprobar"
+                          title="Registro duplicado exacto: otra carga idéntica (mismas horas, contrato, tareas y móviles) ese mismo día — revisá antes de aprobar"
                         >
-                          ⚠ otro contrato el mismo día
+                          ⚠ posible duplicado
                         </span>
                       )}
                     </span>
