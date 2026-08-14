@@ -20,6 +20,7 @@ vi.mock('@/lib/api/liquidacion', () => ({
 }));
 
 import AnalisisPage from './page';
+import { quincenaDeFecha } from '@/lib/quincena';
 
 const fixture: AnalisisQuincena = {
   periodo: { anio: 2026, mes: 8, quincena: 1 },
@@ -76,6 +77,15 @@ beforeEach(() => {
 });
 
 describe('AnalisisPage', () => {
+  it('arranca en la quincena actual (en curso), no en la anterior', () => {
+    render(<AnalisisPage />);
+    const actual = quincenaDeFecha(new Date());
+    expect((screen.getByLabelText('Quincena') as HTMLSelectElement).value).toBe(
+      String(actual.parte),
+    );
+    expect((screen.getByLabelText('Mes') as HTMLSelectElement).value).toBe(String(actual.mes));
+  });
+
   it('muestra los tiles con valores formateados y deltas', () => {
     render(<AnalisisPage />);
     expect(screen.getByText('Total de la quincena')).toBeInTheDocument();

@@ -19,7 +19,7 @@ import {
   type FiltrosPanel,
 } from '@/lib/api/panel-general';
 import { useProvincias } from '@/lib/api/catalogos';
-import { quincenaDeFecha, quincenaAnterior, type Quincena } from '@/lib/quincena';
+import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
 
 function pasaPersona(cuil: string, seleccionados: string[]) {
   return seleccionados.length === 0 || seleccionados.includes(cuil);
@@ -137,7 +137,8 @@ function FragmentoControlDiario({
 }
 
 export default function ControlGeneralPage() {
-  const [quincena, setQuincena] = useState<Quincena>(() => quincenaAnterior(quincenaDeFecha(new Date())));
+  // Quincena EN CURSO por defecto (pedido 2026-08-14: mismo criterio en toda la app).
+  const [quincena, setQuincena] = useState<Quincena>(() => quincenaDeFecha(new Date()));
   const [contratosSel, setContratosSel] = useState<string[]>([]);
   const [provinciasSel, setProvinciasSel] = useState<string[]>([]);
   const [operariosSel, setOperariosSel] = useState<string[]>([]);

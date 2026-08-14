@@ -144,6 +144,7 @@ vi.mock('@/lib/api/catalogos', () => ({
 
 import ControlGeneralPage from './page';
 import { useResumenOperarios, useHistoricoQuincenas, useDetalleDiario } from '@/lib/api/panel-general';
+import { quincenaDeFecha } from '@/lib/quincena';
 
 describe('ControlGeneralPage', () => {
   it('muestra la lista de sin carga', () => {
@@ -165,9 +166,13 @@ describe('ControlGeneralPage', () => {
     expect(filas[1].textContent).toContain('DIAZ MARIA');
   });
 
-  it('arranca en la quincena anterior (ya cerrada), no en la actual', () => {
+  it('arranca en la quincena actual (en curso), no en la anterior', () => {
     render(<ControlGeneralPage />);
-    expect(screen.getByLabelText('Quincena')).toBeInTheDocument();
+    const actual = quincenaDeFecha(new Date());
+    expect((screen.getByLabelText('Quincena') as HTMLSelectElement).value).toBe(
+      String(actual.parte),
+    );
+    expect((screen.getByLabelText('Mes') as HTMLSelectElement).value).toBe(String(actual.mes));
   });
 
   it('los filtros de contrato y provincia viven dentro de la misma barra que mes/año/quincena', () => {

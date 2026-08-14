@@ -4,7 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { FiltroNumero, FiltroSelect } from '@/components/ui/barra-filtros';
 import { useAnalisisQuincena } from '@/lib/api/liquidacion';
-import { quincenaAnterior, quincenaDeFecha } from '@/lib/quincena';
+import { quincenaDeFecha } from '@/lib/quincena';
 import { fmtHoras, fmtMoneda, fmtPct } from '@/features/liquidacion/analisis/colores';
 import { ComposicionPago } from '@/features/liquidacion/analisis/composicion-pago';
 import { TopCobradores, claseDelta } from '@/features/liquidacion/analisis/top-cobradores';
@@ -58,9 +58,9 @@ function Card({ titulo, children }: { titulo: string; children: ReactNode }) {
 }
 
 export default function AnalisisQuincenaPage() {
-  // Arranca en la quincena ANTERIOR a la actual — la última cerrada, que es
-  // la que se acaba de liquidar (mismo criterio que control-general).
-  const inicial = useMemo(() => quincenaAnterior(quincenaDeFecha(new Date())), []);
+  // Arranca en la quincena EN CURSO (pedido 2026-08-14: el mismo criterio en
+  // todos los filtros de quincena de la app).
+  const inicial = useMemo(() => quincenaDeFecha(new Date()), []);
   const [anio, setAnio] = useState(inicial.anio);
   const [mes, setMes] = useState(inicial.mes);
   const [quincena, setQuincena] = useState<number>(inicial.parte);
