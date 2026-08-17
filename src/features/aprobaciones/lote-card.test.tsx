@@ -165,13 +165,13 @@ describe('LoteCard', () => {
     const duplicado = { ...fila(1, 'PEREZ'), duplicadoCruzado: true };
     render(<LoteCard grupo={grupo([duplicado, fila(2, 'GOMEZ')])} />);
     await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
-    expect(screen.getByText(/otro contrato el mismo día/i)).toBeInTheDocument();
+    expect(screen.getByText(/posible duplicado/i)).toBeInTheDocument();
   });
 
   it('sin duplicadoCruzado, no muestra esa alerta', async () => {
     render(<LoteCard grupo={grupo()} />);
     await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
-    expect(screen.queryByText(/otro contrato el mismo día/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/posible duplicado/i)).not.toBeInTheDocument();
   });
 
   it('el botón de confirmar corrección está deshabilitado sin motivo', async () => {

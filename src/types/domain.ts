@@ -110,8 +110,8 @@ export type RegistroPorAprobar = RegistroHoras & {
    * null cuando el origen de datos no computa el cruce (ej. "Mis registros", que sale
    * de findAll) — en ese caso no hay que renderizar la alerta de horas totales. */
   totalHorasDia: number | null;
-  /** true si este operario tiene filas en más de un loteId distinto ese mismo día
-   * (posible duplicación entre cuadrillas/contratos que no se ven entre sí). */
+  /** true si este registro tiene un clon EXACTO (mismo operario, fecha, horas,
+   * contrato, tareas y móviles — regla 2026-08-14; el lote no participa). */
   duplicadoCruzado: boolean;
 };
 

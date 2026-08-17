@@ -177,7 +177,7 @@ describe('LoteResumenCard', () => {
   it('muestra la alerta de duplicado cruzado cuando el operario tiene carga en otro lote ese día', async () => {
     render(<LoteResumenCard grupo={grupo([fila(1, 'PEREZ', { duplicadoCruzado: true })])} />);
     await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
-    expect(screen.getByText(/otro contrato el mismo día/i)).toBeInTheDocument();
+    expect(screen.getByText(/posible duplicado/i)).toBeInTheDocument();
   });
 
   it('con alguna fila en alerta, resalta el borde de la tarjeta sin expandir el detalle', () => {
