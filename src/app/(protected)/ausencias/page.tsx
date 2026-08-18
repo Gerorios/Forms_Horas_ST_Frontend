@@ -103,9 +103,10 @@ function celdaCsv(valor: string) {
 /** Genera el CSV en el cliente (sin dependencias nuevas) y dispara la
  * descarga con un <a download> temporal. */
 function descargarResumenCsv(filas: ResumenAusenciaOperario[], periodo: Quincena) {
-  const header = ['CUIL', 'Apellido y nombre', 'Días justificados', 'Días injustificados', 'Días pendientes'];
+  const header = ['CUIL', 'Legajo', 'Apellido y nombre', 'Días justificados', 'Días injustificados', 'Días pendientes'];
   const cuerpo = filas.map((f) => [
     f.operarioCuil,
+    String(f.legajo),
     f.apellidoNombre,
     String(f.diasJustificados),
     String(f.diasInjustificados),

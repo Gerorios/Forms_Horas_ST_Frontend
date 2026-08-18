@@ -153,6 +153,7 @@ export interface CrearNovedadInput {
 export interface ResumenAusenciaOperario {
   operarioCuil: string;
   apellidoNombre: string;
+  legajo: number;
   diasJustificados: number;
   diasInjustificados: number;
   diasPendientes: number;
