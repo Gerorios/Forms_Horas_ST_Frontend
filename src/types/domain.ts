@@ -215,5 +215,11 @@ export interface ExtraccionTicket {
     tipoCombustibleLeido: string | null;
     /** CUIT del emisor leído (solo dígitos), para el hint cuando no matchea el maestro. */
     cuitEstacionLeido: string | null;
+    /** Campos donde las dos lecturas del ticket NO coincidieron (o la cuenta no
+     * cerró): vienen en null y hay que revisarlos contra la foto — plan
+     * 2026-08-18, criterio "mejor vacío que equivocado". */
+    camposInseguros: string[];
+    /** Ya existe una carga no anulada con ese comprobante en esa estación. */
+    alertaDuplicado: { cargaId: number } | null;
   };
 }
