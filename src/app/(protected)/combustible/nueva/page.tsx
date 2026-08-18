@@ -58,6 +58,20 @@ function BadgeSugerido() {
   );
 }
 
+/** El ticket se lee dos veces: si las lecturas no coincidieron en este campo (o
+ * la cuenta no cerró), no se completa nada y se pide revisarlo contra la foto
+ * — plan 2026-08-18, "mejor vacío que equivocado". */
+function BadgeRevisar() {
+  return (
+    <span
+      className="ml-2 rounded-full border border-warn/60 bg-warn/10 px-1.5 py-0.5 text-[10px] font-medium text-warn"
+      title="La lectura automática no fue concluyente: verificá este dato con la foto."
+    >
+      ⚠ revisá con la foto
+    </span>
+  );
+}
+
 const CLASES_CONFIANZA: Record<'alta' | 'media' | 'baja', string> = {
   alta: 'bg-approved/10 text-approved',
   media: 'bg-warn/10 text-warn',
@@ -108,6 +122,10 @@ export default function NuevaCargaCombustiblePage() {
   const [confianzaNumero, setConfianzaNumero] = useState<'alta' | 'media' | 'baja' | null>(null);
   const [lineaOrigenNumero, setLineaOrigenNumero] = useState<string | null>(null);
   const [advertenciaCoherencia, setAdvertenciaCoherencia] = useState<string | null>(null);
+  // Campos donde las dos lecturas del ticket no coincidieron: vienen vacíos y
+  // se marcan para que el operario los complete mirando la foto.
+  const [inseguros, setInseguros] = useState<Set<string>>(new Set());
+  const [duplicado, setDuplicado] = useState<{ cargaId: number } | null>(null);
   const [patenteSinMatch, setPatenteSinMatch] = useState<string | null>(null);
   const [tipoSinMatch, setTipoSinMatch] = useState<string | null>(null);
   const [cuitSinMatch, setCuitSinMatch] = useState<string | null>(null);
@@ -230,6 +248,10 @@ export default function NuevaCargaCombustiblePage() {
       setConfianzaNumero(s.confianzaNumero ?? null);
       setLineaOrigenNumero(s.lineaOrigenNumero ?? null);
       setAdvertenciaCoherencia(s.advertenciaCoherencia ?? null);
+      // Mapeo de los nombres del backend a los campos del formulario.
+      const ALIAS_CAMPO: Record<string, string> = { kilometraje: 'km', fecha: 'fechaCarga' };
+      setInseguros(new Set((s.camposInseguros ?? []).map((c) => ALIAS_CAMPO[c] ?? c)));
+      setDuplicado(s.alertaDuplicado ?? null);
       // A propósito NO marca medioPagoTocadoRef: una foto nueva puede re-sugerir el medio de pago (no pisa nada tipeado).
       if (s.medioPagoSugerido != null && !medioPagoTocadoRef.current) {
         setMedioPago(s.medioPagoSugerido);
@@ -346,6 +368,18 @@ export default function NuevaCargaCombustiblePage() {
         {intentoEnviar && !foto && (
           <p className="mt-2 text-[11px] text-danger">Sacá una foto del ticket para continuar.</p>
         )}
+        {duplicado && (
+          <p className="mt-3 rounded-md border border-danger/60 bg-danger/10 px-3 py-2 text-xs text-danger">
+            ⚠ Ya existe una carga con ese número de comprobante en esta estación (carga #
+            {duplicado.cargaId}). Verificá que no la estés cargando dos veces.
+          </p>
+        )}
+        {inseguros.size > 0 && (
+          <p className="mt-3 rounded-md border border-warn/60 bg-warn/10 px-3 py-2 text-xs text-warn">
+            Leímos el ticket dos veces y {inseguros.size === 1 ? 'un dato no coincidió' : `${inseguros.size} datos no coincidieron`}
+            {' '}entre las dos lecturas: quedaron vacíos y están marcados abajo. Completalos mirando la foto.
+          </p>
+        )}
       </Card>
 
       <Card title="Móvil y kilometraje">
@@ -381,7 +415,7 @@ export default function NuevaCargaCombustiblePage() {
           </label>
 
           <label className="flex flex-col text-sm font-medium text-ink">
-            Kilometraje {sugeridos.has('km') && <BadgeSugerido />}
+            Kilometraje {sugeridos.has('km') && <BadgeSugerido />}{inseguros.has('km') && <BadgeRevisar />}
             <input
               aria-label="Kilometraje"
               type="number"
@@ -433,7 +467,7 @@ export default function NuevaCargaCombustiblePage() {
           </label>
 
           <label className="flex flex-col text-sm font-medium text-ink">
-            Litros {sugeridos.has('litros') && <BadgeSugerido />}
+            Litros {sugeridos.has('litros') && <BadgeSugerido />}{inseguros.has('litros') && <BadgeRevisar />}
             <input
               aria-label="Litros"
               type="number"
@@ -454,7 +488,7 @@ export default function NuevaCargaCombustiblePage() {
           </label>
 
           <label className="flex flex-col text-sm font-medium text-ink">
-            Monto {sugeridos.has('monto') && <BadgeSugerido />}
+            Monto {sugeridos.has('monto') && <BadgeSugerido />}{inseguros.has('monto') && <BadgeRevisar />}
             <input
               aria-label="Monto"
               type="number"
@@ -480,7 +514,7 @@ export default function NuevaCargaCombustiblePage() {
           </label>
 
           <label className="flex flex-col text-sm font-medium text-ink">
-            {labelComprobante} {sugeridos.has('nroComprobante') && <BadgeSugerido />}
+            {labelComprobante} {sugeridos.has('nroComprobante') && <BadgeSugerido />}{inseguros.has('nroComprobante') && <BadgeRevisar />}
             {confianzaNumero && <ChipConfianza confianza={confianzaNumero} />}
             <input
               aria-label={labelComprobante}
