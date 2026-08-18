@@ -168,28 +168,33 @@ export default function AprobacionesPage() {
         ))}
       </div>
 
-      <FiltrosRegistros value={filtros} onChange={setFiltros} opciones={opciones}>
+      <FiltrosRegistros
+        value={filtros}
+        onChange={setFiltros}
+        opciones={opciones}
+        trailing={
+          tab === 'pendiente' && pendientesOcultos > 0 ? (
+            <button
+              type="button"
+              onClick={() => setVerTodosPendientes(true)}
+              className="rounded bg-warn/10 px-2 py-1 text-sm font-medium text-warn hover:bg-warn/20"
+            >
+              ⚠ {pendientesOcultos} pendiente{pendientesOcultos === 1 ? '' : 's'} en otras
+              quincenas — verlos
+            </button>
+          ) : tab === 'pendiente' && verTodosPendientes ? (
+            <button
+              type="button"
+              onClick={() => setVerTodosPendientes(false)}
+              className="rounded bg-surface px-2 py-1 text-sm text-slate ring-1 ring-line hover:text-ink"
+            >
+              Mostrando todos — volver a la quincena
+            </button>
+          ) : null
+        }
+      >
         {!(tab === 'pendiente' && verTodosPendientes) && (
           <QuincenaCampos value={quincena} onChange={setQuincena} />
-        )}
-        {tab === 'pendiente' && pendientesOcultos > 0 && (
-          <button
-            type="button"
-            onClick={() => setVerTodosPendientes(true)}
-            className="self-center rounded bg-warn/10 px-2 py-1 text-sm font-medium text-warn hover:bg-warn/20"
-          >
-            ⚠ Hay {pendientesOcultos} pendiente{pendientesOcultos === 1 ? '' : 's'} en otras
-            quincenas — verlos
-          </button>
-        )}
-        {tab === 'pendiente' && verTodosPendientes && (
-          <button
-            type="button"
-            onClick={() => setVerTodosPendientes(false)}
-            className="self-center rounded bg-surface px-2 py-1 text-sm text-slate ring-1 ring-line hover:text-ink"
-          >
-            Mostrando todos los pendientes — volver a la quincena
-          </button>
         )}
       </FiltrosRegistros>
 
@@ -197,11 +202,25 @@ export default function AprobacionesPage() {
         <p className="text-slate">Cargando…</p>
       ) : grupos.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center text-sm text-slate">
-          {tab === 'pendiente' && verTodosPendientes
-            ? 'No hay registros pendientes.'
-            : tab === 'pendiente'
-              ? 'No hay pendientes en esta quincena.'
-              : 'No hay registros en esta quincena.'}
+          {tab === 'pendiente' && verTodosPendientes ? (
+            'No hay registros pendientes.'
+          ) : tab === 'pendiente' && pendientesOcultos > 0 ? (
+            <>
+              No hay pendientes en esta quincena, pero hay{' '}
+              <button
+                type="button"
+                onClick={() => setVerTodosPendientes(true)}
+                className="font-medium text-warn underline hover:no-underline"
+              >
+                {pendientesOcultos} en otras quincenas — verlos
+              </button>
+              .
+            </>
+          ) : tab === 'pendiente' ? (
+            'No hay pendientes en esta quincena.'
+          ) : (
+            'No hay registros en esta quincena.'
+          )}
         </div>
       ) : tab === 'pendiente' ? (
         grupos.map((g) => <LoteCard key={g.loteId} grupo={g} />)

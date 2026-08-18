@@ -28,6 +28,7 @@ export function FiltrosRegistros({
   onChange,
   opciones,
   children,
+  trailing,
 }: {
   value: FiltrosRegistrosValue;
   onChange: (v: FiltrosRegistrosValue) => void;
@@ -35,6 +36,9 @@ export function FiltrosRegistros({
   /** Filtros extra al inicio de la MISMA barra (ej. Mes/Año/Quincena en
    * Aprobaciones) — todos los filtros de una pantalla en un solo bloque. */
   children?: React.ReactNode;
+  /** Contenido al FINAL de la barra, alineado a la derecha (ej. el aviso de
+   * pendientes ocultos) — nunca en el medio, para no partir los filtros. */
+  trailing?: React.ReactNode;
 }) {
   const hayFiltros =
     (value.contratoIds?.length ?? 0) > 0 ||
@@ -67,6 +71,7 @@ export function FiltrosRegistros({
         seleccionados={value.operarioCuils ?? []}
         onChange={(v) => onChange({ ...value, operarioCuils: v })}
       />
+      {trailing && <div className="ml-auto self-center">{trailing}</div>}
     </BarraFiltros>
   );
 }
