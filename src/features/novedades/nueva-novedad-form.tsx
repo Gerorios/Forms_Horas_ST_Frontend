@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useCrearNovedad, useTiposNovedad } from '@/lib/api/novedades';
 import { useSession } from '@/lib/auth/session';
 import { OperariosSelect } from '@/features/reporte/operarios-select';
+import { AdjuntoInput } from '@/features/novedades/adjunto-input';
 import type { EmpleadoBusqueda } from '@/types/domain';
 
 export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
@@ -24,18 +25,21 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
   const [justificacion, setJustificacion] = useState('');
+  const [adjunto, setAdjunto] = useState<File | null>(null);
 
   const puede = operario.length === 1 && tipoNovedadId != null && fechaInicio !== '';
 
   async function enviar() {
     if (!puede || tipoNovedadId == null) return;
-    const promesa = crear.mutateAsync({
-      operarioCuil: operario[0].cuil,
-      tipoNovedadId,
-      fechaInicio,
-      fechaFin: fechaFin || undefined,
-      justificacionTexto: justificacion || undefined,
-    });
+    const form = new FormData();
+    form.append('operarioCuil', operario[0].cuil);
+    form.append('tipoNovedadId', String(tipoNovedadId));
+    form.append('fechaInicio', fechaInicio);
+    if (fechaFin) form.append('fechaFin', fechaFin);
+    if (justificacion) form.append('justificacionTexto', justificacion);
+    if (adjunto) form.append('adjunto', adjunto, adjunto.name);
+
+    const promesa = crear.mutateAsync(form);
     toast.promise(promesa, {
       loading: 'Guardando novedad…',
       success: 'Novedad cargada',
@@ -48,6 +52,7 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
       setFechaInicio('');
       setFechaFin('');
       setJustificacion('');
+      setAdjunto(null);
       onCreada();
     } catch {
       // el toast.promise ya avisó el error
@@ -108,6 +113,7 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
           rows={2}
         />
       </label>
+      <AdjuntoInput onArchivo={setAdjunto} />
       <button
         type="button"
         disabled={!puede || crear.isPending}

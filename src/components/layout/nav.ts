@@ -18,7 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: '/novedades',
     roles: ['HyS', 'JefeContrato', 'Supervisor', 'Liquidador', 'Admin', 'JefeCuadrilla'],
   },
-  { label: 'Ausencias', href: '/ausencias', roles: ['HyS'] },
+  { label: 'Ausencias', href: '/ausencias', roles: ['HyS', 'Admin'] },
   { label: 'Admin', href: '/admin', roles: ['Admin'] },
   { label: 'Liquidación', href: '/liquidacion', roles: ['Liquidador', 'Admin'] },
   { label: 'Km por tantos', href: '/km-por-tantos', roles: ['JefeContrato', 'Admin'] },

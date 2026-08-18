@@ -1,9 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useNovedades } from '@/lib/api/novedades';
+import { toast } from 'sonner';
+import { useActualizarNovedad, useNovedades } from '@/lib/api/novedades';
 import { useSession } from '@/lib/auth/session';
 import { NuevaNovedadForm } from '@/features/novedades/nueva-novedad-form';
+import { EditarNovedadDialog } from '@/features/novedades/editar-novedad-dialog';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import { BarraFiltros, MultiFiltro } from '@/components/ui/barra-filtros';
@@ -30,6 +32,21 @@ function pasaMulti(valor: string, seleccionados: string[]) {
 export default function NovedadesPage() {
   const { perfil } = useSession();
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [editando, setEditando] = useState<Novedad | null>(null);
+  const actualizar = useActualizarNovedad();
+
+  const esAdmin = perfil?.rol.nombre === 'Admin';
+
+  function guardarEdicion(form: FormData) {
+    if (!editando) return;
+    const promesa = actualizar.mutateAsync({ id: editando.id, form });
+    toast.promise(promesa, {
+      loading: 'Guardando cambios…',
+      success: 'Novedad actualizada',
+      error: 'No se pudo actualizar la novedad',
+    });
+    promesa.then(() => setEditando(null)).catch(() => {});
+  }
 
   const [periodoActivo, setPeriodoActivo] = useState(false);
   const [periodo, setPeriodo] = useState<Quincena>(() => quincenaDeFecha(new Date()));
@@ -165,6 +182,7 @@ export default function NovedadesPage() {
                   <th className="px-4 py-2.5 font-medium">Desde</th>
                   <th className="px-4 py-2.5 font-medium">Hasta</th>
                   <th className="px-4 py-2.5 font-medium">Estado HyS</th>
+                  {esAdmin && <th className="px-4 py-2.5 font-medium">Acciones</th>}
                 </tr>
               </thead>
               <tbody>
@@ -181,12 +199,32 @@ export default function NovedadesPage() {
                     <td className="px-4 py-2.5">
                       <StatusBadge estado={n.estadoHys} />
                     </td>
+                    {esAdmin && (
+                      <td className="px-4 py-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditando(n)}
+                          className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-accent/60"
+                        >
+                          Editar
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
+      )}
+
+      {editando && (
+        <EditarNovedadDialog
+          novedad={editando}
+          onCancel={() => setEditando(null)}
+          onGuardar={guardarEdicion}
+          guardando={actualizar.isPending}
+        />
       )}
     </section>
   );

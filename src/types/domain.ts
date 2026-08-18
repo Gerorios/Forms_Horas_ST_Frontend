@@ -131,6 +131,11 @@ export interface Novedad {
   fechaFin: string | null;
   justificacionTexto: string | null;
   estadoHys: EstadoHys;
+  /** Descargo cargado por HyS al resolver (justificar o no justificar). */
+  descargoHys: string | null;
+  /** Ruta del certificado adjunto en el backend. No renderizar/confiar en el valor
+   * en sí — solo usarlo como flag de "hay adjunto" y pedirlo por GET /novedades/:id/adjunto. */
+  adjuntoUrl: string | null;
   operario: { cuil: string; apellido_nombre: string };
   tipoNovedad: { id: number; nombre: string; requiereAprobacionHys: boolean };
   cargadoPor: { cuil: string; email: string };
@@ -142,6 +147,15 @@ export interface CrearNovedadInput {
   fechaInicio: string;
   fechaFin?: string;
   justificacionTexto?: string;
+}
+
+/** Fila del resumen de ausencias por operario (GET /novedades/resumen-ausencias). */
+export interface ResumenAusenciaOperario {
+  operarioCuil: string;
+  apellidoNombre: string;
+  diasJustificados: number;
+  diasInjustificados: number;
+  diasPendientes: number;
 }
 
 export type MedioPagoCombustible = 'cuenta_corriente' | 'caja';
