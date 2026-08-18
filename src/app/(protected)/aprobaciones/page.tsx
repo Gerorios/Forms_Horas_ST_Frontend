@@ -6,7 +6,7 @@ import { usePorAprobar } from '@/lib/api/aprobaciones';
 import { agruparPorLote } from '@/lib/agrupar';
 import { LoteCard } from '@/features/aprobaciones/lote-card';
 import { LoteResueltoCard } from '@/features/aprobaciones/lote-resuelto-card';
-import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
+import { QuincenaCampos } from '@/features/mis-registros/quincena-select';
 import { FiltrosRegistros, type FiltrosRegistrosOpciones, type FiltrosRegistrosValue } from '@/components/filtros-registros';
 import { opcionesFacetadas } from '@/lib/facetado';
 import { quincenaDeFecha, enQuincena, type Quincena } from '@/lib/quincena';
@@ -168,15 +168,15 @@ export default function AprobacionesPage() {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <FiltrosRegistros value={filtros} onChange={setFiltros} opciones={opciones}>
         {!(tab === 'pendiente' && verTodosPendientes) && (
-          <QuincenaSelect value={quincena} onChange={setQuincena} />
+          <QuincenaCampos value={quincena} onChange={setQuincena} />
         )}
         {tab === 'pendiente' && pendientesOcultos > 0 && (
           <button
             type="button"
             onClick={() => setVerTodosPendientes(true)}
-            className="rounded bg-warn/10 px-2 py-1 text-sm font-medium text-warn hover:bg-warn/20"
+            className="self-center rounded bg-warn/10 px-2 py-1 text-sm font-medium text-warn hover:bg-warn/20"
           >
             ⚠ Hay {pendientesOcultos} pendiente{pendientesOcultos === 1 ? '' : 's'} en otras
             quincenas — verlos
@@ -186,14 +186,12 @@ export default function AprobacionesPage() {
           <button
             type="button"
             onClick={() => setVerTodosPendientes(false)}
-            className="rounded bg-surface px-2 py-1 text-sm text-slate ring-1 ring-line hover:text-ink"
+            className="self-center rounded bg-surface px-2 py-1 text-sm text-slate ring-1 ring-line hover:text-ink"
           >
             Mostrando todos los pendientes — volver a la quincena
           </button>
         )}
-      </div>
-
-      <FiltrosRegistros value={filtros} onChange={setFiltros} opciones={opciones} />
+      </FiltrosRegistros>
 
       {isLoading ? (
         <p className="text-slate">Cargando…</p>

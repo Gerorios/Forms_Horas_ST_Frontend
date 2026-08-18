@@ -77,6 +77,13 @@ describe('AprobacionesPage', () => {
     expect(screen.queryByText('VIEJO PEDRO')).not.toBeInTheDocument();
   });
 
+  it('todos los filtros (quincena + contrato/cargador/operario) viven en la MISMA barra', () => {
+    render(<AprobacionesPage />);
+    const barra = screen.getByLabelText('Quincena').closest('div.rounded-xl')!;
+    expect(barra).toContainElement(screen.getByLabelText('Filtrar por contrato'));
+    expect(barra).toContainElement(screen.getByLabelText('Filtrar por operario'));
+  });
+
   it('en Pendientes avisa cuántos pendientes hay fuera de la quincena y el aviso los muestra al clickearlo', async () => {
     render(<AprobacionesPage />);
     const aviso = screen.getByRole('button', { name: /1 pendiente.*otras quincenas/i });

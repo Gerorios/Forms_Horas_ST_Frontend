@@ -8,20 +8,18 @@ const MESES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
 
-export function QuincenaSelect({
+/** Los tres campos Mes/Año/Quincena SIN tarjeta — para componerlos dentro de
+ * otra barra de filtros (ej. Aprobaciones, que tiene su propia BarraFiltros y
+ * todos los filtros deben vivir en un solo bloque visual). */
+export function QuincenaCampos({
   value,
   onChange,
-  children,
 }: {
   value: Quincena;
   onChange: (q: Quincena) => void;
-  /** Filtros extra que se muestran dentro de la misma tarjeta (ej. los
-   * MultiFiltro de contrato/provincia de Control general) — así toda la
-   * barra de filtros es un solo bloque visual. */
-  children?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-3">
+    <>
       <FiltroSelect
         label="Mes"
         value={value.mes}
@@ -45,6 +43,25 @@ export function QuincenaSelect({
         ]}
         opcional={false}
       />
+    </>
+  );
+}
+
+export function QuincenaSelect({
+  value,
+  onChange,
+  children,
+}: {
+  value: Quincena;
+  onChange: (q: Quincena) => void;
+  /** Filtros extra que se muestran dentro de la misma tarjeta (ej. los
+   * MultiFiltro de contrato/provincia de Control general) — así toda la
+   * barra de filtros es un solo bloque visual. */
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-3">
+      <QuincenaCampos value={value} onChange={onChange} />
       {children}
     </div>
   );
