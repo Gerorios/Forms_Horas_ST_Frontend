@@ -7,6 +7,10 @@ export interface FiltrosPorAprobar {
   cargadoPorCuil?: string;
   operarioCuil?: string;
   fecha?: string;
+  /** Rango server-side (fix de crecimiento 2026-08-18): aprobados/rechazados
+   * piden solo la quincena visible en vez de todo el histórico. */
+  desde?: string;
+  hasta?: string;
 }
 
 export function usePorAprobar(estado: EstadoRegistro = 'pendiente', filtros: FiltrosPorAprobar = {}) {

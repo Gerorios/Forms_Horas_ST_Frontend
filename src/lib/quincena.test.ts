@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { rangoQuincena, quincenaDeFecha, enQuincena, quincenaAnterior } from './quincena';
+import { rangoQuincena, rangoQuincenaISO, quincenaDeFecha, enQuincena, quincenaAnterior } from './quincena';
+
+describe('rangoQuincenaISO', () => {
+  it('devuelve strings YYYY-MM-DD del rango, sin corrimiento por zona horaria', () => {
+    expect(rangoQuincenaISO({ anio: 2026, mes: 8, parte: 1 })).toEqual({
+      desde: '2026-08-01',
+      hasta: '2026-08-15',
+    });
+    expect(rangoQuincenaISO({ anio: 2026, mes: 2, parte: 2 })).toEqual({
+      desde: '2026-02-16',
+      hasta: '2026-02-28',
+    });
+  });
+});
 
 describe('rangoQuincena', () => {
   it('1ª quincena de julio 2026 = 1 al 15', () => {

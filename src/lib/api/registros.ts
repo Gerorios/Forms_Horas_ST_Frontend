@@ -17,21 +17,31 @@ export function useCrearReporteBatch() {
   });
 }
 
-export function useMisRegistros(operarioCuil: string) {
+/** Rango server-side (fix de crecimiento 2026-08-18): se pide solo la quincena
+ * visible en vez de la vida entera del usuario. */
+export function useMisRegistros(operarioCuil: string, rango?: { desde: string; hasta: string }) {
   return useQuery({
-    queryKey: ['mis-registros', operarioCuil],
+    queryKey: ['mis-registros', operarioCuil, rango?.desde, rango?.hasta],
     enabled: !!operarioCuil,
     queryFn: async () =>
-      (await api.get<RegistroHoras[]>('/registros-horas', { params: { operarioCuil } })).data,
+      (
+        await api.get<RegistroHoras[]>('/registros-horas', {
+          params: { operarioCuil, ...(rango ?? {}) },
+        })
+      ).data,
   });
 }
 
 /** Registros que este usuario cargó (para la vista "Cargas que hice" del JdC). */
-export function useCargasQueHice(cargadoPorCuil: string) {
+export function useCargasQueHice(cargadoPorCuil: string, rango?: { desde: string; hasta: string }) {
   return useQuery({
-    queryKey: ['cargas-que-hice', cargadoPorCuil],
+    queryKey: ['cargas-que-hice', cargadoPorCuil, rango?.desde, rango?.hasta],
     enabled: !!cargadoPorCuil,
     queryFn: async () =>
-      (await api.get<RegistroHoras[]>('/registros-horas', { params: { cargadoPorCuil } })).data,
+      (
+        await api.get<RegistroHoras[]>('/registros-horas', {
+          params: { cargadoPorCuil, ...(rango ?? {}) },
+        })
+      ).data,
   });
 }

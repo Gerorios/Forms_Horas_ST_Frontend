@@ -16,6 +16,15 @@ export function rangoQuincena(q: Quincena): { desde: Date; hasta: Date } {
   };
 }
 
+/** El rango de la quincena como strings YYYY-MM-DD (para query params del
+ * backend). Formateo manual: toISOString correría el día por la zona horaria. */
+export function rangoQuincenaISO(q: Quincena): { desde: string; hasta: string } {
+  const { desde, hasta } = rangoQuincena(q);
+  const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { desde: iso(desde), hasta: iso(hasta) };
+}
+
 export function quincenaDeFecha(d: Date): Quincena {
   return {
     anio: d.getFullYear(),

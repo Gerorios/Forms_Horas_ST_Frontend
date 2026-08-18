@@ -9,7 +9,7 @@ import { LoteResueltoCard } from '@/features/aprobaciones/lote-resuelto-card';
 import { QuincenaCampos } from '@/features/mis-registros/quincena-select';
 import { FiltrosRegistros, type FiltrosRegistrosOpciones, type FiltrosRegistrosValue } from '@/components/filtros-registros';
 import { opcionesFacetadas } from '@/lib/facetado';
-import { quincenaDeFecha, enQuincena, type Quincena } from '@/lib/quincena';
+import { quincenaDeFecha, enQuincena, rangoQuincenaISO, type Quincena } from '@/lib/quincena';
 import { PageHeader } from '@/components/page-header';
 import type { EstadoRegistro, RegistroPorAprobar } from '@/types/domain';
 
@@ -62,14 +62,22 @@ export default function AprobacionesPage() {
   // Contrato/cargador/operario se filtran en cliente (multi-selección, ver
   // MultiFiltro): el backend de porAprobar solo acepta un valor por campo, así
   // que dejamos de mandárselos y filtramos las filas ya traídas.
-  const { data, isLoading } = usePorAprobar(tab, {});
+  // Aprobados/Rechazados: la quincena viaja como rango SERVER-SIDE (fix de
+  // crecimiento 2026-08-18) — el histórico crece sin techo y ya no se baja
+  // entero. Pendientes sigue trayendo toda la cola (chica por naturaleza),
+  // para poder avisar de los pendientes de otras quincenas.
+  const { data, isLoading } = usePorAprobar(
+    tab,
+    tab === 'pendiente' ? {} : rangoQuincenaISO(quincena),
+  );
 
   // Único filtro temporal: la quincena, en las 3 pestañas (decisión
-  // 2026-08-18; antes convivían fecha exacta + quincena). En Pendientes,
-  // "ver todos" lo desactiva para rescatar lo viejo sin resolver.
+  // 2026-08-18; antes convivían fecha exacta + quincena). En Pendientes el
+  // corte es client-side ("ver todos" lo desactiva para rescatar lo viejo);
+  // en Aprobados/Rechazados ya viene cortado del servidor.
   const filasDelPeriodo = useMemo(
     () =>
-      tab === 'pendiente' && verTodosPendientes
+      tab !== 'pendiente' || verTodosPendientes
         ? (data ?? [])
         : (data ?? []).filter((f) => enQuincena(f.fecha, quincena)),
     [data, tab, quincena, verTodosPendientes],

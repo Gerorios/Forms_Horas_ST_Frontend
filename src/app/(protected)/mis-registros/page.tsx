@@ -6,7 +6,7 @@ import { useMisRegistros, useCargasQueHice } from '@/lib/api/registros';
 import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
 import { RegistrosCards } from '@/features/mis-registros/registros-cards';
 import { CargasAgrupadas } from '@/features/mis-registros/cargas-agrupadas';
-import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
+import { quincenaDeFecha, rangoQuincenaISO, type Quincena } from '@/lib/quincena';
 import { PageHeader } from '@/components/page-header';
 
 type Tab = 'mias' | 'cargadas';
@@ -19,8 +19,10 @@ export default function MisRegistrosPage() {
   const [q, setQ] = useState<Quincena>(() => quincenaDeFecha(new Date()));
   const [tab, setTab] = useState<Tab>('mias');
 
-  const mias = useMisRegistros(cuil);
-  const cargadas = useCargasQueHice(esJdC ? cuil : '');
+  // Solo la quincena visible viaja del servidor (fix de crecimiento 2026-08-18).
+  const rango = rangoQuincenaISO(q);
+  const mias = useMisRegistros(cuil, rango);
+  const cargadas = useCargasQueHice(esJdC ? cuil : '', rango);
 
   return (
     <section className="space-y-5">
