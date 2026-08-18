@@ -73,10 +73,8 @@ describe('FiltrosRegistros', () => {
     expect(onChange).toHaveBeenCalledWith({});
   });
 
-  it('elegir una fecha llama a onChange con el string de fecha', async () => {
-    const onChange = vi.fn();
-    render(<FiltrosRegistros value={{}} onChange={onChange} opciones={OPCIONES} />);
-    await userEvent.type(screen.getByLabelText('Filtrar por fecha'), '2026-07-10');
-    expect(onChange).toHaveBeenLastCalledWith({ fecha: '2026-07-10' });
+  it('NO ofrece filtro de fecha exacta (la fecha se filtra por quincena en la página)', () => {
+    render(<FiltrosRegistros value={{}} onChange={vi.fn()} opciones={OPCIONES} />);
+    expect(screen.queryByLabelText('Filtrar por fecha')).not.toBeInTheDocument();
   });
 });

@@ -1,12 +1,11 @@
 'use client';
 
-import { BarraFiltros, FiltroFecha, MultiFiltro } from '@/components/ui/barra-filtros';
+import { BarraFiltros, MultiFiltro } from '@/components/ui/barra-filtros';
 
 export interface FiltrosRegistrosValue {
   contratoIds?: string[];
   cargadoPorCuils?: string[];
   operarioCuils?: string[];
-  fecha?: string;
 }
 
 export interface OpcionFiltroRegistros {
@@ -36,8 +35,7 @@ export function FiltrosRegistros({
   const hayFiltros =
     (value.contratoIds?.length ?? 0) > 0 ||
     (value.cargadoPorCuils?.length ?? 0) > 0 ||
-    (value.operarioCuils?.length ?? 0) > 0 ||
-    (value.fecha ?? '') !== '';
+    (value.operarioCuils?.length ?? 0) > 0;
 
   return (
     <BarraFiltros hayFiltros={hayFiltros} onLimpiar={() => onChange({})}>
@@ -63,13 +61,6 @@ export function FiltrosRegistros({
         opciones={opciones.operarios}
         seleccionados={value.operarioCuils ?? []}
         onChange={(v) => onChange({ ...value, operarioCuils: v })}
-      />
-
-      <FiltroFecha
-        label="Fecha"
-        ariaLabel="Filtrar por fecha"
-        value={value.fecha ?? ''}
-        onChange={(v) => onChange({ ...value, fecha: v || undefined })}
       />
     </BarraFiltros>
   );
