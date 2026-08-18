@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import type { Novedad, TipoNovedad, CrearNovedadInput, EstadoHys } from '@/types/domain';
+import type { Quincena } from '@/lib/quincena';
 
 export function useTiposNovedad() {
   return useQuery({
@@ -9,10 +10,18 @@ export function useTiposNovedad() {
   });
 }
 
-export function useNovedades() {
+/** Sin `periodo`: todas las novedades (sin acotar por fecha). Con `periodo`:
+ * las que se superponen con esa quincena (mismo criterio que el motor de
+ * liquidación), calculado por el backend. */
+export function useNovedades(periodo?: Quincena) {
   return useQuery({
-    queryKey: ['novedades'],
-    queryFn: async () => (await api.get<Novedad[]>('/novedades')).data,
+    queryKey: ['novedades', periodo],
+    queryFn: async () =>
+      (
+        await api.get<Novedad[]>('/novedades', {
+          params: periodo ? { anio: periodo.anio, mes: periodo.mes, quincena: periodo.parte } : undefined,
+        })
+      ).data,
   });
 }
 

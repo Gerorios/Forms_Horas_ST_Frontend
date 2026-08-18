@@ -10,8 +10,39 @@ const h = vi.hoisted(() => ({
   },
 }));
 
+const NOVEDADES_FILTROS = [
+  {
+    id: 1,
+    operarioCuil: '20111111111',
+    tipoNovedadId: 5,
+    fechaInicio: '2026-08-05',
+    fechaFin: null,
+    justificacionTexto: null,
+    estadoHys: 'pendiente',
+    operario: { cuil: '20111111111', apellido_nombre: 'GOMEZ JUAN' },
+    tipoNovedad: { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
+    cargadoPor: { cuil: '20999999999', email: 'sup@test.local' },
+  },
+  {
+    id: 2,
+    operarioCuil: '20222222222',
+    tipoNovedadId: 8,
+    fechaInicio: '2026-08-10',
+    fechaFin: null,
+    justificacionTexto: null,
+    estadoHys: 'no_aplica',
+    operario: { cuil: '20222222222', apellido_nombre: 'PEREZ ANA' },
+    tipoNovedad: { id: 8, nombre: 'Viáticos', requiereAprobacionHys: false },
+    cargadoPor: { cuil: '20999999999', email: 'sup@test.local' },
+  },
+];
+const useNovedadesMock = vi.fn((_periodo?: { anio: number; mes: number; parte: number }) => ({
+  data: [] as typeof NOVEDADES_FILTROS,
+  isLoading: false,
+}));
+
 vi.mock('@/lib/api/novedades', () => ({
-  useNovedades: () => ({ data: [], isLoading: false }),
+  useNovedades: (periodo?: { anio: number; mes: number; parte: number }) => useNovedadesMock(periodo),
   useTiposNovedad: () => ({
     data: [
       { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
@@ -32,6 +63,8 @@ describe('NovedadesPage', () => {
   beforeEach(() => {
     crear.mockClear();
     h.perfil = { rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] };
+    useNovedadesMock.mockReset();
+    useNovedadesMock.mockReturnValue({ data: [], isLoading: false });
   });
 
   it('crea una novedad con operario, tipo y fecha inicio', async () => {
@@ -76,5 +109,75 @@ describe('NovedadesPage', () => {
   it('Supervisor NO ve la aclaración (ve el listado completo)', () => {
     render(<NovedadesPage />);
     expect(screen.queryByText('Las que cargaste vos')).not.toBeInTheDocument();
+  });
+
+  it('filtra la tabla por tipo, operario y estado (MultiFiltro)', async () => {
+    useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
+    render(<NovedadesPage />);
+    expect(screen.getByText('GOMEZ JUAN')).toBeInTheDocument();
+    expect(screen.getByText('PEREZ ANA')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText('Filtrar por tipo de novedad'));
+    await userEvent.click(screen.getByLabelText('Ausencia'));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByText('GOMEZ JUAN')).toBeInTheDocument();
+    expect(screen.queryByText('PEREZ ANA')).not.toBeInTheDocument();
+  });
+
+  it('filtra por operario', async () => {
+    useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
+    render(<NovedadesPage />);
+    await userEvent.click(screen.getByLabelText('Filtrar por operario'));
+    await userEvent.click(screen.getByLabelText('PEREZ ANA'));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByText('GOMEZ JUAN')).not.toBeInTheDocument();
+    expect(screen.getByText('PEREZ ANA')).toBeInTheDocument();
+  });
+
+  it('filtra por estado', async () => {
+    useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
+    render(<NovedadesPage />);
+    await userEvent.click(screen.getByLabelText('Filtrar por estado'));
+    await userEvent.click(screen.getByLabelText('Pendiente'));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByText('GOMEZ JUAN')).toBeInTheDocument();
+    expect(screen.queryByText('PEREZ ANA')).not.toBeInTheDocument();
+  });
+
+  it('el filtro "Período" es un popover como Tipo/Operario/Estado: al abrirlo, activa la quincena actual', async () => {
+    render(<NovedadesPage />);
+    expect(screen.queryByLabelText('Mes')).not.toBeInTheDocument();
+    expect(useNovedadesMock).toHaveBeenLastCalledWith(undefined);
+
+    await userEvent.click(screen.getByLabelText('Filtrar por período'));
+    expect(screen.getByLabelText('Mes')).toBeInTheDocument();
+    expect(screen.getByLabelText('Año')).toBeInTheDocument();
+    expect(screen.getByLabelText('Quincena')).toBeInTheDocument();
+
+    const ultimaLlamada = useNovedadesMock.mock.calls.at(-1);
+    expect(ultimaLlamada?.[0]).toEqual(
+      expect.objectContaining({ anio: expect.any(Number), mes: expect.any(Number), parte: expect.any(Number) }),
+    );
+
+    // "Todos los períodos" desactiva el filtro de nuevo.
+    await userEvent.click(screen.getByRole('button', { name: 'Todos los períodos' }));
+    expect(useNovedadesMock).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it('sin tildar el período, useNovedades se llama sin argumento (todas)', () => {
+    render(<NovedadesPage />);
+    expect(useNovedadesMock).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it('JefeContrato no ve el botón "Nueva novedad" (solo consulta)', () => {
+    h.perfil = { rol: { nombre: 'JefeContrato' }, tiposNovedadHabilitados: [] };
+    render(<NovedadesPage />);
+    expect(screen.queryByRole('button', { name: /nueva novedad/i })).not.toBeInTheDocument();
+  });
+
+  it('HyS no ve el botón "Nueva novedad" (no puede cargar)', () => {
+    h.perfil = { rol: { nombre: 'HyS' }, tiposNovedadHabilitados: [] };
+    render(<NovedadesPage />);
+    expect(screen.queryByRole('button', { name: /nueva novedad/i })).not.toBeInTheDocument();
   });
 });
