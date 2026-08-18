@@ -49,7 +49,10 @@ export function EditarNovedadDialog({
     form.append('operarioCuil', operario[0].cuil);
     form.append('tipoNovedadId', String(tipoNovedadId));
     form.append('fechaInicio', fechaInicio);
-    form.append('fechaFin', fechaFin);
+    // fechaFin vacío no se manda: @IsDateString() del backend rechaza '' con
+    // 400 (@IsOptional() solo salta la validación con undefined/null, no con
+    // string vacío) — omitir el campo deja la fechaFin existente sin tocar.
+    if (fechaFin) form.append('fechaFin', fechaFin);
     form.append('justificacionTexto', justificacion);
     if (adjunto) form.append('adjunto', adjunto, adjunto.name);
     onGuardar(form);
