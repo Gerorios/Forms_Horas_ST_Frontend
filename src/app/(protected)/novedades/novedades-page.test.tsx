@@ -66,4 +66,15 @@ describe('NovedadesPage', () => {
     expect(screen.getByRole('option', { name: 'Viáticos' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Ausencia' })).not.toBeInTheDocument();
   });
+
+  it('JefeCuadrilla ve la aclaración de que solo se listan las que cargó', () => {
+    h.perfil = { rol: { nombre: 'JefeCuadrilla' }, tiposNovedadHabilitados: [] };
+    render(<NovedadesPage />);
+    expect(screen.getByText('Las que cargaste vos')).toBeInTheDocument();
+  });
+
+  it('Supervisor NO ve la aclaración (ve el listado completo)', () => {
+    render(<NovedadesPage />);
+    expect(screen.queryByText('Las que cargaste vos')).not.toBeInTheDocument();
+  });
 });

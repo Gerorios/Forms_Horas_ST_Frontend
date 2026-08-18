@@ -55,9 +55,19 @@ describe('navForRole', () => {
     expect(hrefs).not.toContain('/aprobaciones');
   });
 
-  it('HyS solo ve Ausencias', () => {
+  it('HyS ve Ausencias y Novedades', () => {
     const hrefs = navForRole(perfil('HyS')).map((i) => i.href);
-    expect(hrefs).toEqual(['/ausencias']);
+    expect(hrefs).toEqual(['/novedades', '/ausencias']);
+  });
+
+  it('JefeContrato, Liquidador y Admin ven Novedades (lectura, no solo carga)', () => {
+    expect(navForRole(perfil('JefeContrato')).map((i) => i.href)).toContain('/novedades');
+    expect(navForRole(perfil('Liquidador')).map((i) => i.href)).toContain('/novedades');
+    expect(navForRole(perfil('Admin')).map((i) => i.href)).toContain('/novedades');
+  });
+
+  it('Operario NO ve Novedades', () => {
+    expect(navForRole(perfil('Operario')).map((i) => i.href)).not.toContain('/novedades');
   });
 
   it('Admin ve el panel Admin', () => {
@@ -109,5 +119,13 @@ describe('canAccess', () => {
   });
   it('rutas fuera del catálogo son accesibles (ej. home)', () => {
     expect(canAccess('Operario', '/')).toBe(true);
+  });
+  it('Operario no puede entrar a /novedades', () => {
+    expect(canAccess('Operario', '/novedades')).toBe(false);
+  });
+  it('HyS, JefeContrato, Supervisor, Liquidador, Admin y JefeCuadrilla pueden entrar a /novedades', () => {
+    for (const rol of ['HyS', 'JefeContrato', 'Supervisor', 'Liquidador', 'Admin', 'JefeCuadrilla'] as const) {
+      expect(canAccess(rol, '/novedades')).toBe(true);
+    }
   });
 });
