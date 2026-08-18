@@ -27,10 +27,14 @@ export function FiltrosRegistros({
   value,
   onChange,
   opciones,
+  children,
 }: {
   value: FiltrosRegistrosValue;
   onChange: (v: FiltrosRegistrosValue) => void;
   opciones: FiltrosRegistrosOpciones;
+  /** Filtros extra al inicio de la MISMA barra (ej. Mes/Año/Quincena en
+   * Aprobaciones) — todos los filtros de una pantalla en un solo bloque. */
+  children?: React.ReactNode;
 }) {
   const hayFiltros =
     (value.contratoIds?.length ?? 0) > 0 ||
@@ -39,6 +43,7 @@ export function FiltrosRegistros({
 
   return (
     <BarraFiltros hayFiltros={hayFiltros} onLimpiar={() => onChange({})}>
+      {children}
       <MultiFiltro
         label="Contrato"
         ariaLabel="Filtrar por contrato"
