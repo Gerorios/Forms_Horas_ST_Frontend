@@ -41,6 +41,9 @@ export default function AprobacionesPage() {
 
   const [tab, setTab] = useState<Tab>('pendiente');
   const [quincena, setQuincena] = useState<Quincena>(() => quincenaDeFecha(new Date()));
+  // Rescate de pendientes viejos: cuando está activo, Pendientes ignora el
+  // filtro de quincena para que nada quede olvidado fuera de la vista.
+  const [verTodosPendientes, setVerTodosPendientes] = useState(false);
   const [filtros, setFiltros] = useState<FiltrosRegistrosValue>(() =>
     operarioCuilInicial ? { operarioCuils: [operarioCuilInicial] } : {},
   );
@@ -58,15 +61,28 @@ export default function AprobacionesPage() {
 
   // Contrato/cargador/operario se filtran en cliente (multi-selección, ver
   // MultiFiltro): el backend de porAprobar solo acepta un valor por campo, así
-  // que dejamos de mandárselos y filtramos las filas ya traídas. La fecha sí
-  // sigue yendo server-side, como antes.
-  const { data, isLoading } = usePorAprobar(tab, { fecha: filtros.fecha });
+  // que dejamos de mandárselos y filtramos las filas ya traídas.
+  const { data, isLoading } = usePorAprobar(tab, {});
 
-  // Pendientes es siempre una cola chica (lo no resuelto); aprobados/rechazados
-  // se acumulan indefinidamente con el uso, así que ahí sí acotamos por quincena.
+  // Único filtro temporal: la quincena, en las 3 pestañas (decisión
+  // 2026-08-18; antes convivían fecha exacta + quincena). En Pendientes,
+  // "ver todos" lo desactiva para rescatar lo viejo sin resolver.
   const filasDelPeriodo = useMemo(
-    () => (tab === 'pendiente' ? (data ?? []) : (data ?? []).filter((f) => enQuincena(f.fecha, quincena))),
-    [data, tab, quincena],
+    () =>
+      tab === 'pendiente' && verTodosPendientes
+        ? (data ?? [])
+        : (data ?? []).filter((f) => enQuincena(f.fecha, quincena)),
+    [data, tab, quincena, verTodosPendientes],
+  );
+
+  // Pendientes que el filtro de quincena está ocultando — alimenta el aviso
+  // de rescate para que nada sin resolver quede invisible.
+  const pendientesOcultos = useMemo(
+    () =>
+      tab === 'pendiente' && !verTodosPendientes
+        ? (data ?? []).filter((f) => !enQuincena(f.fecha, quincena)).length
+        : 0,
+    [data, tab, quincena, verTodosPendientes],
   );
 
   const filas = useMemo(
@@ -152,7 +168,30 @@ export default function AprobacionesPage() {
         ))}
       </div>
 
-      {tab !== 'pendiente' && <QuincenaSelect value={quincena} onChange={setQuincena} />}
+      <div className="flex flex-wrap items-center gap-3">
+        {!(tab === 'pendiente' && verTodosPendientes) && (
+          <QuincenaSelect value={quincena} onChange={setQuincena} />
+        )}
+        {tab === 'pendiente' && pendientesOcultos > 0 && (
+          <button
+            type="button"
+            onClick={() => setVerTodosPendientes(true)}
+            className="rounded bg-warn/10 px-2 py-1 text-sm font-medium text-warn hover:bg-warn/20"
+          >
+            ⚠ Hay {pendientesOcultos} pendiente{pendientesOcultos === 1 ? '' : 's'} en otras
+            quincenas — verlos
+          </button>
+        )}
+        {tab === 'pendiente' && verTodosPendientes && (
+          <button
+            type="button"
+            onClick={() => setVerTodosPendientes(false)}
+            className="rounded bg-surface px-2 py-1 text-sm text-slate ring-1 ring-line hover:text-ink"
+          >
+            Mostrando todos los pendientes — volver a la quincena
+          </button>
+        )}
+      </div>
 
       <FiltrosRegistros value={filtros} onChange={setFiltros} opciones={opciones} />
 
@@ -160,7 +199,11 @@ export default function AprobacionesPage() {
         <p className="text-slate">Cargando…</p>
       ) : grupos.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center text-sm text-slate">
-          {tab === 'pendiente' ? 'No hay registros pendientes.' : 'No hay registros en esta quincena.'}
+          {tab === 'pendiente' && verTodosPendientes
+            ? 'No hay registros pendientes.'
+            : tab === 'pendiente'
+              ? 'No hay pendientes en esta quincena.'
+              : 'No hay registros en esta quincena.'}
         </div>
       ) : tab === 'pendiente' ? (
         grupos.map((g) => <LoteCard key={g.loteId} grupo={g} />)
