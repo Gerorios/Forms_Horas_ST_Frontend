@@ -374,6 +374,12 @@ export default function ControlGeneralPage() {
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-sm font-semibold text-ink">Detalle diario</h2>
+          {(detalle ?? []).some((f) => !f.esMiContrato) && (
+            <span className="text-xs text-slate" data-testid="leyenda-jornada-completa">
+              Incluye las horas que estas personas hicieron en otros contratos ese mismo día
+              (atenuadas), para que veas la jornada completa.
+            </span>
+          )}
           {(detalle ?? []).length > 0 && (
             <span className="text-xs text-slate">
               mostrando {detalleVisible.length} de {(detalle ?? []).length}
@@ -398,17 +404,37 @@ export default function ControlGeneralPage() {
               </thead>
               <tbody>
                 {detalleVisible.map((f) => (
-                  <tr key={f.id} className="border-b border-line text-ink last:border-0">
+                  // Las filas de otros contratos van atenuadas: son el contexto
+                  // de la jornada (cuánto trabajó realmente esa persona ese
+                  // día), no algo que este jefe pueda aprobar.
+                  <tr
+                    key={f.id}
+                    className={`border-b border-line last:border-0 ${f.esMiContrato ? 'text-ink' : 'bg-surface/40 text-slate'}`}
+                  >
                     <td className="tabular-nums px-4 py-2.5">{f.fecha}</td>
-                    <td className="px-4 py-2.5">{f.contratoCodigo}</td>
                     <td className="px-4 py-2.5">
-                      <Link
-                        href={`/aprobaciones?operarioCuil=${f.operarioCuil}`}
-                        className="underline decoration-line hover:text-brand-deep hover:decoration-brand-deep"
-                        title="Ver los registros de este operario en Aprobaciones"
-                      >
-                        {f.operarioNombre}
-                      </Link>
+                      {f.contratoCodigo}
+                      {!f.esMiContrato && (
+                        <span
+                          className="ml-1.5 rounded-full bg-slate/10 px-1.5 py-0.5 text-[10px] font-medium"
+                          title="Contrato de otro jefe: se muestra para que veas la jornada completa del operario. No podés aprobarlo ni editarlo."
+                        >
+                          otro contrato
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {f.esMiContrato ? (
+                        <Link
+                          href={`/aprobaciones?operarioCuil=${f.operarioCuil}`}
+                          className="underline decoration-line hover:text-brand-deep hover:decoration-brand-deep"
+                          title="Ver los registros de este operario en Aprobaciones"
+                        >
+                          {f.operarioNombre}
+                        </Link>
+                      ) : (
+                        f.operarioNombre
+                      )}
                     </td>
                     <td className="max-w-72 px-4 py-2.5 text-slate">
                       {f.tareas.length > 0 ? f.tareas.join(', ') : '—'}

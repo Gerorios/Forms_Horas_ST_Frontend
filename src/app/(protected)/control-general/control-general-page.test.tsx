@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {
   ResumenOperario,
@@ -78,6 +78,7 @@ const DETALLE: FilaDetalleDiario[] = [
     estado: 'pendiente',
     tareas: ['Zanjeo', 'Tendido de cañería'],
     observacion: 'Viaje a Metán por reparación de fuga urgente',
+    esMiContrato: true,
   },
   {
     id: 11,
@@ -90,6 +91,7 @@ const DETALLE: FilaDetalleDiario[] = [
     estado: 'aprobado',
     tareas: [],
     observacion: null,
+    esMiContrato: false,
   },
 ];
 
@@ -262,11 +264,33 @@ describe('ControlGeneralPage', () => {
     expect(filaRojas).toHaveTextContent('K5');
   });
 
+  /** Jornada completa (decisión 2026-08-19): el detalle trae también las horas
+   * que la persona hizo ese día en contratos de otros jefes, para que no
+   * parezca que trabajó menos de lo que trabajó. Van marcadas y sin link a
+   * Aprobaciones (ahí no hay nada que este jefe pueda resolver). */
+  it('marca las filas de otros contratos y no las linkea a Aprobaciones', () => {
+    render(<ControlGeneralPage />);
+    const filaAjena = screen.getByText('SOSA MARTA').closest('tr')!;
+    expect(filaAjena).toHaveTextContent('otro contrato');
+    expect(within(filaAjena).queryByRole('link')).not.toBeInTheDocument();
+
+    const filaPropia = screen.getByRole('link', { name: 'ROJAS PEDRO' }).closest('tr')!;
+    expect(filaPropia).not.toHaveTextContent('otro contrato');
+  });
+
+  it('explica en la leyenda por qué aparecen contratos ajenos', () => {
+    render(<ControlGeneralPage />);
+    expect(screen.getByTestId('leyenda-jornada-completa')).toHaveTextContent(
+      /otros contratos ese mismo día/i,
+    );
+  });
+
   it('el detalle diario muestra las tareas del registro, o un guion si no tiene', () => {
     render(<ControlGeneralPage />);
     const filaRojas = screen.getByRole('link', { name: 'ROJAS PEDRO' }).closest('tr')!;
     expect(filaRojas).toHaveTextContent('Zanjeo, Tendido de cañería');
-    const filaSosa = screen.getByRole('link', { name: 'SOSA MARTA' }).closest('tr')!;
+    // SOSA MARTA es de otro contrato: aparece como contexto, sin link.
+    const filaSosa = screen.getByText('SOSA MARTA').closest('tr')!;
     expect(filaSosa).toHaveTextContent('—');
   });
 

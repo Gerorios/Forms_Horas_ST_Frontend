@@ -66,6 +66,10 @@ export interface FilaDetalleDiario {
   /** Texto libre de la línea de carga (compartido por los operarios de esa
    * carga en ese contrato, ver ADR-005). null si no se cargó ninguna. */
   observacion: string | null;
+  /** false = la fila es de un contrato de OTRO jefe: aparece como contexto de
+   * la jornada (el operario trabajó ahí ese día) pero no es accionable por
+   * este usuario — decisión 2026-08-19, "jornada completa". */
+  esMiContrato: boolean;
 }
 
 export interface OperarioSinCarga {
