@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const crear = vi.fn().mockResolvedValue({});
+const actualizar = vi.fn().mockResolvedValue({});
 const h = vi.hoisted(() => ({
   perfil: { rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] } as {
     rol: { nombre: string };
@@ -50,6 +51,7 @@ vi.mock('@/lib/api/novedades', () => ({
     ],
   }),
   useCrearNovedad: () => ({ mutateAsync: crear, isPending: false }),
+  useActualizarNovedad: () => ({ mutateAsync: actualizar, isPending: false }),
 }));
 vi.mock('@/lib/api/empleados', () => ({
   useBuscarEmpleados: () => ({ data: [{ cuil: '20169', apellido_nombre: 'GOMEZ', legajo: 1, cargo: 'OF' }] }),
@@ -62,12 +64,13 @@ import NovedadesPage from './page';
 describe('NovedadesPage', () => {
   beforeEach(() => {
     crear.mockClear();
+    actualizar.mockClear();
     h.perfil = { rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] };
     useNovedadesMock.mockReset();
     useNovedadesMock.mockReturnValue({ data: [], isLoading: false });
   });
 
-  it('crea una novedad con operario, tipo y fecha inicio', async () => {
+  it('crea una novedad con operario, tipo y fecha inicio (envía FormData multipart)', async () => {
     render(<NovedadesPage />);
     await userEvent.click(screen.getByRole('button', { name: /nueva novedad/i }));
     await userEvent.type(screen.getByPlaceholderText(/buscar operario/i), 'gomez');
@@ -75,11 +78,12 @@ describe('NovedadesPage', () => {
     await userEvent.selectOptions(screen.getByLabelText('Tipo'), '5');
     await userEvent.type(screen.getByLabelText('Fecha inicio'), '2026-07-10');
     await userEvent.click(screen.getByRole('button', { name: /cargar novedad/i }));
-    await waitFor(() =>
-      expect(crear).toHaveBeenCalledWith(
-        expect.objectContaining({ operarioCuil: '20169', tipoNovedadId: 5, fechaInicio: '2026-07-10' }),
-      ),
-    );
+    await waitFor(() => expect(crear).toHaveBeenCalledTimes(1));
+    const form = crear.mock.calls[0][0] as FormData;
+    expect(form).toBeInstanceOf(FormData);
+    expect(form.get('operarioCuil')).toBe('20169');
+    expect(form.get('tipoNovedadId')).toBe('5');
+    expect(form.get('fechaInicio')).toBe('2026-07-10');
   });
 
   it('Supervisor ve el catálogo completo de tipos, sin filtrar', async () => {
@@ -179,5 +183,71 @@ describe('NovedadesPage', () => {
     h.perfil = { rol: { nombre: 'HyS' }, tiposNovedadHabilitados: [] };
     render(<NovedadesPage />);
     expect(screen.queryByRole('button', { name: /nueva novedad/i })).not.toBeInTheDocument();
+  });
+
+  describe('Editar (Admin only)', () => {
+    it('Admin ve el botón "Editar" por fila', () => {
+      h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
+      useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
+      render(<NovedadesPage />);
+      expect(screen.getAllByRole('button', { name: 'Editar' })).toHaveLength(NOVEDADES_FILTROS.length);
+    });
+
+    it('Supervisor NO ve el botón "Editar"', () => {
+      h.perfil = { rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] };
+      useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
+      render(<NovedadesPage />);
+      expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+    });
+
+    it('clickear "Editar" abre el formulario precargado con los datos actuales', async () => {
+      h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
+      useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
+      render(<NovedadesPage />);
+      await userEvent.click(screen.getAllByRole('button', { name: 'Editar' })[0]);
+
+      expect(screen.getByText('Editar novedad')).toBeInTheDocument();
+      // "GOMEZ JUAN" aparece tanto en la fila de la tabla como preseleccionado
+      // en el buscador de operario del diálogo.
+      expect(screen.getAllByText('GOMEZ JUAN').length).toBeGreaterThan(1);
+      expect(screen.getByLabelText('Tipo')).toHaveValue('5');
+      expect(screen.getByLabelText('Fecha inicio')).toHaveValue('2026-08-05');
+    });
+
+    it('guardar cambios llama a PATCH /novedades/:id con FormData', async () => {
+      h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
+      useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
+      render(<NovedadesPage />);
+      await userEvent.click(screen.getAllByRole('button', { name: 'Editar' })[0]);
+
+      const fechaInicio = screen.getByLabelText('Fecha inicio');
+      await userEvent.clear(fechaInicio);
+      await userEvent.type(fechaInicio, '2026-08-06');
+      await userEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+      await waitFor(() => expect(actualizar).toHaveBeenCalledTimes(1));
+      const { id, form } = actualizar.mock.calls[0][0] as { id: number; form: FormData };
+      expect(id).toBe(1);
+      expect(form).toBeInstanceOf(FormData);
+      expect(form.get('fechaInicio')).toBe('2026-08-06');
+      expect(form.get('operarioCuil')).toBe('20111111111');
+    });
+
+    it('permite reemplazar el certificado adjunto al editar', async () => {
+      h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
+      useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
+      render(<NovedadesPage />);
+      await userEvent.click(screen.getAllByRole('button', { name: 'Editar' })[0]);
+
+      const archivo = new File(['contenido'], 'nuevo-certificado.pdf', { type: 'application/pdf' });
+      const input = screen.getByLabelText('Reemplazar certificado (opcional)') as HTMLInputElement;
+      await userEvent.upload(input, archivo);
+      await userEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+      await waitFor(() => expect(actualizar).toHaveBeenCalledTimes(1));
+      const { form } = actualizar.mock.calls[0][0] as { id: number; form: FormData };
+      const enviado = form.get('adjunto') as File;
+      expect(enviado.name).toBe('nuevo-certificado.pdf');
+    });
   });
 });

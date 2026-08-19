@@ -1,39 +1,167 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { Novedad } from '@/types/domain';
 
 const resolver = vi.fn().mockResolvedValue({});
+const reabrir = vi.fn().mockResolvedValue({});
+const abrirAdjunto = vi.fn().mockResolvedValue(undefined);
+const h = vi.hoisted(() => ({ perfil: { rol: { nombre: 'HyS' } } }));
 
-function nov(id: number) {
+function nov(overrides: Partial<Novedad> = {}): Novedad {
   return {
-    id, operarioCuil: '20111', tipoNovedadId: 5, fechaInicio: '2026-07-10', fechaFin: null,
-    justificacionTexto: 'gripe', estadoHys: 'pendiente',
-    operario: { cuil: '20111', apellido_nombre: 'PEREZ' },
+    id: 1,
+    operarioCuil: '20111111111',
+    tipoNovedadId: 5,
+    fechaInicio: '2026-08-10',
+    fechaFin: null,
+    justificacionTexto: 'gripe',
+    descargoHys: null,
+    adjuntoUrl: null,
+    estadoHys: 'pendiente',
+    operario: { cuil: '20111111111', apellido_nombre: 'PEREZ JUAN' },
     tipoNovedad: { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
-    cargadoPor: { cuil: '20999', email: 'sup@test.local' },
+    cargadoPor: { cuil: '20999999999', email: 'sup@test.local' },
+    ...overrides,
   };
 }
 
+const useNovedadesMock = vi.fn((_periodo?: unknown) => ({ data: [nov()] as Novedad[], isLoading: false }));
+const useResumenAusenciasMock = vi.fn((_periodo?: unknown) => ({ data: [] as unknown[], isLoading: false }));
+
 vi.mock('@/lib/api/novedades', () => ({
-  useNovedadesPorEstado: () => ({ data: [nov(1)], isLoading: false }),
+  useNovedades: (periodo?: unknown) => useNovedadesMock(periodo),
   useResolverHys: () => ({ mutateAsync: resolver, isPending: false }),
+  useReabrirNovedad: () => ({ mutateAsync: reabrir, isPending: false }),
+  useResumenAusencias: (periodo?: unknown) => useResumenAusenciasMock(periodo),
+  abrirAdjuntoNovedad: (id: number) => abrirAdjunto(id),
 }));
+vi.mock('@/lib/auth/session', () => ({ useSession: () => ({ perfil: h.perfil }) }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), promise: vi.fn() } }));
 
 import AusenciasPage from './page';
 
 describe('AusenciasPage', () => {
-  beforeEach(() => resolver.mockClear());
-
-  it('aprobar llama resolver-hys con estado aprobada', async () => {
-    render(<AusenciasPage />);
-    await userEvent.click(screen.getByRole('button', { name: /^aprobar$/i }));
-    await waitFor(() => expect(resolver).toHaveBeenCalledWith({ id: 1, estadoHys: 'aprobada' }));
+  beforeEach(() => {
+    resolver.mockClear();
+    reabrir.mockClear();
+    abrirAdjunto.mockClear();
+    h.perfil = { rol: { nombre: 'HyS' } };
+    useNovedadesMock.mockReset();
+    useNovedadesMock.mockReturnValue({ data: [nov()], isLoading: false });
+    useResumenAusenciasMock.mockReset();
+    useResumenAusenciasMock.mockReturnValue({ data: [], isLoading: false });
   });
 
-  it('desaprobar llama resolver-hys con estado desaprobada', async () => {
+  it('filtra a solo novedades de tipo Ausencia (client-side)', () => {
+    useNovedadesMock.mockReturnValue({
+      data: [
+        nov({ id: 1, operario: { cuil: '20111111111', apellido_nombre: 'PEREZ JUAN' } }),
+        nov({
+          id: 2,
+          tipoNovedadId: 8,
+          tipoNovedad: { id: 8, nombre: 'Viáticos', requiereAprobacionHys: false },
+          operario: { cuil: '20222222222', apellido_nombre: 'GOMEZ ANA' },
+        }),
+      ],
+      isLoading: false,
+    });
     render(<AusenciasPage />);
-    await userEvent.click(screen.getByRole('button', { name: /desaprobar/i }));
-    await waitFor(() => expect(resolver).toHaveBeenCalledWith({ id: 1, estadoHys: 'desaprobada' }));
+    expect(screen.getByText('PEREZ JUAN')).toBeInTheDocument();
+    expect(screen.queryByText('GOMEZ ANA')).not.toBeInTheDocument();
+  });
+
+  it('usa las etiquetas renombradas de las pestañas de estado', () => {
+    render(<AusenciasPage />);
+    expect(screen.getByRole('button', { name: 'Pendientes' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Justificadas' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Injustificadas' })).toBeInTheDocument();
+  });
+
+  it('usa las etiquetas renombradas de las acciones (Justificar / No justificar)', () => {
+    render(<AusenciasPage />);
+    expect(screen.getByRole('button', { name: 'Justificar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'No justificar' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^aprobar$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^desaprobar$/i })).not.toBeInTheDocument();
+  });
+
+  it('tiene el selector de período mandatorio (Mes/Año/Quincena) y lo pasa a useNovedades', () => {
+    render(<AusenciasPage />);
+    expect(screen.getByLabelText('Mes')).toBeInTheDocument();
+    expect(screen.getByLabelText('Año')).toBeInTheDocument();
+    expect(screen.getByLabelText('Quincena')).toBeInTheDocument();
+    expect(useNovedadesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ anio: expect.any(Number), mes: expect.any(Number), parte: expect.any(Number) }),
+    );
+  });
+
+  it('justificar abre el diálogo de descargo (opcional) y llama a resolver-hys con estado aprobada', async () => {
+    render(<AusenciasPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Justificar' }));
+    expect(screen.getByLabelText('Descargo')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Descargo'), 'presentó certificado');
+    const botonesConfirmar = screen.getAllByRole('button', { name: 'Justificar' });
+    await userEvent.click(botonesConfirmar[botonesConfirmar.length - 1]);
+    await waitFor(() =>
+      expect(resolver).toHaveBeenCalledWith({ id: 1, estadoHys: 'aprobada', descargoHys: 'presentó certificado' }),
+    );
+  });
+
+  it('no justificar sin cargar descargo lo manda como undefined (es opcional para ambas acciones)', async () => {
+    render(<AusenciasPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'No justificar' }));
+    const botonesConfirmar = screen.getAllByRole('button', { name: 'No justificar' });
+    await userEvent.click(botonesConfirmar[botonesConfirmar.length - 1]);
+    await waitFor(() =>
+      expect(resolver).toHaveBeenCalledWith({ id: 1, estadoHys: 'desaprobada', descargoHys: undefined }),
+    );
+  });
+
+  it('en la pestaña Justificadas se puede reabrir la novedad', async () => {
+    useNovedadesMock.mockReturnValue({ data: [nov({ estadoHys: 'aprobada' })], isLoading: false });
+    render(<AusenciasPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Justificadas' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Reabrir' }));
+    await waitFor(() => expect(reabrir).toHaveBeenCalledWith(1));
+  });
+
+  it('en la pestaña Injustificadas se puede reabrir la novedad', async () => {
+    useNovedadesMock.mockReturnValue({ data: [nov({ estadoHys: 'desaprobada' })], isLoading: false });
+    render(<AusenciasPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Injustificadas' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Reabrir' }));
+    await waitFor(() => expect(reabrir).toHaveBeenCalledWith(1));
+  });
+
+  it('muestra "Ver certificado" cuando adjuntoUrl es truthy, y lo abre al clickear', async () => {
+    useNovedadesMock.mockReturnValue({ data: [nov({ adjuntoUrl: 'novedades/1/adjunto.pdf' })], isLoading: false });
+    render(<AusenciasPage />);
+    const boton = screen.getByRole('button', { name: 'Ver certificado' });
+    await userEvent.click(boton);
+    await waitFor(() => expect(abrirAdjunto).toHaveBeenCalledWith(1));
+  });
+
+  it('NO muestra "Ver certificado" cuando adjuntoUrl es null', () => {
+    render(<AusenciasPage />);
+    expect(screen.queryByRole('button', { name: 'Ver certificado' })).not.toBeInTheDocument();
+  });
+
+  it('el botón Exportar es visible para HyS', () => {
+    h.perfil = { rol: { nombre: 'HyS' } };
+    render(<AusenciasPage />);
+    expect(screen.getByRole('button', { name: 'Exportar' })).toBeInTheDocument();
+  });
+
+  it('el botón Exportar es visible para Admin', () => {
+    h.perfil = { rol: { nombre: 'Admin' } };
+    render(<AusenciasPage />);
+    expect(screen.getByRole('button', { name: 'Exportar' })).toBeInTheDocument();
+  });
+
+  it('el botón Exportar NO es visible para otros roles', () => {
+    h.perfil = { rol: { nombre: 'Supervisor' } };
+    render(<AusenciasPage />);
+    expect(screen.queryByRole('button', { name: 'Exportar' })).not.toBeInTheDocument();
   });
 });

@@ -102,6 +102,10 @@ describe('navForRole', () => {
   it('Admin ve Km por tantos siempre', () => {
     expect(navForRole(perfil('Admin')).map((i) => i.href)).toContain('/km-por-tantos');
   });
+
+  it('Admin ve Ausencias (además de HyS, por las acciones de Reabrir/Exportar)', () => {
+    expect(navForRole(perfil('Admin')).map((i) => i.href)).toContain('/ausencias');
+  });
 });
 
 describe('canAccess', () => {
@@ -127,5 +131,12 @@ describe('canAccess', () => {
     for (const rol of ['HyS', 'JefeContrato', 'Supervisor', 'Liquidador', 'Admin', 'JefeCuadrilla'] as const) {
       expect(canAccess(rol, '/novedades')).toBe(true);
     }
+  });
+  it('HyS y Admin pueden entrar a /ausencias', () => {
+    expect(canAccess('HyS', '/ausencias')).toBe(true);
+    expect(canAccess('Admin', '/ausencias')).toBe(true);
+  });
+  it('Supervisor no puede entrar a /ausencias', () => {
+    expect(canAccess('Supervisor', '/ausencias')).toBe(false);
   });
 });
