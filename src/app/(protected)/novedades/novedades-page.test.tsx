@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { Novedad } from '@/types/domain';
 
 const crear = vi.fn().mockResolvedValue({});
 const actualizar = vi.fn().mockResolvedValue({});
+const anular = vi.fn().mockResolvedValue({});
 const h = vi.hoisted(() => ({
   perfil: { rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] } as {
     rol: { nombre: string };
@@ -11,7 +13,7 @@ const h = vi.hoisted(() => ({
   },
 }));
 
-const NOVEDADES_FILTROS = [
+const NOVEDADES_FILTROS: Novedad[] = [
   {
     id: 1,
     operarioCuil: '20111111111',
@@ -19,10 +21,16 @@ const NOVEDADES_FILTROS = [
     fechaInicio: '2026-08-05',
     fechaFin: null,
     justificacionTexto: null,
+    descargoHys: null,
+    adjuntoUrl: null,
     estadoHys: 'pendiente',
     operario: { cuil: '20111111111', apellido_nombre: 'GOMEZ JUAN' },
     tipoNovedad: { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
     cargadoPor: { cuil: '20999999999', email: 'sup@test.local' },
+    estado: 'activa',
+    motivoAnulacion: null,
+    anuladaPorCuil: null,
+    anuladaEn: null,
   },
   {
     id: 2,
@@ -31,10 +39,16 @@ const NOVEDADES_FILTROS = [
     fechaInicio: '2026-08-10',
     fechaFin: null,
     justificacionTexto: null,
+    descargoHys: null,
+    adjuntoUrl: null,
     estadoHys: 'no_aplica',
     operario: { cuil: '20222222222', apellido_nombre: 'PEREZ ANA' },
     tipoNovedad: { id: 8, nombre: 'Viáticos', requiereAprobacionHys: false },
     cargadoPor: { cuil: '20999999999', email: 'sup@test.local' },
+    estado: 'activa',
+    motivoAnulacion: null,
+    anuladaPorCuil: null,
+    anuladaEn: null,
   },
 ];
 const useNovedadesMock = vi.fn((_periodo?: { anio: number; mes: number; parte: number }) => ({
@@ -52,6 +66,7 @@ vi.mock('@/lib/api/novedades', () => ({
   }),
   useCrearNovedad: () => ({ mutateAsync: crear, isPending: false }),
   useActualizarNovedad: () => ({ mutateAsync: actualizar, isPending: false }),
+  useAnularNovedad: () => ({ mutateAsync: anular, isPending: false }),
 }));
 vi.mock('@/lib/api/empleados', () => ({
   useBuscarEmpleados: () => ({ data: [{ cuil: '20169', apellido_nombre: 'GOMEZ', legajo: 1, cargo: 'OF' }] }),
@@ -65,6 +80,7 @@ describe('NovedadesPage', () => {
   beforeEach(() => {
     crear.mockClear();
     actualizar.mockClear();
+    anular.mockClear();
     h.perfil = { rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] };
     useNovedadesMock.mockReset();
     useNovedadesMock.mockReturnValue({ data: [], isLoading: false });
@@ -185,19 +201,53 @@ describe('NovedadesPage', () => {
     expect(screen.queryByRole('button', { name: /nueva novedad/i })).not.toBeInTheDocument();
   });
 
-  describe('Editar (Admin only)', () => {
-    it('Admin ve el botón "Editar" por fila', () => {
+  describe('Editar / Anular (Admin en cualquier tipo, HyS solo en Ausencia)', () => {
+    it('Admin ve "Editar" y "Anular" en todas las filas, sin importar el tipo', () => {
       h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
       useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
       render(<NovedadesPage />);
       expect(screen.getAllByRole('button', { name: 'Editar' })).toHaveLength(NOVEDADES_FILTROS.length);
+      expect(screen.getAllByRole('button', { name: 'Anular' })).toHaveLength(NOVEDADES_FILTROS.length);
     });
 
-    it('Supervisor NO ve el botón "Editar"', () => {
+    it('HyS ve "Editar" y "Anular" solo en la fila de tipo Ausencia', () => {
+      h.perfil = { rol: { nombre: 'HyS' }, tiposNovedadHabilitados: [] };
+      useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
+      render(<NovedadesPage />);
+      // GOMEZ JUAN (id 1) es Ausencia; PEREZ ANA (id 2) es Viáticos.
+      expect(screen.getAllByRole('button', { name: 'Editar' })).toHaveLength(1);
+      expect(screen.getAllByRole('button', { name: 'Anular' })).toHaveLength(1);
+
+      const filaGomez = screen.getByText('GOMEZ JUAN').closest('tr');
+      const filaPerez = screen.getByText('PEREZ ANA').closest('tr');
+      expect(filaGomez && within(filaGomez).queryByRole('button', { name: 'Editar' })).not.toBeNull();
+      expect(filaPerez && within(filaPerez).queryByRole('button', { name: 'Editar' })).toBeNull();
+    });
+
+    it('Supervisor NO ve los botones "Editar"/"Anular" (ni la columna Acciones)', () => {
       h.perfil = { rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] };
       useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
       render(<NovedadesPage />);
       expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Anular' })).not.toBeInTheDocument();
+      expect(screen.queryByText('Acciones')).not.toBeInTheDocument();
+    });
+
+    it('anular: pide motivo y checkbox de confirmación, y llama a la mutación con {id, motivo}', async () => {
+      h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
+      useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
+      render(<NovedadesPage />);
+      await userEvent.click(screen.getAllByRole('button', { name: 'Anular' })[0]);
+
+      const confirmar = screen.getByRole('button', { name: 'Anular novedad' });
+      expect(confirmar).toBeDisabled();
+
+      await userEvent.type(screen.getByLabelText('Motivo de anulación'), 'error de carga');
+      await userEvent.click(screen.getByRole('checkbox', { name: /confirmo que quiero anular/i }));
+      expect(confirmar).toBeEnabled();
+
+      await userEvent.click(confirmar);
+      await waitFor(() => expect(anular).toHaveBeenCalledWith({ id: 1, motivo: 'error de carga' }));
     });
 
     it('clickear "Editar" abre el formulario precargado con los datos actuales', async () => {
@@ -248,6 +298,61 @@ describe('NovedadesPage', () => {
       const { form } = actualizar.mock.calls[0][0] as { id: number; form: FormData };
       const enviado = form.get('adjunto') as File;
       expect(enviado.name).toBe('nuevo-certificado.pdf');
+    });
+  });
+
+  describe('Filtro de Vigencia (activa/anulada)', () => {
+    const CON_ANULADA: Novedad[] = [
+      ...NOVEDADES_FILTROS,
+      {
+        id: 3,
+        operarioCuil: '20333333333',
+        tipoNovedadId: 5,
+        fechaInicio: '2026-08-12',
+        fechaFin: null,
+        justificacionTexto: null,
+        descargoHys: null,
+        adjuntoUrl: null,
+        estadoHys: 'pendiente',
+        operario: { cuil: '20333333333', apellido_nombre: 'LOPEZ CARLOS' },
+        tipoNovedad: { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
+        cargadoPor: { cuil: '20999999999', email: 'sup@test.local' },
+        estado: 'anulada',
+        motivoAnulacion: 'duplicada',
+        anuladaPorCuil: '20888888888',
+        anuladaEn: '2026-08-13T10:00:00.000Z',
+      },
+    ];
+
+    it('por defecto oculta las anuladas', () => {
+      useNovedadesMock.mockReturnValue({ data: CON_ANULADA, isLoading: false });
+      render(<NovedadesPage />);
+      expect(screen.getByText('GOMEZ JUAN')).toBeInTheDocument();
+      expect(screen.queryByText('LOPEZ CARLOS')).not.toBeInTheDocument();
+    });
+
+    it('tildando "Anulada" en el filtro de Vigencia se ven también las anuladas', async () => {
+      useNovedadesMock.mockReturnValue({ data: CON_ANULADA, isLoading: false });
+      render(<NovedadesPage />);
+      await userEvent.click(screen.getByLabelText('Filtrar por vigencia'));
+      await userEvent.click(screen.getByLabelText('Anulada'));
+      await userEvent.keyboard('{Escape}');
+      expect(screen.getByText('LOPEZ CARLOS')).toBeInTheDocument();
+    });
+
+    it('una fila anulada se ve de-enfatizada y sin botones de Editar/Anular', async () => {
+      h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
+      useNovedadesMock.mockReturnValue({ data: CON_ANULADA, isLoading: false });
+      render(<NovedadesPage />);
+      await userEvent.click(screen.getByLabelText('Filtrar por vigencia'));
+      await userEvent.click(screen.getByLabelText('Anulada'));
+      await userEvent.keyboard('{Escape}');
+
+      const fila = screen.getByText('LOPEZ CARLOS').closest('tr');
+      expect(fila).not.toBeNull();
+      expect(fila).toHaveClass('opacity-60');
+      expect(fila && within(fila).queryByRole('button', { name: 'Editar' })).toBeNull();
+      expect(fila && within(fila).queryByRole('button', { name: 'Anular' })).toBeNull();
     });
   });
 });
