@@ -123,6 +123,8 @@ export interface TipoNovedad {
   requiereAprobacionHys: boolean;
 }
 
+export type EstadoNovedad = 'activa' | 'anulada';
+
 export interface Novedad {
   id: number;
   operarioCuil: string;
@@ -139,6 +141,12 @@ export interface Novedad {
   operario: { cuil: string; apellido_nombre: string };
   tipoNovedad: { id: number; nombre: string; requiereAprobacionHys: boolean };
   cargadoPor: { cuil: string; email: string };
+  /** Vigencia del registro (no confundir con `estadoHys`, la resolución de HyS) —
+   * mismo eje que `EstadoCargaCombustible` en cargas de combustible. */
+  estado: EstadoNovedad;
+  motivoAnulacion: string | null;
+  anuladaPorCuil: string | null;
+  anuladaEn: string | null;
 }
 
 export interface CrearNovedadInput {

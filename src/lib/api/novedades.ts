@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import type { Novedad, TipoNovedad, EstadoHys, ResumenAusenciaOperario } from '@/types/domain';
+import type { Novedad, TipoNovedad, EstadoHys, EstadoNovedad, ResumenAusenciaOperario } from '@/types/domain';
 import type { Quincena } from '@/lib/quincena';
 
 export function useTiposNovedad() {
@@ -12,14 +12,21 @@ export function useTiposNovedad() {
 
 /** Sin `periodo`: todas las novedades (sin acotar por fecha). Con `periodo`:
  * las que se superponen con esa quincena (mismo criterio que el motor de
- * liquidación), calculado por el backend. */
-export function useNovedades(periodo?: Quincena) {
+ * liquidación), calculado por el backend. `estado` es opcional y, sin
+ * pasarlo, el backend devuelve activas y anuladas mezcladas (sin default
+ * server-side) — quien llama decide si filtra server-side o, como hace
+ * /novedades hoy con tipo/operario/estadoHys, se queda con todo y filtra en
+ * cliente. */
+export function useNovedades(periodo?: Quincena, estado?: EstadoNovedad) {
   return useQuery({
-    queryKey: ['novedades', periodo],
+    queryKey: ['novedades', periodo, estado],
     queryFn: async () =>
       (
         await api.get<Novedad[]>('/novedades', {
-          params: periodo ? { anio: periodo.anio, mes: periodo.mes, quincena: periodo.parte } : undefined,
+          params: {
+            ...(periodo ? { anio: periodo.anio, mes: periodo.mes, quincena: periodo.parte } : {}),
+            ...(estado ? { estado } : {}),
+          },
         })
       ).data,
   });
@@ -74,6 +81,19 @@ export function useReabrirNovedad() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => (await api.patch<Novedad>(`/novedades/${id}/reabrir`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['novedades'] }),
+  });
+}
+
+/** PATCH /novedades/:id/anular — mismo alcance de roles/tipo que editar
+ * completo (HyS solo en Ausencia, Admin en cualquier tipo). Mismo patrón que
+ * useAnularCargaCombustible (lib/api/combustible.ts): motivo obligatorio,
+ * sin FormData (no hay adjunto acá). */
+export function useAnularNovedad() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, motivo }: { id: number; motivo: string }) =>
+      (await api.patch<Novedad>(`/novedades/${id}/anular`, { motivo })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['novedades'] }),
   });
 }

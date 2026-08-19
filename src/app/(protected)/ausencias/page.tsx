@@ -6,8 +6,12 @@ import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import { BarraFiltros } from '@/components/ui/barra-filtros';
 import { QuincenaCampos } from '@/features/mis-registros/quincena-select';
+import { EditarNovedadDialog } from '@/features/novedades/editar-novedad-dialog';
+import { AnularNovedadDialog } from '@/features/novedades/anular-novedad-dialog';
 import {
   abrirAdjuntoNovedad,
+  useActualizarNovedad,
+  useAnularNovedad,
   useNovedades,
   useReabrirNovedad,
   useResolverHys,
@@ -15,7 +19,7 @@ import {
 } from '@/lib/api/novedades';
 import { useSession } from '@/lib/auth/session';
 import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
-import type { EstadoHys, ResumenAusenciaOperario } from '@/types/domain';
+import type { EstadoHys, Novedad, ResumenAusenciaOperario } from '@/types/domain';
 
 const TABS: { value: EstadoHys; label: string }[] = [
   { value: 'pendiente', label: 'Pendientes' },
@@ -133,19 +137,31 @@ export default function AusenciasPage() {
   const { data, isLoading } = useNovedades(periodo);
   const resolver = useResolverHys();
   const reabrir = useReabrirNovedad();
+  const actualizar = useActualizarNovedad();
+  const anular = useAnularNovedad();
 
   const puedeGestionar = perfil?.rol.nombre === 'HyS' || perfil?.rol.nombre === 'Admin';
   const resumen = useResumenAusencias(periodo);
 
   const [dialogo, setDialogo] = useState<{ id: number; estadoHys: 'aprobada' | 'desaprobada' } | null>(null);
+  const [editando, setEditando] = useState<Novedad | null>(null);
+  const [anulando, setAnulando] = useState<Novedad | null>(null);
+  const [verAnuladas, setVerAnuladas] = useState(false);
 
   // Esta pantalla es solo para novedades de tipo "Ausencia" (el resto de los
-  // tipos de novedad se gestionan desde /novedades).
+  // tipos de novedad se gestionan desde /novedades). Las anuladas no entran
+  // acá: vigencia (`estado`) es un eje distinto de la resolución de HyS
+  // (`estadoHys`, usado para las pestañas) y se manejan aparte, ver abajo.
   const ausencias = useMemo(
-    () => (data ?? []).filter((n) => n.tipoNovedad.nombre === 'Ausencia'),
+    () => (data ?? []).filter((n) => n.tipoNovedad.nombre === 'Ausencia' && n.estado === 'activa'),
     [data],
   );
   const filtradas = useMemo(() => ausencias.filter((n) => n.estadoHys === estado), [ausencias, estado]);
+
+  const ausenciasAnuladas = useMemo(
+    () => (data ?? []).filter((n) => n.tipoNovedad.nombre === 'Ausencia' && n.estado === 'anulada'),
+    [data],
+  );
 
   function confirmarResolucion(descargoHys: string) {
     if (!dialogo) return;
@@ -168,6 +184,28 @@ export default function AusenciasPage() {
     });
   }
 
+  function guardarEdicion(form: FormData) {
+    if (!editando) return;
+    const promesa = actualizar.mutateAsync({ id: editando.id, form });
+    toast.promise(promesa, {
+      loading: 'Guardando cambios…',
+      success: 'Ausencia actualizada',
+      error: 'No se pudo actualizar la ausencia',
+    });
+    promesa.then(() => setEditando(null)).catch(() => {});
+  }
+
+  function confirmarAnulacion(motivo: string) {
+    if (!anulando) return;
+    const promesa = anular.mutateAsync({ id: anulando.id, motivo });
+    toast.promise(promesa, {
+      loading: 'Anulando…',
+      success: 'Ausencia anulada',
+      error: 'No se pudo anular',
+    });
+    promesa.then(() => setAnulando(null)).catch(() => {});
+  }
+
   async function verCertificado(id: number) {
     try {
       await abrirAdjuntoNovedad(id);
@@ -180,21 +218,27 @@ export default function AusenciasPage() {
     <section className="space-y-4">
       <PageHeader eyebrow="Higiene y Seguridad" title="Ausencias" />
 
-      <div className="flex gap-1 border-b border-line">
-        {TABS.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            onClick={() => setEstado(t.value)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm transition ${
-              estado === t.value
-                ? 'border-brand font-medium text-ink'
-                : 'border-transparent text-slate hover:text-ink'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line">
+        <div className="flex gap-1">
+          {TABS.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setEstado(t.value)}
+              className={`-mb-px border-b-2 px-3 py-2 text-sm transition ${
+                estado === t.value
+                  ? 'border-brand font-medium text-ink'
+                  : 'border-transparent text-slate hover:text-ink'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <label className="mb-2 flex items-center gap-1.5 text-sm text-slate">
+          <input type="checkbox" checked={verAnuladas} onChange={(e) => setVerAnuladas(e.target.checked)} />
+          Ver anuladas
+        </label>
       </div>
 
       <BarraFiltros hayFiltros={false} onLimpiar={() => {}}>
@@ -281,10 +325,70 @@ export default function AusenciasPage() {
                     Reabrir
                   </button>
                 )}
+                {puedeGestionar && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setEditando(n)}
+                      className="rounded-md border border-line px-3 py-1 text-xs font-medium text-ink transition hover:bg-accent/60"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAnulando(n)}
+                      className="rounded-md border border-danger px-3 py-1 text-xs font-medium text-danger transition hover:bg-danger/10"
+                    >
+                      Anular
+                    </button>
+                  </>
+                )}
               </span>
             </div>
           ))}
         </div>
+      )}
+
+      {verAnuladas && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate">Ausencias anuladas</p>
+          {ausenciasAnuladas.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-line bg-surface p-4 text-center text-sm text-slate">
+              Sin ausencias anuladas.
+            </p>
+          ) : (
+            <div className="rounded-xl border border-line bg-surface opacity-70 divide-y divide-line">
+              {ausenciasAnuladas.map((n) => (
+                <div key={n.id} className="flex flex-wrap items-center gap-3 p-3 text-sm">
+                  <span className="font-medium text-ink">{n.operario.apellido_nombre}</span>
+                  <span className="tabular-nums text-slate">
+                    {n.fechaInicio.slice(0, 10)}
+                    {n.fechaFin ? ` → ${n.fechaFin.slice(0, 10)}` : ''}
+                  </span>
+                  <StatusBadge estado="anulada" />
+                  {n.motivoAnulacion && <span className="text-slate">Motivo: {n.motivoAnulacion}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {editando && (
+        <EditarNovedadDialog
+          novedad={editando}
+          onCancel={() => setEditando(null)}
+          onGuardar={guardarEdicion}
+          guardando={actualizar.isPending}
+        />
+      )}
+
+      {anulando && (
+        <AnularNovedadDialog
+          onCancel={() => setAnulando(null)}
+          onConfirmar={confirmarAnulacion}
+          anulando={anular.isPending}
+        />
       )}
 
       {dialogo && (
