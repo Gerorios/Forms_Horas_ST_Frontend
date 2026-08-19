@@ -248,6 +248,7 @@ export default function NovedadesPage() {
                   <th className="px-4 py-2.5 font-medium">Tipo</th>
                   <th className="px-4 py-2.5 font-medium">Desde</th>
                   <th className="px-4 py-2.5 font-medium">Hasta</th>
+                  <th className="px-4 py-2.5 font-medium">Justificación</th>
                   <th className="px-4 py-2.5 font-medium">Estado HyS</th>
                   {mostrarColumnaAcciones && <th className="px-4 py-2.5 font-medium">Acciones</th>}
                 </tr>
@@ -273,6 +274,9 @@ export default function NovedadesPage() {
                       </td>
                       <td className="px-4 py-2.5 tabular-nums text-slate">{n.fechaInicio.slice(0, 10)}</td>
                       <td className="px-4 py-2.5 tabular-nums text-slate">{n.fechaFin ? n.fechaFin.slice(0, 10) : '—'}</td>
+                      <td className="max-w-[220px] truncate px-4 py-2.5 text-slate" title={n.justificacionTexto ?? undefined}>
+                        {n.justificacionTexto ?? '—'}
+                      </td>
                       <td className="px-4 py-2.5">
                         <StatusBadge estado={n.estadoHys} />
                       </td>
