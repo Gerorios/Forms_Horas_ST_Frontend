@@ -202,7 +202,19 @@ export default function AusenciasPage() {
         {puedeGestionar && (
           <button
             type="button"
-            onClick={() => descargarResumenCsv(resumen.data ?? [], periodo)}
+            onClick={() => {
+              // Nunca bajar un CSV vacío en silencio: si la consulta falló o no
+              // hay datos, el usuario tiene que enterarse (revisión 2026-08-19).
+              if (resumen.isError) {
+                toast.error('No se pudo traer el resumen. Probá de nuevo en un momento.');
+                return;
+              }
+              if (!resumen.data?.length) {
+                toast.error('No hay ausencias en esta quincena para exportar.');
+                return;
+              }
+              descargarResumenCsv(resumen.data, periodo);
+            }}
             disabled={resumen.isLoading}
             className="ml-auto rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-accent/60 disabled:opacity-50"
           >
