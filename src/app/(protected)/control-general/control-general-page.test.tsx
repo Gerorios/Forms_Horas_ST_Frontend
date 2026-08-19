@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {
   ResumenOperario,
   OperarioSinCarga,
   MisContrato,
   PuntoHistorico,
-  FilaDetalleDiario,
+  DiaDetalleDiario,
 } from '@/lib/api/panel-general';
 
 const RESUMEN: ResumenOperario[] = [
@@ -66,30 +66,35 @@ const HISTORICO: PuntoHistorico[] = [
   { anio: 2026, mes: 7, quincena: 2, horas: 50 },
 ];
 
-const DETALLE: FilaDetalleDiario[] = [
+const DETALLE: DiaDetalleDiario[] = [
   {
-    id: 10,
-    fecha: '2026-08-03',
-    contratoId: 1,
-    contratoCodigo: 'K5',
     operarioCuil: '20666666666',
     operarioNombre: 'ROJAS PEDRO',
-    horas: 8,
-    estado: 'pendiente',
-    tareas: ['Zanjeo', 'Tendido de cañería'],
-    observacion: 'Viaje a Metán por reparación de fuga urgente',
-  },
-  {
-    id: 11,
-    fecha: '2026-08-02',
-    contratoId: 2,
-    contratoCodigo: 'K7',
-    operarioCuil: '20777777777',
-    operarioNombre: 'SOSA MARTA',
-    horas: 4,
-    estado: 'aprobado',
-    tareas: [],
-    observacion: null,
+    fecha: '2026-08-03',
+    totalHoras: 12,
+    contratos: ['K5', 'K11'],
+    registros: [
+      {
+        id: 10,
+        contratoId: 1,
+        contratoCodigo: 'K5',
+        horas: 8,
+        estado: 'pendiente',
+        tareas: ['Zanjeo', 'Tendido de cañería'],
+        observacion: 'Viaje a Metán por reparación de fuga urgente',
+        esMiContrato: true,
+      },
+      {
+        id: 11,
+        contratoId: 11,
+        contratoCodigo: 'K11',
+        horas: 4,
+        estado: 'aprobado',
+        tareas: ['Soldadura'],
+        observacion: 'Apoyo a la cuadrilla de K11 por la tarde',
+        esMiContrato: false,
+      },
+    ],
   },
 ];
 
@@ -251,30 +256,37 @@ describe('ControlGeneralPage', () => {
     expect(screen.queryByText('Zanjeo')).not.toBeInTheDocument();
   });
 
-  it('el detalle diario muestra las filas con contrato, operario linkeado y estado', () => {
+  /** Formato desplegable (decisión 2026-08-19): un renglón por persona-día
+   * con el total de la jornada, y el detalle completo adentro. */
+  it('el detalle diario lista un renglón por día con el total de la jornada, colapsado', () => {
     render(<ControlGeneralPage />);
-    expect(screen.getByText('2026-08-03')).toBeInTheDocument();
-    expect(screen.getByText('mostrando 2 de 2')).toBeInTheDocument();
-    const link = screen.getByRole('link', { name: 'ROJAS PEDRO' });
-    expect(link).toHaveAttribute('href', '/aprobaciones?operarioCuil=20666666666');
-    const filaRojas = link.closest('tr')!;
-    expect(filaRojas).toHaveTextContent('pendiente');
-    expect(filaRojas).toHaveTextContent('K5');
+    const fila = screen.getByRole('button', { name: /ROJAS PEDRO/ }).closest('tr')!;
+    expect(fila).toHaveTextContent('2026-08-03');
+    expect(fila).toHaveTextContent('12'); // 8 propias + 4 de otro contrato
+    expect(fila).toHaveTextContent('K5, K11');
+    expect(fila).toHaveTextContent('incluye otros contratos');
+    // el detalle arranca cerrado
+    expect(screen.queryByText(/Apoyo a la cuadrilla/)).not.toBeInTheDocument();
   });
 
-  it('el detalle diario muestra las tareas del registro, o un guion si no tiene', () => {
+  it('al abrir el día se ven las horas, estado, tareas y observación de cada contrato', async () => {
     render(<ControlGeneralPage />);
-    const filaRojas = screen.getByRole('link', { name: 'ROJAS PEDRO' }).closest('tr')!;
-    expect(filaRojas).toHaveTextContent('Zanjeo, Tendido de cañería');
-    const filaSosa = screen.getByRole('link', { name: 'SOSA MARTA' }).closest('tr')!;
-    expect(filaSosa).toHaveTextContent('—');
+    await userEvent.click(screen.getByRole('button', { name: /ROJAS PEDRO/ }));
+    expect(screen.getByText(/Viaje a Metán por reparación/)).toBeInTheDocument();
+    expect(screen.getByText(/Apoyo a la cuadrilla de K11/)).toBeInTheDocument();
+    expect(screen.getByText('Zanjeo, Tendido de cañería')).toBeInTheDocument();
+    expect(screen.getByText('Soldadura')).toBeInTheDocument();
+    // el registro ajeno queda identificado dentro del desplegable
+    const ajeno = screen.getByText('K11').closest('li')!;
+    expect(ajeno).toHaveTextContent('otro contrato');
+    expect(ajeno).toHaveTextContent('aprobado');
   });
 
-  it('el detalle diario muestra la observación truncada con el texto completo en el title', () => {
+  it('explica en la leyenda por qué el total incluye otros contratos', () => {
     render(<ControlGeneralPage />);
-    const obs = screen.getByText('Viaje a Metán por reparación de fuga urgente');
-    expect(obs).toHaveAttribute('title', 'Viaje a Metán por reparación de fuga urgente');
-    expect(obs.className).toContain('truncate');
+    expect(screen.getByTestId('leyenda-jornada-completa')).toHaveTextContent(
+      /otros contratos/i,
+    );
   });
 
   it('el filtro por contrato pasa contratoIds a los hooks de resumen, histórico y detalle', async () => {

@@ -52,13 +52,11 @@ export interface PuntoHistorico {
 
 /** Una fila de la tabla "Detalle Diario": un registro de horas plano,
  * con contrato y nombre ya resueltos. */
+/** Un registro dentro del día desplegado del Detalle diario. */
 export interface FilaDetalleDiario {
   id: number;
-  fecha: string;
   contratoId: number;
   contratoCodigo: string;
-  operarioCuil: string;
-  operarioNombre: string;
   horas: number;
   estado: 'pendiente' | 'aprobado' | 'desaprobado';
   /** Nombres de las tareas del maestro asociadas al registro (M:N). */
@@ -66,6 +64,22 @@ export interface FilaDetalleDiario {
   /** Texto libre de la línea de carga (compartido por los operarios de esa
    * carga en ese contrato, ver ADR-005). null si no se cargó ninguna. */
   observacion: string | null;
+  /** false = registro de un contrato de OTRO jefe: aparece como contexto de
+   * la jornada (el operario trabajó ahí ese día) pero no es accionable por
+   * este usuario — decisión 2026-08-19, "jornada completa". */
+  esMiContrato: boolean;
+}
+
+/** Un renglón del Detalle diario: el día de una persona, desplegable, con
+ * TODOS sus registros de esa jornada (decisión 2026-08-19: mismo formato que
+ * la tabla de +13hs). Las desaprobadas figuran pero no suman al total. */
+export interface DiaDetalleDiario {
+  operarioCuil: string;
+  operarioNombre: string;
+  fecha: string;
+  totalHoras: number;
+  contratos: string[];
+  registros: FilaDetalleDiario[];
 }
 
 export interface OperarioSinCarga {
@@ -179,7 +193,7 @@ export function useDetalleDiario(quincena: Quincena, filtros: FiltrosPanel = {})
     queryKey: ['detalle-diario', quincena, filtros],
     queryFn: async () =>
       (
-        await api.get<FilaDetalleDiario[]>('/registros-horas/detalle-diario', {
+        await api.get<DiaDetalleDiario[]>('/registros-horas/detalle-diario', {
           params: {
             anio: quincena.anio,
             mes: quincena.mes,

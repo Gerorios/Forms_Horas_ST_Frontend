@@ -74,6 +74,84 @@ function StatTile({
 /** Fila de la zona de revisión (>13hs/día): compacta, expandible al detalle
  * de cada carga del día — tareas y observación completas (acá es el lugar
  * de leerlas, sin truncar). */
+/** Un día del Detalle diario: renglón único que se despliega y muestra TODO
+ * lo que la persona hizo esa jornada — incluidos los contratos de otros
+ * jefes, marcados (decisión 2026-08-19). Mismo formato que la tabla de
+ * +13hs, con la observación y el estado adentro para que se lean completos. */
+function FragmentoDetalleDiario({
+  dia,
+  abierto,
+  onToggle,
+}: {
+  dia: import('@/lib/api/panel-general').DiaDetalleDiario;
+  abierto: boolean;
+  onToggle: () => void;
+}) {
+  const tieneAjenos = dia.registros.some((r) => !r.esMiContrato);
+  return (
+    <>
+      <tr
+        onClick={onToggle}
+        className="cursor-pointer border-b border-line text-ink transition last:border-0 hover:bg-sand/60"
+        title={abierto ? 'Ocultar el detalle del día' : 'Ver qué hizo ese día'}
+      >
+        <td className="tabular-nums px-4 py-2.5">{dia.fecha}</td>
+        <td className="px-4 py-2.5">
+          <button
+            type="button"
+            aria-expanded={abierto}
+            className="text-left underline decoration-line hover:text-brand-deep hover:decoration-brand-deep"
+          >
+            {dia.operarioNombre}
+          </button>
+        </td>
+        <td className="tabular-nums px-4 py-2.5 font-medium">{dia.totalHoras}</td>
+        <td className="px-4 py-2.5 text-slate">
+          {dia.contratos.join(', ')}
+          {tieneAjenos && (
+            <span
+              className="ml-1.5 rounded-full bg-slate/10 px-1.5 py-0.5 text-[10px] font-medium"
+              title="Ese día también cargó horas en contratos de otros jefes. Se muestran para que veas la jornada completa; no podés aprobarlos."
+            >
+              incluye otros contratos
+            </span>
+          )}
+        </td>
+        <td className="px-4 py-2.5 text-slate">{abierto ? '▾' : '▸'}</td>
+      </tr>
+      {abierto && (
+        <tr className="border-b border-line bg-sand/60 last:border-0">
+          <td colSpan={5} className="px-4 py-3">
+            <ul className="space-y-2">
+              {dia.registros.map((r) => (
+                <li key={r.id} className={`text-sm ${r.esMiContrato ? '' : 'opacity-70'}`}>
+                  <span className="font-medium text-ink">{r.contratoCodigo}</span>
+                  {!r.esMiContrato && (
+                    <span className="ml-1.5 rounded-full bg-slate/10 px-1.5 py-0.5 text-[10px] font-medium text-slate">
+                      otro contrato
+                    </span>
+                  )}
+                  <span className="tabular-nums text-ink"> · {r.horas} hs · </span>
+                  <span className={`text-xs font-medium ${ESTILO_ESTADO[r.estado] ?? 'text-slate'}`}>
+                    {r.estado}
+                  </span>
+                  {r.estado === 'desaprobado' && (
+                    <span className="ml-1 text-xs italic text-slate">(no suma al total)</span>
+                  )}
+                  <div className="text-slate">
+                    {r.tareas.length > 0 ? r.tareas.join(', ') : 'Sin tareas'}
+                    {r.observacion && <span className="block italic">“{r.observacion}”</span>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
 function FragmentoControlDiario({
   dia,
   abierto,
@@ -374,6 +452,12 @@ export default function ControlGeneralPage() {
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-sm font-semibold text-ink">Detalle diario</h2>
+          {(detalle ?? []).some((d) => d.registros.some((r) => !r.esMiContrato)) && (
+            <span className="text-xs text-slate" data-testid="leyenda-jornada-completa">
+              Las horas del día incluyen lo que estas personas hicieron en otros contratos:
+              abrí el día para ver el detalle completo.
+            </span>
+          )}
           {(detalle ?? []).length > 0 && (
             <span className="text-xs text-slate">
               mostrando {detalleVisible.length} de {(detalle ?? []).length}
@@ -388,51 +472,24 @@ export default function ControlGeneralPage() {
               <thead>
                 <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
                   <th className="px-4 py-2.5 font-medium">Fecha</th>
-                  <th className="px-4 py-2.5 font-medium">Contrato</th>
                   <th className="px-4 py-2.5 font-medium">Operario</th>
-                  <th className="px-4 py-2.5 font-medium">Tareas</th>
-                  <th className="px-4 py-2.5 font-medium">Observación</th>
-                  <th className="px-4 py-2.5 font-medium">Horas</th>
-                  <th className="px-4 py-2.5 font-medium">Estado</th>
+                  <th className="px-4 py-2.5 font-medium">Horas del día</th>
+                  <th className="px-4 py-2.5 font-medium">Contratos</th>
+                  <th className="w-10 px-4 py-2.5" />
                 </tr>
               </thead>
               <tbody>
-                {detalleVisible.map((f) => (
-                  <tr key={f.id} className="border-b border-line text-ink last:border-0">
-                    <td className="tabular-nums px-4 py-2.5">{f.fecha}</td>
-                    <td className="px-4 py-2.5">{f.contratoCodigo}</td>
-                    <td className="px-4 py-2.5">
-                      <Link
-                        href={`/aprobaciones?operarioCuil=${f.operarioCuil}`}
-                        className="underline decoration-line hover:text-brand-deep hover:decoration-brand-deep"
-                        title="Ver los registros de este operario en Aprobaciones"
-                      >
-                        {f.operarioNombre}
-                      </Link>
-                    </td>
-                    <td className="max-w-72 px-4 py-2.5 text-slate">
-                      {f.tareas.length > 0 ? f.tareas.join(', ') : '—'}
-                    </td>
-                    <td className="px-4 py-2.5 text-slate">
-                      {/* Texto libre potencialmente largo: una sola línea con
-                          elipsis y el contenido completo en el tooltip, para
-                          que la fila nunca se estire ni rompa el layout. */}
-                      {f.observacion ? (
-                        <span className="block max-w-52 truncate" title={f.observacion}>
-                          {f.observacion}
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="tabular-nums px-4 py-2.5">{f.horas}</td>
-                    <td className="px-4 py-2.5">
-                      <span className={`text-xs font-medium ${ESTILO_ESTADO[f.estado] ?? 'text-slate'}`}>
-                        {f.estado}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {detalleVisible.map((d) => {
+                  const clave = `det|${d.operarioCuil}|${d.fecha}`;
+                  return (
+                    <FragmentoDetalleDiario
+                      key={clave}
+                      dia={d}
+                      abierto={diasExpandidos.has(clave)}
+                      onToggle={() => alternarDia(clave)}
+                    />
+                  );
+                })}
                 {detalleVisible.length === 0 && (
                   <tr>
                     <td colSpan={7} className="px-4 py-3 text-sm text-slate">
