@@ -21,7 +21,7 @@ function nov(overrides: Partial<Novedad> = {}): Novedad {
     descargoHys: null,
     adjuntoUrl: null,
     estadoHys: 'pendiente',
-    operario: { cuil: '20111111111', apellido_nombre: 'PEREZ JUAN' },
+    operario: { cuil: '20111111111', apellido_nombre: 'PEREZ JUAN', legajo: 1001 },
     tipoNovedad: { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
     cargadoPor: { cuil: '20999999999', email: 'sup@test.local' },
     estado: 'activa',
@@ -74,12 +74,12 @@ describe('AusenciasPage', () => {
   it('filtra a solo novedades de tipo Ausencia (client-side)', () => {
     useNovedadesMock.mockReturnValue({
       data: [
-        nov({ id: 1, operario: { cuil: '20111111111', apellido_nombre: 'PEREZ JUAN' } }),
+        nov({ id: 1, operario: { cuil: '20111111111', apellido_nombre: 'PEREZ JUAN', legajo: 1001 } }),
         nov({
           id: 2,
           tipoNovedadId: 8,
           tipoNovedad: { id: 8, nombre: 'Viáticos', requiereAprobacionHys: false },
-          operario: { cuil: '20222222222', apellido_nombre: 'GOMEZ ANA' },
+          operario: { cuil: '20222222222', apellido_nombre: 'GOMEZ ANA', legajo: 1002 },
         }),
       ],
       isLoading: false,
@@ -96,8 +96,9 @@ describe('AusenciasPage', () => {
     expect(screen.getByRole('button', { name: 'Injustificadas' })).toBeInTheDocument();
   });
 
-  it('usa las etiquetas renombradas de las acciones (Justificar / No justificar)', () => {
+  it('usa las etiquetas renombradas de las acciones (Justificar / No justificar)', async () => {
     render(<AusenciasPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
     expect(screen.getByRole('button', { name: 'Justificar' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'No justificar' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^aprobar$/i })).not.toBeInTheDocument();
@@ -116,11 +117,11 @@ describe('AusenciasPage', () => {
 
   it('justificar abre el diálogo de descargo (opcional) y llama a resolver-hys con estado aprobada', async () => {
     render(<AusenciasPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
     await userEvent.click(screen.getByRole('button', { name: 'Justificar' }));
     expect(screen.getByLabelText('Descargo')).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Descargo'), 'presentó certificado');
-    const botonesConfirmar = screen.getAllByRole('button', { name: 'Justificar' });
-    await userEvent.click(botonesConfirmar[botonesConfirmar.length - 1]);
+    await userEvent.click(screen.getByRole('button', { name: 'Justificar' }));
     await waitFor(() =>
       expect(resolver).toHaveBeenCalledWith({ id: 1, estadoHys: 'aprobada', descargoHys: 'presentó certificado' }),
     );
@@ -128,9 +129,9 @@ describe('AusenciasPage', () => {
 
   it('no justificar sin cargar descargo lo manda como undefined (es opcional para ambas acciones)', async () => {
     render(<AusenciasPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
     await userEvent.click(screen.getByRole('button', { name: 'No justificar' }));
-    const botonesConfirmar = screen.getAllByRole('button', { name: 'No justificar' });
-    await userEvent.click(botonesConfirmar[botonesConfirmar.length - 1]);
+    await userEvent.click(screen.getByRole('button', { name: 'No justificar' }));
     await waitFor(() =>
       expect(resolver).toHaveBeenCalledWith({ id: 1, estadoHys: 'desaprobada', descargoHys: undefined }),
     );
@@ -140,6 +141,7 @@ describe('AusenciasPage', () => {
     useNovedadesMock.mockReturnValue({ data: [nov({ estadoHys: 'aprobada' })], isLoading: false });
     render(<AusenciasPage />);
     await userEvent.click(screen.getByRole('button', { name: 'Justificadas' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
     await userEvent.click(screen.getByRole('button', { name: 'Reabrir' }));
     await waitFor(() => expect(reabrir).toHaveBeenCalledWith(1));
   });
@@ -148,20 +150,23 @@ describe('AusenciasPage', () => {
     useNovedadesMock.mockReturnValue({ data: [nov({ estadoHys: 'desaprobada' })], isLoading: false });
     render(<AusenciasPage />);
     await userEvent.click(screen.getByRole('button', { name: 'Injustificadas' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
     await userEvent.click(screen.getByRole('button', { name: 'Reabrir' }));
     await waitFor(() => expect(reabrir).toHaveBeenCalledWith(1));
   });
 
-  it('muestra "Ver certificado" cuando adjuntoUrl es truthy, y lo abre al clickear', async () => {
+  it('muestra "Ver certificado" en el detalle cuando adjuntoUrl es truthy, y lo abre al clickear', async () => {
     useNovedadesMock.mockReturnValue({ data: [nov({ adjuntoUrl: 'novedades/1/adjunto.pdf' })], isLoading: false });
     render(<AusenciasPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
     const boton = screen.getByRole('button', { name: 'Ver certificado' });
     await userEvent.click(boton);
     await waitFor(() => expect(abrirAdjunto).toHaveBeenCalledWith(1));
   });
 
-  it('NO muestra "Ver certificado" cuando adjuntoUrl es null', () => {
+  it('NO muestra "Ver certificado" en el detalle cuando adjuntoUrl es null', async () => {
     render(<AusenciasPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
     expect(screen.queryByRole('button', { name: 'Ver certificado' })).not.toBeInTheDocument();
   });
 
@@ -184,29 +189,33 @@ describe('AusenciasPage', () => {
   });
 
   describe('Editar / Anular', () => {
-    it('los botones Editar y Anular son visibles para HyS', () => {
+    it('los botones Editar y Anular son visibles para HyS en el detalle', async () => {
       h.perfil = { rol: { nombre: 'HyS' } };
       render(<AusenciasPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
       expect(screen.getByRole('button', { name: 'Editar' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Anular' })).toBeInTheDocument();
     });
 
-    it('los botones Editar y Anular son visibles para Admin', () => {
+    it('los botones Editar y Anular son visibles para Admin en el detalle', async () => {
       h.perfil = { rol: { nombre: 'Admin' } };
       render(<AusenciasPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
       expect(screen.getByRole('button', { name: 'Editar' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Anular' })).toBeInTheDocument();
     });
 
-    it('los botones Editar y Anular NO son visibles para otros roles', () => {
+    it('los botones Editar y Anular NO son visibles para otros roles en el detalle', async () => {
       h.perfil = { rol: { nombre: 'Supervisor' } };
       render(<AusenciasPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
       expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Anular' })).not.toBeInTheDocument();
     });
 
     it('clickear "Editar" abre el formulario precargado con los datos actuales', async () => {
       render(<AusenciasPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
       await userEvent.click(screen.getByRole('button', { name: 'Editar' }));
       expect(screen.getByText('Editar novedad')).toBeInTheDocument();
       expect(screen.getByLabelText('Fecha inicio')).toHaveValue('2026-08-10');
@@ -214,6 +223,7 @@ describe('AusenciasPage', () => {
 
     it('anular: el diálogo pide motivo y checkbox de confirmación, y llama a la mutación con {id, motivo}', async () => {
       render(<AusenciasPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
       await userEvent.click(screen.getByRole('button', { name: 'Anular' }));
 
       const confirmar = screen.getByRole('button', { name: 'Anular novedad' });
@@ -234,10 +244,10 @@ describe('AusenciasPage', () => {
     it('las ausencias anuladas no aparecen en las pestañas por defecto', () => {
       useNovedadesMock.mockReturnValue({
         data: [
-          nov({ id: 1, operario: { cuil: '20111111111', apellido_nombre: 'PEREZ JUAN' }, estado: 'activa' }),
+          nov({ id: 1, operario: { cuil: '20111111111', apellido_nombre: 'PEREZ JUAN', legajo: 1001 }, estado: 'activa' }),
           nov({
             id: 2,
-            operario: { cuil: '20222222222', apellido_nombre: 'GOMEZ ANA' },
+            operario: { cuil: '20222222222', apellido_nombre: 'GOMEZ ANA', legajo: 1002 },
             estado: 'anulada',
             motivoAnulacion: 'duplicada',
           }),
@@ -252,10 +262,10 @@ describe('AusenciasPage', () => {
     it('"Ver anuladas" muestra una lista aparte, de solo lectura, con las ausencias anuladas', async () => {
       useNovedadesMock.mockReturnValue({
         data: [
-          nov({ id: 1, operario: { cuil: '20111111111', apellido_nombre: 'PEREZ JUAN' }, estado: 'activa' }),
+          nov({ id: 1, operario: { cuil: '20111111111', apellido_nombre: 'PEREZ JUAN', legajo: 1001 }, estado: 'activa' }),
           nov({
             id: 2,
-            operario: { cuil: '20222222222', apellido_nombre: 'GOMEZ ANA' },
+            operario: { cuil: '20222222222', apellido_nombre: 'GOMEZ ANA', legajo: 1002 },
             estado: 'anulada',
             motivoAnulacion: 'duplicada',
           }),

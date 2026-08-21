@@ -8,8 +8,8 @@ import { BarraFiltros } from '@/components/ui/barra-filtros';
 import { QuincenaCampos } from '@/features/mis-registros/quincena-select';
 import { EditarNovedadDialog } from '@/features/novedades/editar-novedad-dialog';
 import { AnularNovedadDialog } from '@/features/novedades/anular-novedad-dialog';
+import { DetalleNovedadDialog } from '@/features/novedades/detalle-novedad-dialog';
 import {
-  abrirAdjuntoNovedad,
   useActualizarNovedad,
   useAnularNovedad,
   useNovedades,
@@ -96,6 +96,24 @@ function ResolverDialog({
   );
 }
 
+/** Ícono de clip: reemplaza el link "Ver certificado" en la fila (queda para
+ * el detalle) — de un vistazo se ve si hay adjunto sin sumar ancho variable. */
+function IconoClip() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+    >
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+    </svg>
+  );
+}
+
 function nombreArchivoCsv(periodo: Quincena) {
   return `ausencias_${periodo.anio}-${String(periodo.mes).padStart(2, '0')}_q${periodo.parte}.csv`;
 }
@@ -146,6 +164,7 @@ export default function AusenciasPage() {
   const [dialogo, setDialogo] = useState<{ id: number; estadoHys: 'aprobada' | 'desaprobada' } | null>(null);
   const [editando, setEditando] = useState<Novedad | null>(null);
   const [anulando, setAnulando] = useState<Novedad | null>(null);
+  const [detalle, setDetalle] = useState<Novedad | null>(null);
   const [verAnuladas, setVerAnuladas] = useState(false);
 
   // Esta pantalla es solo para novedades de tipo "Ausencia" (el resto de los
@@ -184,6 +203,25 @@ export default function AusenciasPage() {
     });
   }
 
+  // Justificar/No justificar/Reabrir se disparan desde el diálogo de detalle
+  // (mismo patrón que Editar/Anular en /novedades): se cierra el detalle y se
+  // abre el diálogo correspondiente, en vez de anidarlos uno sobre otro.
+  function abrirJustificar() {
+    if (!detalle) return;
+    setDetalle(null);
+    setDialogo({ id: detalle.id, estadoHys: 'aprobada' });
+  }
+  function abrirNoJustificar() {
+    if (!detalle) return;
+    setDetalle(null);
+    setDialogo({ id: detalle.id, estadoHys: 'desaprobada' });
+  }
+  function reabrirDesdeDetalle() {
+    if (!detalle) return;
+    handleReabrir(detalle.id, detalle.operario.apellido_nombre);
+    setDetalle(null);
+  }
+
   function guardarEdicion(form: FormData) {
     if (!editando) return;
     const promesa = actualizar.mutateAsync({ id: editando.id, form });
@@ -204,14 +242,6 @@ export default function AusenciasPage() {
       error: 'No se pudo anular',
     });
     promesa.then(() => setAnulando(null)).catch(() => {});
-  }
-
-  async function verCertificado(id: number) {
-    try {
-      await abrirAdjuntoNovedad(id);
-    } catch {
-      toast.error('No se pudo abrir el certificado');
-    }
   }
 
   return (
@@ -274,78 +304,60 @@ export default function AusenciasPage() {
           Sin ausencias en este estado.
         </p>
       ) : (
-        <div className="rounded-xl border border-line bg-surface divide-y divide-line">
-          {filtradas.map((n) => (
-            <div key={n.id} className="flex flex-wrap items-center gap-3 p-3 text-sm">
-              <span className="font-medium text-ink">{n.operario.apellido_nombre}</span>
-              <span className="tabular-nums text-slate">
-                {n.fechaInicio.slice(0, 10)}
-                {n.fechaFin ? ` → ${n.fechaFin.slice(0, 10)}` : ''}
-              </span>
-              {n.justificacionTexto && <span className="text-slate">{n.justificacionTexto}</span>}
-              {n.descargoHys && <span className="text-slate">Descargo: {n.descargoHys}</span>}
-              <StatusBadge estado={n.estadoHys} />
-              {n.adjuntoUrl && (
-                <button
-                  type="button"
-                  onClick={() => verCertificado(n.id)}
-                  className="text-xs font-medium text-brand-deep underline transition hover:no-underline"
+        <div className="overflow-hidden rounded-xl border border-line bg-surface">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-line bg-accent/20 text-left text-xs uppercase tracking-wide text-slate">
+                <th className="px-4 py-2.5 font-medium">Operario</th>
+                <th className="px-4 py-2.5 font-medium">Período</th>
+                <th className="px-4 py-2.5 font-medium"></th>
+                <th className="px-4 py-2.5 font-medium">Estado</th>
+                <th className="px-4 py-2.5 font-medium">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtradas.map((n) => (
+                <tr
+                  key={n.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setDetalle(n)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setDetalle(n);
+                    }
+                  }}
+                  className="cursor-pointer border-b border-line text-ink transition last:border-0 hover:bg-accent/30"
                 >
-                  Ver certificado
-                </button>
-              )}
-              <span className="ml-auto flex gap-2">
-                {estado === 'pendiente' && (
-                  <>
+                  <td className="px-4 py-2.5">
+                    <div className="font-medium">{n.operario.apellido_nombre}</div>
+                    <div className="text-xs tabular-nums text-slate">Legajo {n.operario.legajo}</div>
+                  </td>
+                  <td className="px-4 py-2.5 tabular-nums text-slate">
+                    {n.fechaInicio.slice(0, 10)}
+                    {n.fechaFin ? ` → ${n.fechaFin.slice(0, 10)}` : ''}
+                  </td>
+                  <td className="px-4 py-2.5 text-brand-deep">{n.adjuntoUrl && <IconoClip />}</td>
+                  <td className="px-4 py-2.5">
+                    <StatusBadge estado={n.estadoHys} />
+                  </td>
+                  <td className="px-4 py-2.5">
                     <button
                       type="button"
-                      disabled={resolver.isPending}
-                      onClick={() => setDialogo({ id: n.id, estadoHys: 'aprobada' })}
-                      className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetalle(n);
+                      }}
+                      className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-accent/60"
                     >
-                      Justificar
+                      Ver
                     </button>
-                    <button
-                      type="button"
-                      disabled={resolver.isPending}
-                      onClick={() => setDialogo({ id: n.id, estadoHys: 'desaprobada' })}
-                      className="rounded-md border border-danger px-3 py-1 text-xs text-danger transition hover:bg-danger/10 disabled:opacity-50"
-                    >
-                      No justificar
-                    </button>
-                  </>
-                )}
-                {estado !== 'pendiente' && puedeGestionar && (
-                  <button
-                    type="button"
-                    disabled={reabrir.isPending}
-                    onClick={() => handleReabrir(n.id, n.operario.apellido_nombre)}
-                    className="rounded-md border border-line px-3 py-1 text-xs font-medium text-ink transition hover:bg-accent/60 disabled:opacity-50"
-                  >
-                    Reabrir
-                  </button>
-                )}
-                {puedeGestionar && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setEditando(n)}
-                      className="rounded-md border border-line px-3 py-1 text-xs font-medium text-ink transition hover:bg-accent/60"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAnulando(n)}
-                      className="rounded-md border border-danger px-3 py-1 text-xs font-medium text-danger transition hover:bg-danger/10"
-                    >
-                      Anular
-                    </button>
-                  </>
-                )}
-              </span>
-            </div>
-          ))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -372,6 +384,30 @@ export default function AusenciasPage() {
             </div>
           )}
         </div>
+      )}
+
+      {detalle && (
+        <DetalleNovedadDialog
+          novedad={detalle}
+          onClose={() => setDetalle(null)}
+          puedeActuar={puedeGestionar}
+          onEditar={() => {
+            setDetalle(null);
+            setEditando(detalle);
+          }}
+          onAnular={() => {
+            setDetalle(null);
+            setAnulando(detalle);
+          }}
+          accionesHys={{
+            puedeGestionar,
+            onJustificar: abrirJustificar,
+            onNoJustificar: abrirNoJustificar,
+            onReabrir: reabrirDesdeDetalle,
+            resolviendo: resolver.isPending,
+            reabriendo: reabrir.isPending,
+          }}
+        />
       )}
 
       {editando && (
