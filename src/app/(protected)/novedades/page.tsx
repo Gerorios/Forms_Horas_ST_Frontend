@@ -7,6 +7,7 @@ import { useSession } from '@/lib/auth/session';
 import { NuevaNovedadForm } from '@/features/novedades/nueva-novedad-form';
 import { EditarNovedadDialog } from '@/features/novedades/editar-novedad-dialog';
 import { AnularNovedadDialog } from '@/features/novedades/anular-novedad-dialog';
+import { DetalleNovedadDialog } from '@/features/novedades/detalle-novedad-dialog';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import { BarraFiltros, MultiFiltro } from '@/components/ui/barra-filtros';
@@ -47,6 +48,7 @@ export default function NovedadesPage() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editando, setEditando] = useState<Novedad | null>(null);
   const [anulando, setAnulando] = useState<Novedad | null>(null);
+  const [detalle, setDetalle] = useState<Novedad | null>(null);
   const actualizar = useActualizarNovedad();
   const anular = useAnularNovedad();
 
@@ -84,9 +86,10 @@ export default function NovedadesPage() {
   const [operarioSel, setOperarioSel] = useState<string[]>([]);
   const [estadoSel, setEstadoSel] = useState<string[]>([]);
   // Vigencia (activa/anulada) — eje distinto de `estadoSel` (resolución de
-  // HyS). Por defecto solo se ven las activas, mismo comportamiento que la
-  // pantalla de combustible.
-  const [estadoActivoSel, setEstadoActivoSel] = useState<string[]>(['activa']);
+  // HyS). Sin default: se ven todas (activas y anuladas) hasta que el
+  // usuario filtre a propósito (2026-08-19, pedido explícito — a diferencia
+  // de combustible, acá no querían que las anuladas quedaran ocultas).
+  const [estadoActivoSel, setEstadoActivoSel] = useState<string[]>([]);
 
   // JefeCuadrilla solo ve lo que él mismo cargó (el backend ya lo scopea);
   // se lo aclaramos acá para que no piense que falta algo.
@@ -160,14 +163,14 @@ export default function NovedadesPage() {
     tipoSel.length > 0 ||
     operarioSel.length > 0 ||
     estadoSel.length > 0 ||
-    !(estadoActivoSel.length === 1 && estadoActivoSel[0] === 'activa');
+    estadoActivoSel.length > 0;
 
   function limpiarFiltros() {
     setPeriodoActivo(false);
     setTipoSel([]);
     setOperarioSel([]);
     setEstadoSel([]);
-    setEstadoActivoSel(['activa']);
+    setEstadoActivoSel([]);
   }
 
   return (
@@ -248,6 +251,7 @@ export default function NovedadesPage() {
                   <th className="px-4 py-2.5 font-medium">Tipo</th>
                   <th className="px-4 py-2.5 font-medium">Desde</th>
                   <th className="px-4 py-2.5 font-medium">Hasta</th>
+                  <th className="px-4 py-2.5 font-medium">Justificación</th>
                   <th className="px-4 py-2.5 font-medium">Estado HyS</th>
                   {mostrarColumnaAcciones && <th className="px-4 py-2.5 font-medium">Acciones</th>}
                 </tr>
@@ -258,7 +262,16 @@ export default function NovedadesPage() {
                   return (
                     <tr
                       key={n.id}
-                      className={`border-b border-line text-ink transition last:border-0 hover:bg-accent/30 ${anulada ? 'opacity-60' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setDetalle(n)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setDetalle(n);
+                        }
+                      }}
+                      className={`cursor-pointer border-b border-line text-ink transition last:border-0 hover:bg-accent/30 ${anulada ? 'opacity-60' : ''}`}
                     >
                       <td className="px-4 py-2.5 font-medium">
                         <span className="flex items-center gap-2">
@@ -273,6 +286,9 @@ export default function NovedadesPage() {
                       </td>
                       <td className="px-4 py-2.5 tabular-nums text-slate">{n.fechaInicio.slice(0, 10)}</td>
                       <td className="px-4 py-2.5 tabular-nums text-slate">{n.fechaFin ? n.fechaFin.slice(0, 10) : '—'}</td>
+                      <td className="max-w-[220px] truncate px-4 py-2.5 text-slate" title={n.justificacionTexto ?? undefined}>
+                        {n.justificacionTexto ?? '—'}
+                      </td>
                       <td className="px-4 py-2.5">
                         <StatusBadge estado={n.estadoHys} />
                       </td>
@@ -282,14 +298,20 @@ export default function NovedadesPage() {
                             <div className="flex gap-2">
                               <button
                                 type="button"
-                                onClick={() => setEditando(n)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditando(n);
+                                }}
                                 className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-accent/60"
                               >
                                 Editar
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setAnulando(n)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setAnulando(n);
+                                }}
                                 className="rounded-md border border-danger px-2.5 py-1 text-xs font-medium text-danger transition hover:bg-danger/10"
                               >
                                 Anular
@@ -305,6 +327,22 @@ export default function NovedadesPage() {
             </table>
           </div>
         </div>
+      )}
+
+      {detalle && (
+        <DetalleNovedadDialog
+          novedad={detalle}
+          onClose={() => setDetalle(null)}
+          puedeActuar={puedeEditar(detalle, perfil)}
+          onEditar={() => {
+            setDetalle(null);
+            setEditando(detalle);
+          }}
+          onAnular={() => {
+            setDetalle(null);
+            setAnulando(detalle);
+          }}
+        />
       )}
 
       {editando && (

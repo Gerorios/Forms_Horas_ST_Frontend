@@ -24,7 +24,7 @@ const NOVEDADES_FILTROS: Novedad[] = [
     descargoHys: null,
     adjuntoUrl: null,
     estadoHys: 'pendiente',
-    operario: { cuil: '20111111111', apellido_nombre: 'GOMEZ JUAN' },
+    operario: { cuil: '20111111111', apellido_nombre: 'GOMEZ JUAN', legajo: 1001 },
     tipoNovedad: { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
     cargadoPor: { cuil: '20999999999', email: 'sup@test.local' },
     estado: 'activa',
@@ -42,7 +42,7 @@ const NOVEDADES_FILTROS: Novedad[] = [
     descargoHys: null,
     adjuntoUrl: null,
     estadoHys: 'no_aplica',
-    operario: { cuil: '20222222222', apellido_nombre: 'PEREZ ANA' },
+    operario: { cuil: '20222222222', apellido_nombre: 'PEREZ ANA', legajo: 1002 },
     tipoNovedad: { id: 8, nombre: 'Viáticos', requiereAprobacionHys: false },
     cargadoPor: { cuil: '20999999999', email: 'sup@test.local' },
     estado: 'activa',
@@ -314,7 +314,7 @@ describe('NovedadesPage', () => {
         descargoHys: null,
         adjuntoUrl: null,
         estadoHys: 'pendiente',
-        operario: { cuil: '20333333333', apellido_nombre: 'LOPEZ CARLOS' },
+        operario: { cuil: '20333333333', apellido_nombre: 'LOPEZ CARLOS', legajo: 1003 },
         tipoNovedad: { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
         cargadoPor: { cuil: '20999999999', email: 'sup@test.local' },
         estado: 'anulada',
@@ -324,29 +324,26 @@ describe('NovedadesPage', () => {
       },
     ];
 
-    it('por defecto oculta las anuladas', () => {
+    it('por defecto muestra activas y anuladas juntas (sin filtro de Vigencia preseleccionado)', () => {
       useNovedadesMock.mockReturnValue({ data: CON_ANULADA, isLoading: false });
       render(<NovedadesPage />);
       expect(screen.getByText('GOMEZ JUAN')).toBeInTheDocument();
-      expect(screen.queryByText('LOPEZ CARLOS')).not.toBeInTheDocument();
+      expect(screen.getByText('LOPEZ CARLOS')).toBeInTheDocument();
     });
 
-    it('tildando "Anulada" en el filtro de Vigencia se ven también las anuladas', async () => {
+    it('tildando "Activa" en el filtro de Vigencia se ocultan las anuladas', async () => {
       useNovedadesMock.mockReturnValue({ data: CON_ANULADA, isLoading: false });
       render(<NovedadesPage />);
       await userEvent.click(screen.getByLabelText('Filtrar por vigencia'));
-      await userEvent.click(screen.getByLabelText('Anulada'));
+      await userEvent.click(screen.getByLabelText('Activa'));
       await userEvent.keyboard('{Escape}');
-      expect(screen.getByText('LOPEZ CARLOS')).toBeInTheDocument();
+      expect(screen.queryByText('LOPEZ CARLOS')).not.toBeInTheDocument();
     });
 
     it('una fila anulada se ve de-enfatizada y sin botones de Editar/Anular', async () => {
       h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
       useNovedadesMock.mockReturnValue({ data: CON_ANULADA, isLoading: false });
       render(<NovedadesPage />);
-      await userEvent.click(screen.getByLabelText('Filtrar por vigencia'));
-      await userEvent.click(screen.getByLabelText('Anulada'));
-      await userEvent.keyboard('{Escape}');
 
       const fila = screen.getByText('LOPEZ CARLOS').closest('tr');
       expect(fila).not.toBeNull();

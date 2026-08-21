@@ -138,7 +138,7 @@ export interface Novedad {
   /** Ruta del certificado adjunto en el backend. No renderizar/confiar en el valor
    * en sí — solo usarlo como flag de "hay adjunto" y pedirlo por GET /novedades/:id/adjunto. */
   adjuntoUrl: string | null;
-  operario: { cuil: string; apellido_nombre: string };
+  operario: { cuil: string; apellido_nombre: string; legajo: number };
   tipoNovedad: { id: number; nombre: string; requiereAprobacionHys: boolean };
   cargadoPor: { cuil: string; email: string };
   /** Vigencia del registro (no confundir con `estadoHys`, la resolución de HyS) —
