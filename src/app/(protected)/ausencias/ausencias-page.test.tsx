@@ -28,6 +28,7 @@ function nov(overrides: Partial<Novedad> = {}): Novedad {
     motivoAnulacion: null,
     anuladaPorCuil: null,
     anuladaEn: null,
+    createdAt: '2026-08-10T12:00:00.000Z',
     ...overrides,
   };
 }

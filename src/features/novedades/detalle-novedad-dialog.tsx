@@ -107,6 +107,7 @@ export function DetalleNovedadDialog({
             <Fila label="Desde" valor={novedad.fechaInicio.slice(0, 10)} />
             <Fila label="Hasta" valor={novedad.fechaFin ? novedad.fechaFin.slice(0, 10) : '—'} />
             <Fila label="Cargado por" valor={novedad.cargadoPor.email} />
+            <Fila label="Fecha de carga" valor={formatearFechaHora(novedad.createdAt)} />
           </div>
 
           <Fila label="Justificación" valor={novedad.justificacionTexto ?? '—'} />

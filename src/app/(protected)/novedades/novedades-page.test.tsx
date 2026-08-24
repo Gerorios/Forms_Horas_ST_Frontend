@@ -31,6 +31,7 @@ const NOVEDADES_FILTROS: Novedad[] = [
     motivoAnulacion: null,
     anuladaPorCuil: null,
     anuladaEn: null,
+    createdAt: '2026-08-05T12:00:00.000Z',
   },
   {
     id: 2,
@@ -49,6 +50,7 @@ const NOVEDADES_FILTROS: Novedad[] = [
     motivoAnulacion: null,
     anuladaPorCuil: null,
     anuladaEn: null,
+    createdAt: '2026-08-05T12:00:00.000Z',
   },
 ];
 const useNovedadesMock = vi.fn((_periodo?: { anio: number; mes: number; parte: number }) => ({
@@ -321,6 +323,7 @@ describe('NovedadesPage', () => {
         motivoAnulacion: 'duplicada',
         anuladaPorCuil: '20888888888',
         anuladaEn: '2026-08-13T10:00:00.000Z',
+        createdAt: '2026-08-12T12:00:00.000Z',
       },
     ];
 
