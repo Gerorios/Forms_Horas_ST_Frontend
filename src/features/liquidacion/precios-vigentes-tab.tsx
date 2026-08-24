@@ -1,50 +1,33 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { FiltroNumero, FiltroSelect } from '@/components/ui/barra-filtros';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  useEstadoTarifas,
-  useCargarRondaTarifas,
-  useRondaPeriodo,
-  useActualizarRondaTarifas,
+  useCategoriasPeriodo,
+  useGuardarCategoriasPeriodo,
+  useBonosPeriodo,
+  useGuardarBonosPeriodo,
+  useNovedadesPlusPeriodo,
+  useGuardarNovedadesPlusPeriodo,
+  useRangosKmPeriodo,
+  useGuardarRangosKmPeriodo,
   mensajeDeError,
   type TipoBonoNoRemunerativo,
 } from '@/lib/api/liquidacion';
 import { aplicarIncremento } from './incremento';
+import { SeccionPlusIndividual } from './seccion-plus-individual';
 
 const NOMBRES_MES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
+const MESES_OPCIONES = NOMBRES_MES.map((nombre, i) => ({ value: i + 1, label: nombre }));
 
-type Periodo = { anio: number; mes: number };
-type Rango = { kmDesde: string; kmHasta: string; precioPorKm: string };
-type Bono = { tipo: TipoBonoNoRemunerativo | ''; valor: string };
-
-function sumarMes(p: Periodo): Periodo {
-  return p.mes === 12 ? { anio: p.anio + 1, mes: 1 } : { anio: p.anio, mes: p.mes + 1 };
-}
-
-function mesesEntre(desde: Periodo, hasta: Periodo): Periodo[] {
-  const resultado: Periodo[] = [];
-  let cursor = sumarMes(desde);
-  while (cursor.anio < hasta.anio || (cursor.anio === hasta.anio && cursor.mes < hasta.mes)) {
-    resultado.push(cursor);
-    cursor = sumarMes(cursor);
-  }
-  return resultado;
-}
-
-function etiquetaPeriodo(p: Periodo) {
-  return `${NOMBRES_MES[p.mes - 1]} ${p.anio}`;
-}
-
-/** <0 si a es anterior a b, 0 si es el mismo mes, >0 si a es posterior. */
-function compararPeriodo(a: Periodo, b: Periodo) {
-  return a.anio - b.anio || a.mes - b.mes;
+function etiquetaPeriodo(anio: number, mes: number) {
+  return `${NOMBRES_MES[mes - 1]} ${anio}`;
 }
 
 /** Formato es-AR con dos decimales; '' o no numérico → '—'. */
@@ -55,564 +38,241 @@ function formatearImporte(v: string | undefined) {
   return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const RANGOS_DEFAULT: Rango[] = [
-  { kmDesde: '0', kmHasta: '60', precioPorKm: '' },
-  { kmDesde: '60', kmHasta: '75', precioPorKm: '' },
-  { kmDesde: '75', kmHasta: '', precioPorKm: '' },
-];
-
-const AVISO_EDICION =
-  'Vas a modificar precios de un período ya cargado. Esto recalcula todas las quincenas de ese ' +
-  'mes: si ya las liquidaste con los valores anteriores, el panel dejará de coincidir con lo ' +
-  'pagado. El cambio queda auditado.';
-
-const MESES_OPCIONES = NOMBRES_MES.map((nombre, i) => ({ value: i + 1, label: nombre }));
-
+/**
+ * Cada sección de precios (categorías, bono, novedades con plus, rangos de
+ * km) se edita y guarda de forma INDEPENDIENTE — pedido explícito del
+ * usuario tras ver la pantalla vieja (todo en un único formulario largo, sin
+ * poder tocar solo una parte). Comparten el período (mes/año) elegido arriba,
+ * nada más — no hay un "guardar todo" en común (ADR-018).
+ */
 export function PreciosVigentesTab() {
-  const { data: estado, isLoading } = useEstadoTarifas();
-  const cargarRonda = useCargarRondaTarifas();
-  const actualizarRonda = useActualizarRondaTarifas();
-
   const hoy = new Date();
   const [anio, setAnio] = useState(hoy.getFullYear());
   const [mes, setMes] = useState(hoy.getMonth() + 1);
+
+  return (
+    <section className="space-y-5">
+      <PageHeader title={`Precios de ${etiquetaPeriodo(anio, mes)}`} />
+      <p className="text-sm text-slate">
+        Cada sección se resuelve y se guarda por separado, para el período elegido. Un campo sin
+        resolver para este mes muestra el último precio conocido (de un mes anterior) solo como
+        referencia — no se aplica solo al cálculo hasta que lo cargues y confirmes vos.
+      </p>
+
+      <div className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-4">
+        <FiltroSelect label="Mes" value={mes} onChange={(v) => setMes(Number(v))} opciones={MESES_OPCIONES} opcional={false} />
+        <FiltroNumero label="Año" value={anio} onChange={(v) => setAnio(Number(v) || anio)} className="w-24" />
+      </div>
+
+      <SeccionCategorias anio={anio} mes={mes} />
+      <SeccionBono anio={anio} mes={mes} />
+      <SeccionNovedadesPlus anio={anio} mes={mes} />
+      <SeccionRangosKm anio={anio} mes={mes} />
+      <SeccionPlusIndividual titulo="Plus individual (por empleado, por quincena)" />
+    </section>
+  );
+}
+
+function TarjetaSeccion({ titulo, children, accion }: { titulo: string; children: ReactNode; accion?: ReactNode }) {
+  return (
+    <div className="space-y-3 rounded-xl border border-line bg-surface p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-display text-sm font-semibold text-ink">{titulo}</h2>
+        {accion}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function AvisoSinResolver({ periodo }: { periodo: string }) {
+  return (
+    <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+      Esta sección todavía no tiene valores propios de {periodo}.
+    </div>
+  );
+}
+
+function ConfirmarEdicionDialog({ periodo, onCancelar, onConfirmar }: { periodo: string; onCancelar: () => void; onConfirmar: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-full max-w-md space-y-4 rounded-xl bg-surface p-6">
+        <h3 className="font-display text-base font-semibold text-ink">Confirmar cambio de {periodo}</h3>
+        <p className="text-sm text-slate">
+          Vas a modificar un valor ya resuelto para este período. Esto recalcula las quincenas de ese
+          mes: si ya las liquidaste con el valor anterior, el panel dejará de coincidir con lo pagado.
+          El cambio queda auditado.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onCancelar} className="rounded-md px-3 py-2 text-sm font-medium text-ink hover:bg-accent/50">
+            Cancelar
+          </button>
+          <button type="button" onClick={onConfirmar} className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95">
+            Confirmar y guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Categorías UOCRA (obligatorio) ----
+function SeccionCategorias({ anio, mes }: { anio: number; mes: number }) {
+  const { data, isLoading } = useCategoriasPeriodo(anio, mes);
+  const guardar = useGuardarCategoriasPeriodo();
   const [modo, setModo] = useState<'lectura' | 'edicion'>('lectura');
-  const [dialogConfirmacion, setDialogConfirmacion] = useState(false);
-
   const [importes, setImportes] = useState<Record<number, string>>({});
-  // Atajo de aumento UOCRA: prellena todas las categorías con +N% sobre lo
-  // que haya en los campos (no guarda — se revisa y confirma con el guardado
-  // normal). Mismo patrón que sueldos mensualizados, ADR-016. Con modal de
-  // confirmación previo: un clic silencioso que cambia todos los precios
-  // pasaba desapercibido (feedback del Liquidador probando, 2026-08-12).
-  const [pctCategorias, setPctCategorias] = useState('');
+  const [pct, setPct] = useState('');
   const [dialogPct, setDialogPct] = useState(false);
+  const [dialogConfirmar, setDialogConfirmar] = useState(false);
 
-  function aplicarPctCategorias() {
-    setImportes((prev) => aplicarIncremento(prev, Number(pctCategorias)));
-    setDialogPct(false);
-    toast.success(
-      `Categorías prellenadas con ${Number(pctCategorias) >= 0 ? 'un aumento' : 'una baja'} del ${Math.abs(Number(pctCategorias))}% — revisá y confirmá con el guardado.`,
-    );
-  }
-  const [montos, setMontos] = useState<Record<number, string>>({});
-  const [rangos, setRangos] = useState<Rango[]>(RANGOS_DEFAULT);
-  const [bonos, setBonos] = useState<Record<number, Bono>>({});
-
-  const objetivo = useMemo<Periodo>(() => ({ anio, mes }), [anio, mes]);
-
-  // Por defecto arrancamos parados en el último período cargado.
-  const posicionado = useRef(false);
-  useEffect(() => {
-    if (!estado || posicionado.current) return;
-    posicionado.current = true;
-    if (estado.ultimoPeriodo) {
-      setAnio(estado.ultimoPeriodo.anio);
-      setMes(estado.ultimoPeriodo.mes);
-    }
-  }, [estado]);
-
-  // Cambiar de período siempre vuelve a modo lectura: evita mezclar edits a
-  // medio hacer de un mes con los datos de otro.
   useEffect(() => {
     setModo('lectura');
   }, [anio, mes]);
 
-  // Un período "ya cargado" es cualquiera hasta el último período conocido
-  // (inclusive): ahí el GET /tarifas/ronda/:anio/:mes trae datos (o 404 si es
-  // anterior a la primera ronda que se haya cargado alguna vez). Un período
-  // posterior al último cargado es, por definición, uno que todavía no tiene
-  // precios propios.
-  const periodoCargado = estado?.ultimoPeriodo != null && compararPeriodo(objetivo, estado.ultimoPeriodo) <= 0;
-
-  const {
-    data: rondaPeriodo,
-    isLoading: cargandoRondaPeriodo,
-    error: errorRondaPeriodo,
-  } = useRondaPeriodo(objetivo.anio, objetivo.mes, periodoCargado);
-
-  // Período ya cargado pero el GET no encontró nada: es anterior a la
-  // primera ronda que se haya cargado alguna vez. No hay nada que mostrar ni
-  // editar ahí.
-  const sinPreciosPrevios = periodoCargado && !cargandoRondaPeriodo && errorRondaPeriodo != null;
-
-  /**
-   * Valores "de la fuente de verdad" para el período elegido: si ya tiene
-   * precios propios, los del GET; si no, la propuesta (valores vigentes
-   * actuales). Se usa tanto para precargar/mostrar en modo lectura como para
-   * reiniciar el form al entrar a editar o al cancelar una edición.
-   */
-  function valoresFuente(): { importes: Record<number, string>; montos: Record<number, string>; rangos: Rango[]; bonos: Record<number, Bono> } | null {
-    if (periodoCargado) {
-      if (!rondaPeriodo) return null;
-      return {
-        importes: Object.fromEntries(rondaPeriodo.categorias.map((c) => [c.id, c.importeHora])),
-        montos: Object.fromEntries(rondaPeriodo.tiposNovedad.map((t) => [t.id, t.montoPorDia])),
-        rangos: rondaPeriodo.rangosKm.length
-          ? rondaPeriodo.rangosKm.map((r) => ({ kmDesde: r.kmDesde, kmHasta: r.kmHasta ?? '', precioPorKm: r.precioPorKm }))
-          : RANGOS_DEFAULT,
-        bonos: Object.fromEntries(
-          rondaPeriodo.categorias.map((c) => [
-            c.id,
-            { tipo: c.bonoNoRemunerativo?.tipo ?? '', valor: c.bonoNoRemunerativo?.valor ?? '' },
-          ]),
-        ),
-      };
-    }
-    if (!estado) return null;
-    return {
-      importes: Object.fromEntries(estado.categorias.map((c) => [c.id, c.importeHoraActual ?? ''])),
-      montos: Object.fromEntries(estado.tiposNovedad.map((t) => [t.id, t.montoPorDiaActual ?? ''])),
-      rangos: estado.rangosKm.length
-        ? estado.rangosKm.map((r) => ({ kmDesde: r.kmDesde, kmHasta: r.kmHasta ?? '', precioPorKm: r.precioPorKmActual }))
-        : RANGOS_DEFAULT,
-      bonos: Object.fromEntries(
-        estado.categorias.map((c) => [
-          c.id,
-          { tipo: c.bonoNoRemunerativoActual?.tipo ?? '', valor: c.bonoNoRemunerativoActual?.valor ?? '' },
-        ]),
-      ),
-    };
-  }
-
-  // Precarga los valores del período elegido cada vez que cambia.
-  useEffect(() => {
-    const v = valoresFuente();
-    if (!v) return;
-    setImportes(v.importes);
-    setMontos(v.montos);
-    setRangos(v.rangos);
-    setBonos(v.bonos);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodoCargado, rondaPeriodo, estado, anio, mes]);
-
-  const faltantes = useMemo(() => {
-    if (periodoCargado || !estado?.ultimoPeriodo) return [];
-    return mesesEntre(estado.ultimoPeriodo, objetivo);
-  }, [periodoCargado, estado, objetivo]);
-
-  const camposCompletos =
-    Object.values(importes).every((v) => v !== '') &&
-    Object.values(montos).every((v) => v !== '') &&
-    rangos.every((r) => r.kmDesde !== '' && r.precioPorKm !== '');
-
-  const puedeGuardar = camposCompletos && !sinPreciosPrevios && !(periodoCargado && cargandoRondaPeriodo);
-  const puedeEditar = !isLoading && !sinPreciosPrevios && !(periodoCargado && cargandoRondaPeriodo);
-
-  function actualizarRango(i: number, campo: 'kmDesde' | 'kmHasta' | 'precioPorKm', valor: string) {
-    setRangos((prev) => prev.map((r, j) => (j === i ? { ...r, [campo]: valor } : r)));
-  }
-
-  function armarDto() {
-    return {
-      categorias: (estado?.categorias ?? []).map((c) => ({
-        categoriaUocraId: c.id,
-        importeHora: Number(importes[c.id]),
-      })),
-      tiposNovedad: (estado?.tiposNovedad ?? []).map((t) => ({
-        tipoNovedadId: t.id,
-        montoPorDia: Number(montos[t.id]),
-      })),
-      rangosKm: rangos.map((r) => ({
-        kmDesde: Number(r.kmDesde),
-        kmHasta: r.kmHasta === '' ? undefined : Number(r.kmHasta),
-        precioPorKm: Number(r.precioPorKm),
-      })),
-      bonosNoRemunerativos: Object.entries(bonos)
-        .filter(([, b]) => b.tipo !== '' && b.valor !== '')
-        .map(([categoriaUocraId, b]) => ({
-          categoriaUocraId: Number(categoriaUocraId),
-          tipo: b.tipo as TipoBonoNoRemunerativo,
-          valor: Number(b.valor),
-        })),
-    };
-  }
-
   function iniciarEdicion() {
+    setImportes(Object.fromEntries((data ?? []).map((c) => [c.id, c.importeHora ?? ''])));
     setModo('edicion');
   }
 
-  function cancelarEdicion() {
-    const v = valoresFuente();
-    if (v) {
-      setImportes(v.importes);
-      setMontos(v.montos);
-      setRangos(v.rangos);
-      setBonos(v.bonos);
-    }
-    setModo('lectura');
+  /** Último precio conocido: el valor resuelto de este período si ya lo tiene, si no la sugerencia. */
+  function ultimoPrecio(c: { resuelto: boolean; importeHora: string | null; sugerencia: { valor: string } | null }) {
+    return c.resuelto ? (c.importeHora ?? '') : (c.sugerencia?.valor ?? '');
   }
 
-  function guardar() {
-    if (!puedeGuardar) return;
-    if (periodoCargado) {
-      setDialogConfirmacion(true);
-      return;
-    }
-    const promesa = cargarRonda.mutateAsync({ mes: objetivo.mes, anio: objetivo.anio, ...armarDto() });
+  function usarUltimosPrecios() {
+    setImportes((prev) => {
+      const next = { ...prev };
+      for (const c of data ?? []) {
+        if (!next[c.id]) {
+          const u = ultimoPrecio(c);
+          if (u) next[c.id] = u;
+        }
+      }
+      return next;
+    });
+  }
+
+  const periodo = etiquetaPeriodo(anio, mes);
+  const hayAlgunoResuelto = (data ?? []).some((c) => c.resuelto);
+
+  function guardarAhora() {
+    const categorias = (data ?? []).map((c) => ({ categoriaUocraId: c.id, importeHora: Number(importes[c.id]) }));
+    const promesa = guardar.mutateAsync({ anio, mes, categorias });
     toast.promise(promesa, {
-      loading: `Guardando precios de ${etiquetaPeriodo(objetivo)}…`,
-      success: `Precios de ${etiquetaPeriodo(objetivo)} guardados`,
-      error: (e) => mensajeDeError(e, 'No se pudieron guardar los precios'),
+      loading: `Guardando categorías de ${periodo}…`,
+      success: `Categorías de ${periodo} guardadas`,
+      error: (e) => mensajeDeError(e, 'No se pudieron guardar las categorías'),
     });
     promesa.then(() => setModo('lectura')).catch(() => {});
   }
 
-  function confirmarEdicion() {
-    setDialogConfirmacion(false);
-    const promesa = actualizarRonda.mutateAsync({ anio: objetivo.anio, mes: objetivo.mes, ...armarDto() });
-    toast.promise(promesa, {
-      loading: `Guardando precios de ${etiquetaPeriodo(objetivo)}…`,
-      success: `Precios de ${etiquetaPeriodo(objetivo)} actualizados`,
-      error: (e) => mensajeDeError(e, 'No se pudieron guardar los precios'),
-    });
-    promesa.then(() => setModo('lectura')).catch(() => {});
+  function onGuardarClick() {
+    if (hayAlgunoResuelto) setDialogConfirmar(true);
+    else guardarAhora();
   }
 
-  const tituloBoton = periodoCargado
-    ? `Editar precios de ${etiquetaPeriodo(objetivo)}`
-    : `Cargar precios de ${etiquetaPeriodo(objetivo)}`;
+  const completo = Object.values(importes).every((v) => v !== '' && !Number.isNaN(Number(v)));
 
   return (
-    <section className="space-y-5">
-      <PageHeader
-        title={`Precios de ${etiquetaPeriodo(objetivo)}`}
-        action={
-          modo === 'lectura' && puedeEditar ? (
-            <button
-              type="button"
-              onClick={iniciarEdicion}
-              className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95"
-            >
-              {tituloBoton}
-            </button>
-          ) : undefined
-        }
-      />
-      <p className="text-sm text-slate">
-        Los precios (categorías UOCRA, novedades con plus y rangos de km) se cargan juntos, por
-        mes. Elegí el período: si dejaste algún mes sin cargar, el sistema lo completa
-        automáticamente copiando el último valor conocido.
-      </p>
-
+    <TarjetaSeccion
+      titulo="Precio por hora por categoría"
+      accion={
+        modo === 'lectura' && !isLoading ? (
+          <button type="button" onClick={iniciarEdicion} className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-accent/60">
+            Editar categorías
+          </button>
+        ) : undefined
+      }
+    >
       {isLoading ? (
-        <p className="text-slate">Cargando…</p>
+        <p className="text-sm text-slate">Cargando…</p>
+      ) : (data ?? []).length === 0 ? (
+        <p className="text-sm text-slate">Sin categorías activas todavía.</p>
+      ) : modo === 'lectura' ? (
+        <>
+          {!hayAlgunoResuelto && <AvisoSinResolver periodo={periodo} />}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Categoría</TableHead>
+                <TableHead className="text-right">Precio por hora</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(data ?? []).map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell>{c.nombre}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {c.resuelto ? (
+                      `$${formatearImporte(c.importeHora ?? undefined)}`
+                    ) : c.sugerencia ? (
+                      <span className="text-amber-700">Último precio: ${formatearImporte(c.sugerencia.valor)}</span>
+                    ) : (
+                      <span className="text-slate">sin resolver</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </>
       ) : (
         <>
-          {modo === 'lectura' && (
-            <div className="rounded-xl border border-line bg-surface p-4">
-              <p className="text-sm text-slate">
-                Último período cargado:{' '}
-                <span className="font-medium text-ink">
-                  {estado?.ultimoPeriodo ? etiquetaPeriodo(estado.ultimoPeriodo) : 'ninguno todavía'}
-                </span>
-              </p>
-              <div className="mt-3 flex flex-wrap items-end gap-2">
-                <FiltroSelect
-                  label="Mes"
-                  value={mes}
-                  onChange={(v) => setMes(Number(v))}
-                  opciones={MESES_OPCIONES}
-                  opcional={false}
-                />
-                <FiltroNumero label="Año" value={anio} onChange={(v) => setAnio(Number(v) || anio)} className="w-24" />
-              </div>
-            </div>
-          )}
-
-          {sinPreciosPrevios ? (
-            <div className="rounded-xl border border-line bg-surface p-4 text-sm text-slate">
-              No hay precios cargados para este mes.
-            </div>
-          ) : periodoCargado && cargandoRondaPeriodo ? (
-            <p className="text-sm text-slate">Cargando precios de {etiquetaPeriodo(objetivo)}…</p>
-          ) : modo === 'lectura' ? (
-            <>
-              {!periodoCargado && (
-                <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-                  Este mes aún no tiene precios propios — se muestran los últimos vigentes.
-                </div>
-              )}
-
-              <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
-                <h2 className="font-display text-sm font-semibold text-ink">Precio por hora por categoría</h2>
-                {(estado?.categorias ?? []).length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Categoría</TableHead>
-                        <TableHead className="text-right">Precio por hora</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(estado?.categorias ?? []).map((c) => (
-                        <TableRow key={c.id}>
-                          <TableCell>{c.nombre}</TableCell>
-                          <TableCell className="text-right tabular-nums">${formatearImporte(importes[c.id])}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <p className="text-sm text-slate">Sin categorías activas todavía.</p>
-                )}
-              </div>
-
-              <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
-                <h2 className="font-display text-sm font-semibold text-ink">Monto por novedad (por cada carga declarada)</h2>
-                {(estado?.tiposNovedad ?? []).length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Tipo de novedad</TableHead>
-                        <TableHead className="text-right">Monto por novedad</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(estado?.tiposNovedad ?? []).map((t) => (
-                        <TableRow key={t.id}>
-                          <TableCell>{t.nombre}</TableCell>
-                          <TableCell className="text-right tabular-nums">${formatearImporte(montos[t.id])}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <p className="text-sm text-slate">No hay tipos de novedad marcados como &quot;genera plus&quot;.</p>
-                )}
-              </div>
-
-              <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
-                <h2 className="font-display text-sm font-semibold text-ink">Rangos de km</h2>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Desde</TableHead>
-                      <TableHead>Hasta</TableHead>
-                      <TableHead className="text-right">Precio por km</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rangos.map((r, i) => (
-                      <TableRow key={i}>
-                        <TableCell>{formatearImporte(r.kmDesde)} km</TableCell>
-                        <TableCell>{r.kmHasta === '' ? 'sin techo' : `${formatearImporte(r.kmHasta)} km`}</TableCell>
-                        <TableCell className="text-right tabular-nums">${formatearImporte(r.precioPorKm)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
-                <h2 className="font-display text-sm font-semibold text-ink">Bono por categoría</h2>
-                {(estado?.categorias ?? []).length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Categoría</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead className="text-right">Valor</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(estado?.categorias ?? []).map((c) => {
-                        const b = bonos[c.id];
-                        const sinBono = !b || b.tipo === '' || b.valor === '';
-                        return (
-                          <TableRow key={c.id}>
-                            <TableCell>{c.nombre}</TableCell>
-                            <TableCell>{sinBono ? '—' : b.tipo === 'porcentaje' ? '% sobre la tarifa' : 'Monto fijo'}</TableCell>
-                            <TableCell className="text-right tabular-nums">
-                              {sinBono ? '—' : b.tipo === 'porcentaje' ? `${formatearImporte(b.valor)}%` : `$${formatearImporte(b.valor)}`}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <p className="text-sm text-slate">Sin categorías activas todavía.</p>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-slate">
-                Editando precios de <span className="font-medium text-ink">{etiquetaPeriodo(objetivo)}</span>
-              </p>
-
-              {faltantes.length > 0 && (
-                <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-                  Faltan cargar: <strong>{faltantes.map(etiquetaPeriodo).join(', ')}</strong>. Se van a
-                  completar automáticamente copiando el último valor conocido (
-                  {estado?.ultimoPeriodo ? etiquetaPeriodo(estado.ultimoPeriodo) : ''}). Para{' '}
-                  <strong>{etiquetaPeriodo(objetivo)}</strong>, revisá los valores de abajo: dejalos
-                  igual para copiarlos también, o cambialos para cargar precios nuevos.
-                </div>
-              )}
-
-              <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                  <h2 className="font-display text-sm font-semibold text-ink">Categorías UOCRA (por hora)</h2>
-                  <div className="flex items-end gap-2">
-                    <label className="flex flex-col text-xs text-slate">
-                      Incremento (%)
-                      <input
-                        aria-label="Porcentaje de incremento de categorías"
-                        type="number"
-                        step="0.01"
-                        value={pctCategorias}
-                        onChange={(e) => setPctCategorias(e.target.value)}
-                        className="w-28 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      disabled={!pctCategorias || Number.isNaN(Number(pctCategorias))}
-                      onClick={() => setDialogPct(true)}
-                      className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60 disabled:opacity-50"
-                    >
-                      Aplicar a categorías
-                    </button>
-                  </div>
-                </div>
-                <p className="text-xs text-slate">
-                  El % solo prellena los campos con el aumento (podés retocar cualquiera después);
-                  no se guarda nada hasta confirmar.
-                </p>
-                {(estado?.categorias ?? []).map((c) => (
-                  <label key={c.id} className="flex items-center justify-between gap-3 text-sm text-ink">
-                    {c.nombre}
-                    <input
-                      aria-label={c.nombre}
-                      type="number"
-                      step="0.01"
-                      value={importes[c.id] ?? ''}
-                      onChange={(e) => setImportes((prev) => ({ ...prev, [c.id]: e.target.value }))}
-                      className="w-32 rounded-md border border-line bg-surface px-2 py-1.5 text-right tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                  </label>
-                ))}
-                {(estado?.categorias ?? []).length === 0 && (
-                  <p className="text-sm text-slate">Sin categorías activas todavía.</p>
-                )}
-              </div>
-
-              <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
-                <h2 className="font-display text-sm font-semibold text-ink">Bono no remunerativo (opcional)</h2>
-                <p className="text-xs text-slate">
-                  Dejalo vacío si UOCRA no anunció ningún bono este mes.
-                </p>
-                {(estado?.categorias ?? []).map((c) => (
-                  <div key={c.id} className="flex flex-wrap items-center gap-2 text-sm text-ink">
-                    <span className="w-40 shrink-0">{c.nombre}</span>
-                    <select
-                      aria-label={`Tipo de bono — ${c.nombre}`}
-                      value={bonos[c.id]?.tipo ?? ''}
-                      onChange={(e) =>
-                        setBonos((prev) => ({
-                          ...prev,
-                          [c.id]: { tipo: e.target.value as TipoBonoNoRemunerativo | '', valor: prev[c.id]?.valor ?? '' },
-                        }))
-                      }
-                      className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    >
-                      <option value="">Sin bono este mes</option>
-                      <option value="monto_fijo">Monto fijo</option>
-                      <option value="porcentaje">% sobre la tarifa</option>
-                    </select>
-                    <input
-                      aria-label={`Valor de bono — ${c.nombre}`}
-                      type="number"
-                      step="0.01"
-                      disabled={!bonos[c.id]?.tipo}
-                      value={bonos[c.id]?.valor ?? ''}
-                      onChange={(e) =>
-                        setBonos((prev) => ({ ...prev, [c.id]: { tipo: prev[c.id]?.tipo ?? '', valor: e.target.value } }))
-                      }
-                      className="w-28 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 disabled:opacity-50"
-                    />
-                    <span className="text-slate">{bonos[c.id]?.tipo === 'porcentaje' ? '%' : '$'}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
-                <h2 className="font-display text-sm font-semibold text-ink">Novedades con plus (por carga)</h2>
-                {(estado?.tiposNovedad ?? []).map((t) => (
-                  <label key={t.id} className="flex items-center justify-between gap-3 text-sm text-ink">
-                    {t.nombre}
-                    <input
-                      aria-label={t.nombre}
-                      type="number"
-                      step="0.01"
-                      value={montos[t.id] ?? ''}
-                      onChange={(e) => setMontos((prev) => ({ ...prev, [t.id]: e.target.value }))}
-                      className="w-32 rounded-md border border-line bg-surface px-2 py-1.5 text-right tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                  </label>
-                ))}
-                {(estado?.tiposNovedad ?? []).length === 0 && (
-                  <p className="text-sm text-slate">No hay tipos de novedad marcados como &quot;genera plus&quot;.</p>
-                )}
-              </div>
-
-              <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
-                <h2 className="font-display text-sm font-semibold text-ink">Por tantos — rangos de km</h2>
-                {rangos.map((r, i) => (
-                  <div key={i} className="flex flex-wrap items-center gap-2 text-sm text-ink">
-                    <input
-                      aria-label={`Rango ${i + 1} km desde`}
-                      type="number"
-                      step="0.01"
-                      value={r.kmDesde}
-                      onChange={(e) => actualizarRango(i, 'kmDesde', e.target.value)}
-                      className="w-20 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                    <span className="text-slate">a</span>
-                    <input
-                      aria-label={`Rango ${i + 1} km hasta`}
-                      type="number"
-                      step="0.01"
-                      placeholder="sin techo"
-                      value={r.kmHasta}
-                      onChange={(e) => actualizarRango(i, 'kmHasta', e.target.value)}
-                      className="w-24 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                    <span className="text-slate">km →</span>
-                    <input
-                      aria-label={`Rango ${i + 1} precio por km`}
-                      type="number"
-                      step="0.01"
-                      value={r.precioPorKm}
-                      onChange={(e) => actualizarRango(i, 'precioPorKm', e.target.value)}
-                      className="w-28 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
-                    />
-                    <span className="text-slate">$/km</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={cancelarEdicion}
-                  className="rounded-md px-4 py-2 text-sm font-medium text-ink hover:bg-accent/50"
-                >
-                  Cancelar edición
-                </button>
-                <button
-                  type="button"
-                  disabled={!puedeGuardar || cargarRonda.isPending || actualizarRonda.isPending}
-                  onClick={guardar}
-                  className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-                >
-                  Guardar precios de {etiquetaPeriodo(objetivo)}
-                </button>
-              </div>
-            </>
-          )}
+          <div className="flex flex-wrap items-end gap-2">
+            <button
+              type="button"
+              onClick={usarUltimosPrecios}
+              className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60"
+            >
+              Usar últimos precios
+            </button>
+            <label className="flex flex-col text-xs text-slate">
+              Incremento (%)
+              <input
+                aria-label="Porcentaje de incremento de categorías"
+                type="number"
+                step="0.01"
+                value={pct}
+                onChange={(e) => setPct(e.target.value)}
+                className="w-28 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={!pct || Number.isNaN(Number(pct))}
+              onClick={() => setDialogPct(true)}
+              className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60 disabled:opacity-50"
+            >
+              Aplicar a todas
+            </button>
+          </div>
+          {(data ?? []).map((c) => (
+            <label key={c.id} className="flex items-center justify-between gap-3 text-sm text-ink">
+              {c.nombre}
+              <input
+                aria-label={c.nombre}
+                type="number"
+                step="0.01"
+                value={importes[c.id] ?? ''}
+                onChange={(e) => setImportes((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                className="w-32 rounded-md border border-line bg-surface px-2 py-1.5 text-right tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+            </label>
+          ))}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setModo('lectura')} className="rounded-md px-4 py-2 text-sm font-medium text-ink hover:bg-accent/50">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={!completo || guardar.isPending}
+              onClick={onGuardarClick}
+              className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
+            >
+              Guardar categorías de {periodo}
+            </button>
+          </div>
         </>
       )}
 
@@ -620,63 +280,508 @@ export function PreciosVigentesTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-md space-y-4 rounded-xl bg-surface p-6">
             <h3 className="font-display text-base font-semibold text-ink">
-              {Number(pctCategorias) >= 0 ? 'Aumentar' : 'Bajar'} todas las categorías un{' '}
-              {Math.abs(Number(pctCategorias))}%
+              {Number(pct) >= 0 ? 'Aumentar' : 'Bajar'} todas las categorías un {Math.abs(Number(pct))}%
             </h3>
             <p className="text-sm text-slate">
-              Se van a prellenar <strong>todas las categorías UOCRA</strong> con el{' '}
-              {Number(pctCategorias) >= 0 ? 'aumento' : 'descuento'} del{' '}
-              {Math.abs(Number(pctCategorias))}% sobre los valores que están ahora en los campos.
-              Después podés retocar cualquiera a mano — nada queda guardado hasta que confirmes el
-              guardado de los precios.
+              Se calcula sobre el último precio de cada categoría (no sobre lo tipeado); se prellenan
+              los campos, nada se guarda hasta confirmar el guardado de abajo.
             </p>
             <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDialogPct(false)}
-                className="rounded-md px-3 py-2 text-sm font-medium text-ink hover:bg-accent/50"
-              >
+              <button type="button" onClick={() => setDialogPct(false)} className="rounded-md px-3 py-2 text-sm font-medium text-ink hover:bg-accent/50">
                 Cancelar
               </button>
               <button
                 type="button"
-                onClick={aplicarPctCategorias}
+                onClick={() => {
+                  const base = Object.fromEntries((data ?? []).map((c) => [c.id, ultimoPrecio(c)]));
+                  setImportes(aplicarIncremento(base, Number(pct)));
+                  setDialogPct(false);
+                }}
                 className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95"
               >
-                Sí, aplicar {Number(pctCategorias) >= 0 ? '+' : ''}
-                {Number(pctCategorias)}%
+                Aplicar {Number(pct) >= 0 ? '+' : ''}{Number(pct)}%
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {dialogConfirmacion && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-md space-y-4 rounded-xl bg-surface p-6">
-            <h3 className="font-display text-base font-semibold text-ink">
-              Confirmar precios de {etiquetaPeriodo(objetivo)}
-            </h3>
-            <p className="text-sm text-slate">{AVISO_EDICION}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDialogConfirmacion(false)}
-                className="rounded-md px-3 py-2 text-sm font-medium text-ink hover:bg-accent/50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={confirmarEdicion}
-                className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95"
-              >
-                Confirmar y guardar
-              </button>
-            </div>
-          </div>
-        </div>
+      {dialogConfirmar && (
+        <ConfirmarEdicionDialog periodo={periodo} onCancelar={() => setDialogConfirmar(false)} onConfirmar={() => { setDialogConfirmar(false); guardarAhora(); }} />
       )}
-    </section>
+    </TarjetaSeccion>
+  );
+}
+
+// ---- Bono no remunerativo (único campo opcional) ----
+function SeccionBono({ anio, mes }: { anio: number; mes: number }) {
+  const { data, isLoading } = useBonosPeriodo(anio, mes);
+  const guardar = useGuardarBonosPeriodo();
+  const [modo, setModo] = useState<'lectura' | 'edicion'>('lectura');
+  const [bonos, setBonos] = useState<Record<number, { tipo: TipoBonoNoRemunerativo | ''; valor: string }>>({});
+  const [dialogConfirmar, setDialogConfirmar] = useState(false);
+
+  useEffect(() => {
+    setModo('lectura');
+  }, [anio, mes]);
+
+  function iniciarEdicion() {
+    setBonos(
+      Object.fromEntries(
+        (data ?? []).map((b) => [
+          b.categoriaUocraId,
+          b.bono ? { tipo: b.bono.tipo, valor: b.bono.valor } : { tipo: '' as const, valor: '' },
+        ]),
+      ),
+    );
+    setModo('edicion');
+  }
+
+  function usarUltimosPrecios() {
+    setBonos((prev) => {
+      const next = { ...prev };
+      for (const b of data ?? []) {
+        if (!next[b.categoriaUocraId]?.tipo && b.sugerencia) {
+          next[b.categoriaUocraId] = { tipo: b.sugerencia.tipo, valor: b.sugerencia.valor };
+        }
+      }
+      return next;
+    });
+  }
+
+  const periodo = etiquetaPeriodo(anio, mes);
+  const hayAlgunoResuelto = (data ?? []).some((b) => b.resuelto);
+
+  function guardarAhora() {
+    // "Sin bono este mes" es una decisión explícita: se manda SIEMPRE una fila
+    // por categoría (tipo/valor 0 si quedó vacío), nunca se omite — omitir
+    // dejaría el período sin resolver en vez de "decidido: sin bono".
+    const bonosDto = (data ?? []).map((b) => {
+      const edit = bonos[b.categoriaUocraId];
+      return {
+        categoriaUocraId: b.categoriaUocraId,
+        tipo: (edit?.tipo || 'monto_fijo') as TipoBonoNoRemunerativo,
+        valor: edit?.valor ? Number(edit.valor) : 0,
+      };
+    });
+    const promesa = guardar.mutateAsync({ anio, mes, bonos: bonosDto });
+    toast.promise(promesa, {
+      loading: `Guardando bonos de ${periodo}…`,
+      success: `Bonos de ${periodo} guardados`,
+      error: (e) => mensajeDeError(e, 'No se pudieron guardar los bonos'),
+    });
+    promesa.then(() => setModo('lectura')).catch(() => {});
+  }
+
+  function onGuardarClick() {
+    if (hayAlgunoResuelto) setDialogConfirmar(true);
+    else guardarAhora();
+  }
+
+  return (
+    <TarjetaSeccion
+      titulo="Bono no remunerativo por categoría (opcional)"
+      accion={
+        modo === 'lectura' && !isLoading ? (
+          <button type="button" onClick={iniciarEdicion} className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-accent/60">
+            Editar bonos
+          </button>
+        ) : undefined
+      }
+    >
+      {isLoading ? (
+        <p className="text-sm text-slate">Cargando…</p>
+      ) : (data ?? []).length === 0 ? (
+        <p className="text-sm text-slate">Sin categorías activas todavía.</p>
+      ) : modo === 'lectura' ? (
+        <>
+          {!hayAlgunoResuelto && <AvisoSinResolver periodo={periodo} />}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Categoría</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(data ?? []).map((b) => (
+                <TableRow key={b.categoriaUocraId}>
+                  <TableCell>{b.nombre}</TableCell>
+                  <TableCell>
+                    {b.resuelto ? (
+                      Number(b.bono?.valor) > 0 ? (b.bono?.tipo === 'porcentaje' ? '% sobre la tarifa' : 'Monto fijo') : 'Sin bono este mes (decidido)'
+                    ) : (
+                      <span className="text-amber-700">sin resolver</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {b.resuelto
+                      ? Number(b.bono?.valor) > 0
+                        ? b.bono?.tipo === 'porcentaje' ? `${formatearImporte(b.bono?.valor)}%` : `$${formatearImporte(b.bono?.valor)}`
+                        : '—'
+                      : b.sugerencia
+                        ? <span className="text-amber-700">Último precio: {b.sugerencia.tipo === 'porcentaje' ? `${formatearImporte(b.sugerencia.valor)}%` : `$${formatearImporte(b.sugerencia.valor)}`}</span>
+                        : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-slate">Elegí &quot;Sin bono este mes&quot; para dejar constancia explícita de que UOCRA no anunció nada — no es lo mismo que dejarlo sin revisar.</p>
+          <button
+            type="button"
+            onClick={usarUltimosPrecios}
+            className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60"
+          >
+            Usar últimos precios
+          </button>
+          {(data ?? []).map((b) => (
+            <div key={b.categoriaUocraId} className="flex flex-wrap items-center gap-2 text-sm text-ink">
+              <span className="w-40 shrink-0">{b.nombre}</span>
+              <select
+                aria-label={`Tipo de bono — ${b.nombre}`}
+                value={bonos[b.categoriaUocraId]?.tipo ?? ''}
+                onChange={(e) => setBonos((prev) => ({ ...prev, [b.categoriaUocraId]: { tipo: e.target.value as TipoBonoNoRemunerativo | '', valor: prev[b.categoriaUocraId]?.valor ?? '' } }))}
+                className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              >
+                <option value="">Sin bono este mes</option>
+                <option value="monto_fijo">Monto fijo</option>
+                <option value="porcentaje">% sobre la tarifa</option>
+              </select>
+              <input
+                aria-label={`Valor de bono — ${b.nombre}`}
+                type="number"
+                step="0.01"
+                disabled={!bonos[b.categoriaUocraId]?.tipo}
+                value={bonos[b.categoriaUocraId]?.valor ?? ''}
+                onChange={(e) => setBonos((prev) => ({ ...prev, [b.categoriaUocraId]: { tipo: prev[b.categoriaUocraId]?.tipo ?? '', valor: e.target.value } }))}
+                className="w-28 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 disabled:opacity-50"
+              />
+              <span className="text-slate">{bonos[b.categoriaUocraId]?.tipo === 'porcentaje' ? '%' : '$'}</span>
+            </div>
+          ))}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setModo('lectura')} className="rounded-md px-4 py-2 text-sm font-medium text-ink hover:bg-accent/50">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={guardar.isPending}
+              onClick={onGuardarClick}
+              className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
+            >
+              Guardar bonos de {periodo}
+            </button>
+          </div>
+        </>
+      )}
+
+      {dialogConfirmar && (
+        <ConfirmarEdicionDialog periodo={periodo} onCancelar={() => setDialogConfirmar(false)} onConfirmar={() => { setDialogConfirmar(false); guardarAhora(); }} />
+      )}
+    </TarjetaSeccion>
+  );
+}
+
+// ---- Novedades con plus — Guardia Pasiva, Viáticos, etc. (obligatorio) ----
+function SeccionNovedadesPlus({ anio, mes }: { anio: number; mes: number }) {
+  const { data, isLoading } = useNovedadesPlusPeriodo(anio, mes);
+  const guardar = useGuardarNovedadesPlusPeriodo();
+  const [modo, setModo] = useState<'lectura' | 'edicion'>('lectura');
+  const [montos, setMontos] = useState<Record<number, string>>({});
+  const [dialogConfirmar, setDialogConfirmar] = useState(false);
+
+  useEffect(() => {
+    setModo('lectura');
+  }, [anio, mes]);
+
+  function iniciarEdicion() {
+    setMontos(Object.fromEntries((data ?? []).map((t) => [t.tipoNovedadId, t.montoPorDia ?? ''])));
+    setModo('edicion');
+  }
+
+  function usarUltimosPrecios() {
+    setMontos((prev) => {
+      const next = { ...prev };
+      for (const t of data ?? []) {
+        if (!next[t.tipoNovedadId] && t.sugerencia) next[t.tipoNovedadId] = t.sugerencia.valor;
+      }
+      return next;
+    });
+  }
+
+  const periodo = etiquetaPeriodo(anio, mes);
+  const hayAlgunoResuelto = (data ?? []).some((t) => t.resuelto);
+  const completo = (data ?? []).every((t) => montos[t.tipoNovedadId] !== '' && !Number.isNaN(Number(montos[t.tipoNovedadId])));
+
+  function guardarAhora() {
+    const tiposNovedad = (data ?? []).map((t) => ({ tipoNovedadId: t.tipoNovedadId, montoPorDia: Number(montos[t.tipoNovedadId]) }));
+    const promesa = guardar.mutateAsync({ anio, mes, tiposNovedad });
+    toast.promise(promesa, {
+      loading: `Guardando novedades con plus de ${periodo}…`,
+      success: `Novedades con plus de ${periodo} guardadas`,
+      error: (e) => mensajeDeError(e, 'No se pudieron guardar los montos'),
+    });
+    promesa.then(() => setModo('lectura')).catch(() => {});
+  }
+
+  function onGuardarClick() {
+    if (hayAlgunoResuelto) setDialogConfirmar(true);
+    else guardarAhora();
+  }
+
+  return (
+    <TarjetaSeccion
+      titulo="Monto por novedad con plus (Guardia Pasiva, Viáticos, etc.)"
+      accion={
+        modo === 'lectura' && !isLoading ? (
+          <button type="button" onClick={iniciarEdicion} className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-accent/60">
+            Editar montos
+          </button>
+        ) : undefined
+      }
+    >
+      {isLoading ? (
+        <p className="text-sm text-slate">Cargando…</p>
+      ) : (data ?? []).length === 0 ? (
+        <p className="text-sm text-slate">No hay tipos de novedad marcados como &quot;genera plus&quot;.</p>
+      ) : modo === 'lectura' ? (
+        <>
+          {!hayAlgunoResuelto && <AvisoSinResolver periodo={periodo} />}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo de novedad</TableHead>
+                <TableHead className="text-right">Monto por novedad</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(data ?? []).map((t) => (
+                <TableRow key={t.tipoNovedadId}>
+                  <TableCell>{t.nombre}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {t.resuelto ? (
+                      `$${formatearImporte(t.montoPorDia ?? undefined)}`
+                    ) : t.sugerencia ? (
+                      <span className="text-amber-700">Último precio: ${formatearImporte(t.sugerencia.valor)}</span>
+                    ) : (
+                      <span className="text-slate">sin resolver</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={usarUltimosPrecios}
+            className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60"
+          >
+            Usar últimos precios
+          </button>
+          {(data ?? []).map((t) => (
+            <label key={t.tipoNovedadId} className="flex items-center justify-between gap-3 text-sm text-ink">
+              {t.nombre}
+              <input
+                aria-label={t.nombre}
+                type="number"
+                step="0.01"
+                value={montos[t.tipoNovedadId] ?? ''}
+                onChange={(e) => setMontos((prev) => ({ ...prev, [t.tipoNovedadId]: e.target.value }))}
+                className="w-32 rounded-md border border-line bg-surface px-2 py-1.5 text-right tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+            </label>
+          ))}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setModo('lectura')} className="rounded-md px-4 py-2 text-sm font-medium text-ink hover:bg-accent/50">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={!completo || guardar.isPending}
+              onClick={onGuardarClick}
+              className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
+            >
+              Guardar novedades con plus de {periodo}
+            </button>
+          </div>
+        </>
+      )}
+
+      {dialogConfirmar && (
+        <ConfirmarEdicionDialog periodo={periodo} onCancelar={() => setDialogConfirmar(false)} onConfirmar={() => { setDialogConfirmar(false); guardarAhora(); }} />
+      )}
+    </TarjetaSeccion>
+  );
+}
+
+// ---- Rangos de km "por tantos" (obligatorio, reemplazo completo del período) ----
+type Rango = { kmDesde: string; kmHasta: string; precioPorKm: string };
+const RANGOS_DEFAULT: Rango[] = [
+  { kmDesde: '0', kmHasta: '60', precioPorKm: '' },
+  { kmDesde: '60', kmHasta: '75', precioPorKm: '' },
+  { kmDesde: '75', kmHasta: '', precioPorKm: '' },
+];
+
+function SeccionRangosKm({ anio, mes }: { anio: number; mes: number }) {
+  const { data, isLoading } = useRangosKmPeriodo(anio, mes);
+  const guardar = useGuardarRangosKmPeriodo();
+  const [modo, setModo] = useState<'lectura' | 'edicion'>('lectura');
+  const [rangos, setRangos] = useState<Rango[]>(RANGOS_DEFAULT);
+  const [dialogConfirmar, setDialogConfirmar] = useState(false);
+
+  useEffect(() => {
+    setModo('lectura');
+  }, [anio, mes]);
+
+  function iniciarEdicion() {
+    const base = data?.resuelto ? data.rangosKm : undefined;
+    setRangos(base?.length ? base.map((r) => ({ kmDesde: r.kmDesde, kmHasta: r.kmHasta ?? '', precioPorKm: r.precioPorKm })) : RANGOS_DEFAULT);
+    setModo('edicion');
+  }
+
+  function actualizarRango(i: number, campo: keyof Rango, valor: string) {
+    setRangos((prev) => prev.map((r, j) => (j === i ? { ...r, [campo]: valor } : r)));
+  }
+
+  function usarUltimosPrecios() {
+    const sugerencia = data?.sugerencia?.rangosKm;
+    if (!sugerencia?.length) return;
+    setRangos(sugerencia.map((r) => ({ kmDesde: r.kmDesde, kmHasta: r.kmHasta ?? '', precioPorKm: r.precioPorKm })));
+  }
+
+  const periodo = etiquetaPeriodo(anio, mes);
+  const completo = rangos.every((r) => r.kmDesde !== '' && r.precioPorKm !== '');
+
+  function guardarAhora() {
+    const rangosKm = rangos.map((r) => ({ kmDesde: Number(r.kmDesde), kmHasta: r.kmHasta === '' ? undefined : Number(r.kmHasta), precioPorKm: Number(r.precioPorKm) }));
+    const promesa = guardar.mutateAsync({ anio, mes, rangosKm });
+    toast.promise(promesa, {
+      loading: `Guardando rangos de km de ${periodo}…`,
+      success: `Rangos de km de ${periodo} guardados`,
+      error: (e) => mensajeDeError(e, 'No se pudieron guardar los rangos'),
+    });
+    promesa.then(() => setModo('lectura')).catch(() => {});
+  }
+
+  function onGuardarClick() {
+    if (data?.resuelto) setDialogConfirmar(true);
+    else guardarAhora();
+  }
+
+  return (
+    <TarjetaSeccion
+      titulo="Rangos de km — régimen «por tantos»"
+      accion={
+        modo === 'lectura' && !isLoading ? (
+          <button type="button" onClick={iniciarEdicion} className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-accent/60">
+            Editar rangos
+          </button>
+        ) : undefined
+      }
+    >
+      {isLoading ? (
+        <p className="text-sm text-slate">Cargando…</p>
+      ) : modo === 'lectura' ? (
+        <>
+          {!data?.resuelto && (
+            <AvisoSinResolver periodo={periodo} />
+          )}
+          {!data?.resuelto && data?.sugerencia && (
+            <p className="text-xs text-amber-700">Último precio:</p>
+          )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Desde</TableHead>
+                <TableHead>Hasta</TableHead>
+                <TableHead className="text-right">Precio por km</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(data?.resuelto ? data.rangosKm : (data?.sugerencia?.rangosKm ?? [])).map((r, i) => (
+                <TableRow key={i}>
+                  <TableCell>{formatearImporte(r.kmDesde)} km</TableCell>
+                  <TableCell>{!r.kmHasta ? 'sin techo' : `${formatearImporte(r.kmHasta)} km`}</TableCell>
+                  <TableCell className="text-right tabular-nums">${formatearImporte(r.precioPorKm)}</TableCell>
+                </TableRow>
+              ))}
+              {!data?.resuelto && !data?.sugerencia && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-slate">Sin rangos cargados todavía.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={usarUltimosPrecios}
+            disabled={!data?.sugerencia?.rangosKm?.length}
+            className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60 disabled:opacity-50"
+          >
+            Usar últimos precios
+          </button>
+          {rangos.map((r, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-2 text-sm text-ink">
+              <input
+                aria-label={`Rango ${i + 1} km desde`}
+                type="number"
+                step="0.01"
+                value={r.kmDesde}
+                onChange={(e) => actualizarRango(i, 'kmDesde', e.target.value)}
+                className="w-20 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+              <span className="text-slate">a</span>
+              <input
+                aria-label={`Rango ${i + 1} km hasta`}
+                type="number"
+                step="0.01"
+                placeholder="sin techo"
+                value={r.kmHasta}
+                onChange={(e) => actualizarRango(i, 'kmHasta', e.target.value)}
+                className="w-24 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+              <span className="text-slate">km →</span>
+              <input
+                aria-label={`Rango ${i + 1} precio por km`}
+                type="number"
+                step="0.01"
+                value={r.precioPorKm}
+                onChange={(e) => actualizarRango(i, 'precioPorKm', e.target.value)}
+                className="w-28 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+              <span className="text-slate">$/km</span>
+            </div>
+          ))}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setModo('lectura')} className="rounded-md px-4 py-2 text-sm font-medium text-ink hover:bg-accent/50">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={!completo || guardar.isPending}
+              onClick={onGuardarClick}
+              className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
+            >
+              Guardar rangos de {periodo}
+            </button>
+          </div>
+        </>
+      )}
+
+      {dialogConfirmar && (
+        <ConfirmarEdicionDialog periodo={periodo} onCancelar={() => setDialogConfirmar(false)} onConfirmar={() => { setDialogConfirmar(false); guardarAhora(); }} />
+      )}
+    </TarjetaSeccion>
   );
 }

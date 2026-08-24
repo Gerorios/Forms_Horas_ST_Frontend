@@ -27,6 +27,14 @@ export function DetalleEmpleado({
         <span>
           Novedades: <span className="text-ink">{fila.etiquetaNovedades || '—'}</span>
         </span>
+        {fila.plusIndividual != null && (
+          <span>
+            Plus individual:{' '}
+            <span className="text-ink">
+              {formatMoney(fila.plusIndividual)} ({fila.plusIndividualMotivo})
+            </span>
+          </span>
+        )}
       </div>
 
       <div>
