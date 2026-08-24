@@ -34,36 +34,61 @@ export interface ContratoLiquidacion {
   nombre: string;
 }
 
-// ---- Ronda mensual de tarifas (ver ADR-010 y ADR-011) ----
-export interface EstadoTarifas {
-  ultimoPeriodo: { anio: number; mes: number } | null;
-  categorias: {
-    id: number;
-    nombre: string;
-    importeHoraActual: string | null;
-    bonoNoRemunerativoActual: { tipo: TipoBonoNoRemunerativo; valor: string } | null;
-  }[];
-  tiposNovedad: { id: number; nombre: string; montoPorDiaActual: string | null }[];
-  rangosKm: { kmDesde: string; kmHasta: string | null; precioPorKmActual: string }[];
+// ---- Precios por período (ver ADR-018, reemplaza la ronda mensual de
+// ADR-010): cada sección se lee/guarda de forma independiente, por período
+// exacto — sin relleno de huecos ni bloqueo entre meses. ----
+
+export interface Sugerencia {
+  valor: string;
+  periodo: { anio: number; mes: number };
 }
 
-export interface CargarRondaTarifasInput {
-  mes: number;
-  anio: number;
-  categorias: { categoriaUocraId: number; importeHora: number }[];
-  tiposNovedad: { tipoNovedadId: number; montoPorDia: number }[];
-  rangosKm: { kmDesde: number; kmHasta?: number; precioPorKm: number }[];
-  bonosNoRemunerativos: { categoriaUocraId: number; tipo: TipoBonoNoRemunerativo; valor: number }[];
+export interface CategoriaPeriodoItem {
+  id: number;
+  nombre: string;
+  resuelto: boolean;
+  importeHora: string | null;
+  sugerencia: Sugerencia | null;
 }
 
-// ---- Sueldos mensualizados (vigentes — ver ADR-016) ----
+export interface BonoPeriodoItem {
+  categoriaUocraId: number;
+  nombre: string;
+  resuelto: boolean;
+  bono: { tipo: TipoBonoNoRemunerativo; valor: string } | null;
+  sugerencia: (Omit<Sugerencia, 'valor'> & { tipo: TipoBonoNoRemunerativo; valor: string }) | null;
+}
+
+export interface NovedadPlusPeriodoItem {
+  tipoNovedadId: number;
+  nombre: string;
+  resuelto: boolean;
+  montoPorDia: string | null;
+  sugerencia: Sugerencia | null;
+}
+
+export interface RangoKmItem {
+  kmDesde: string;
+  kmHasta: string | null;
+  precioPorKm: string;
+}
+
+export interface RangosKmPeriodo {
+  resuelto: boolean;
+  rangosKm: RangoKmItem[];
+  sugerencia: { rangosKm: RangoKmItem[]; periodo: { anio: number; mes: number } } | null;
+}
+
+// ---- Sueldos mensualizados (por período — ver ADR-018, reemplaza ADR-016) ----
 export interface SueldoMensualizadoItem {
   cuil: string;
   apellidoNombre: string;
   /** Nombre de la categoría UOCRA del perfil (define el bono no remunerativo,
    * no el sueldo fijo). null si el perfil no tiene categoría asignada. */
   categoria: string | null;
+  resuelto: boolean;
   monto: string | null;
+  sugerencia: Sugerencia | null;
 }
 
 // ---- Datos variables por quincena ----
@@ -90,6 +115,8 @@ export interface CalculoQuincenaItem {
   montoPresentismo: number;
   plus: { tipoNovedadId: number; nombre: string; dias: number; monto: number }[];
   noRemunerativo: number;
+  plusIndividual: number | null;
+  plusIndividualMotivo: string | null;
   novedadesTexto: string;
   total: number;
   datoFaltante: string | null;
@@ -152,85 +179,90 @@ export function useToggleCategoriaUocra() {
   });
 }
 
-// ---- Ronda mensual de tarifas ----
-export function useEstadoTarifas() {
-  return useQuery({ queryKey: ['liquidacion', 'tarifas-estado'], queryFn: () => get<EstadoTarifas>('/liquidacion/tarifas/estado') });
-}
-export function useCargarRondaTarifas() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (dto: CargarRondaTarifasInput) =>
-      api.post<{ mesesCompletados: { anio: number; mes: number }[] }>('/liquidacion/tarifas/ronda', dto).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-estado'] }),
-  });
-}
-
-// ---- Edición de una ronda ya cargada (ver contrato GET/PUT /tarifas/ronda/:anio/:mes) ----
-export interface RondaTarifasPeriodo {
-  categorias: {
-    id: number;
-    nombre: string;
-    importeHora: string;
-    bonoNoRemunerativo: { tipo: TipoBonoNoRemunerativo; valor: string } | null;
-  }[];
-  tiposNovedad: { id: number; nombre: string; montoPorDia: string }[];
-  rangosKm: { kmDesde: string; kmHasta: string | null; precioPorKm: string }[];
-}
-
 function periodoHabilitado(anio: number, mes: number) {
   return Number.isInteger(anio) && anio > 0 && Number.isInteger(mes) && mes >= 1 && mes <= 12;
 }
 
-/** Shape crudo del backend (GET /liquidacion/tarifas/ronda/:anio/:mes). */
-interface RondaTarifasPeriodoApi {
-  anio: number;
-  mes: number;
-  categorias: { categoriaUocraId: number; nombre: string; importeHora: string | null }[];
-  tiposNovedad: { tipoNovedadId: number; nombre: string; montoPorDia: string | null }[];
-  rangosKm: { kmDesde: string; kmHasta: string | null; precioPorKm: string }[];
-  bonosNoRemunerativos: { categoriaUocraId: number; bono: { tipo: TipoBonoNoRemunerativo; valor: string } | null }[];
-}
-
-function adaptarRondaPeriodo(api: RondaTarifasPeriodoApi): RondaTarifasPeriodo {
-  const bonoPorCategoria = new Map(api.bonosNoRemunerativos.map((b) => [b.categoriaUocraId, b.bono]));
-  return {
-    categorias: api.categorias.map((c) => ({
-      id: c.categoriaUocraId,
-      nombre: c.nombre,
-      importeHora: c.importeHora ?? '',
-      bonoNoRemunerativo: bonoPorCategoria.get(c.categoriaUocraId) ?? null,
-    })),
-    tiposNovedad: api.tiposNovedad.map((t) => ({
-      id: t.tipoNovedadId,
-      nombre: t.nombre,
-      montoPorDia: t.montoPorDia ?? '',
-    })),
-    rangosKm: api.rangosKm,
-  };
-}
-
-export function useRondaPeriodo(anio: number, mes: number, enabled = true) {
+// ---- Sección: tarifa por hora por categoría UOCRA (obligatorio) ----
+export function useCategoriasPeriodo(anio: number, mes: number) {
   return useQuery({
-    queryKey: ['liquidacion', 'tarifas-ronda', anio, mes],
-    queryFn: async () => adaptarRondaPeriodo(await get<RondaTarifasPeriodoApi>(`/liquidacion/tarifas/ronda/${anio}/${mes}`)),
-    enabled: enabled && periodoHabilitado(anio, mes),
-    retry: false,
+    queryKey: ['liquidacion', 'tarifas-categorias', anio, mes],
+    queryFn: () => get<CategoriaPeriodoItem[]>(`/liquidacion/tarifas/categorias/${anio}/${mes}`),
+    enabled: periodoHabilitado(anio, mes),
+  });
+}
+export function useGuardarCategoriasPeriodo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ anio, mes, categorias }: { anio: number; mes: number; categorias: { categoriaUocraId: number; importeHora: number }[] }) =>
+      api.put<CategoriaPeriodoItem[]>(`/liquidacion/tarifas/categorias/${anio}/${mes}`, { categorias }).then((r) => r.data),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-categorias', vars.anio, vars.mes] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincena-detalle'] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincenas'] });
+    },
   });
 }
 
-export type ActualizarRondaTarifasInput = { anio: number; mes: number } & Omit<
-  CargarRondaTarifasInput,
-  'anio' | 'mes'
->;
-
-export function useActualizarRondaTarifas() {
+// ---- Sección: bono no remunerativo por categoría (único campo opcional) ----
+export function useBonosPeriodo(anio: number, mes: number) {
+  return useQuery({
+    queryKey: ['liquidacion', 'tarifas-bonos', anio, mes],
+    queryFn: () => get<BonoPeriodoItem[]>(`/liquidacion/tarifas/bonos/${anio}/${mes}`),
+    enabled: periodoHabilitado(anio, mes),
+  });
+}
+export function useGuardarBonosPeriodo() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ anio, mes, ...dto }: ActualizarRondaTarifasInput) =>
-      api.put(`/liquidacion/tarifas/ronda/${anio}/${mes}`, dto).then((r) => r.data),
-    onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-estado'] });
-      qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-ronda', vars.anio, vars.mes] });
+    mutationFn: ({ anio, mes, bonos }: { anio: number; mes: number; bonos: { categoriaUocraId: number; tipo: TipoBonoNoRemunerativo; valor: number }[] }) =>
+      api.put<BonoPeriodoItem[]>(`/liquidacion/tarifas/bonos/${anio}/${mes}`, { bonos }).then((r) => r.data),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-bonos', vars.anio, vars.mes] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincena-detalle'] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincenas'] });
+    },
+  });
+}
+
+// ---- Sección: monto por novedad con plus — Guardia Pasiva, Viáticos, etc. (obligatorio) ----
+export function useNovedadesPlusPeriodo(anio: number, mes: number) {
+  return useQuery({
+    queryKey: ['liquidacion', 'tarifas-novedades-plus', anio, mes],
+    queryFn: () => get<NovedadPlusPeriodoItem[]>(`/liquidacion/tarifas/novedades-plus/${anio}/${mes}`),
+    enabled: periodoHabilitado(anio, mes),
+  });
+}
+export function useGuardarNovedadesPlusPeriodo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ anio, mes, tiposNovedad }: { anio: number; mes: number; tiposNovedad: { tipoNovedadId: number; montoPorDia: number }[] }) =>
+      api.put<NovedadPlusPeriodoItem[]>(`/liquidacion/tarifas/novedades-plus/${anio}/${mes}`, { tiposNovedad }).then((r) => r.data),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-novedades-plus', vars.anio, vars.mes] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincena-detalle'] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincenas'] });
+    },
+  });
+}
+
+// ---- Sección: rangos de km "por tantos" (obligatorio, reemplazo completo del período) ----
+export function useRangosKmPeriodo(anio: number, mes: number) {
+  return useQuery({
+    queryKey: ['liquidacion', 'tarifas-rangos-km', anio, mes],
+    queryFn: () => get<RangosKmPeriodo>(`/liquidacion/tarifas/rangos-km/${anio}/${mes}`),
+    enabled: periodoHabilitado(anio, mes),
+  });
+}
+export function useGuardarRangosKmPeriodo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ anio, mes, rangosKm }: { anio: number; mes: number; rangosKm: { kmDesde: number; kmHasta?: number; precioPorKm: number }[] }) =>
+      api.put<RangosKmPeriodo>(`/liquidacion/tarifas/rangos-km/${anio}/${mes}`, { rangosKm }).then((r) => r.data),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-rangos-km', vars.anio, vars.mes] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincena-detalle'] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincenas'] });
     },
   });
 }
@@ -298,9 +330,51 @@ export function useGuardarSueldosMensualizados() {
       qc.invalidateQueries({ queryKey: ['liquidacion', 'sueldos-mensualizados'] });
       qc.invalidateQueries({ queryKey: ['liquidacion', 'quincena-detalle'] });
       qc.invalidateQueries({ queryKey: ['liquidacion', 'quincenas'] });
-      // Cargar/completar meses puede crear RondaTarifas nuevas (huecos) —
-      // refresca "último período cargado" que muestra la pestaña de Precios.
-      qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-estado'] });
+    },
+  });
+}
+
+// ---- Plus individual (ver ADR-018): monto puntual por empleado/quincena,
+// con motivo — independiente de categoría, no versionado por período. ----
+export interface PlusIndividualItem {
+  id: number;
+  cuil: string;
+  anio: number;
+  mes: number;
+  quincena: number;
+  monto: string;
+  motivo: string;
+  cargadoPorCuil: string;
+  createdAt: string;
+  empleado: { apellido_nombre: string };
+}
+
+export function usePlusIndividual(anio: number, mes: number, quincena: number) {
+  return useQuery({
+    queryKey: ['liquidacion', 'plus-individual', anio, mes, quincena],
+    queryFn: () => get<PlusIndividualItem[]>('/liquidacion/plus-individual', { anio, mes, quincena }),
+  });
+}
+export function useCargarPlusIndividual() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: { cuil: string; anio: number; mes: number; quincena: number; monto: number; motivo: string }) =>
+      api.post<PlusIndividualItem>('/liquidacion/plus-individual', dto).then((r) => r.data),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'plus-individual', vars.anio, vars.mes, vars.quincena] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincena-detalle'] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincenas'] });
+    },
+  });
+}
+export function useEliminarPlusIndividual() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/liquidacion/plus-individual/${id}`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'plus-individual'] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincena-detalle'] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincenas'] });
     },
   });
 }
@@ -392,6 +466,8 @@ export interface FilaDetalleEmpleado {
   presentismo: string;
   totalPlus: string;
   noRemunerativo: string;
+  plusIndividual: string | null;
+  plusIndividualMotivo: string | null;
   total: string;
   modalidadPago: ModalidadPago | null;
   etiquetaNovedades: string;

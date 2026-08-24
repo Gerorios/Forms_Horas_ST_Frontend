@@ -42,7 +42,9 @@ export function SueldosMensualizadosTab() {
   useEffect(() => {
     if (!data || syncKey.current === clavePeriodo) return;
     syncKey.current = clavePeriodo;
-    setEdits(Object.fromEntries(data.map((s) => [s.cuil, s.monto ?? ''])));
+    // Prellena con el valor resuelto de este período; si no hay, con la
+    // sugerencia del último período anterior (editable, no se guarda solo).
+    setEdits(Object.fromEntries(data.map((s) => [s.cuil, s.monto ?? s.sugerencia?.valor ?? ''])));
   }, [data, clavePeriodo]);
 
   function aplicarPorcentaje() {
@@ -51,8 +53,9 @@ export function SueldosMensualizadosTab() {
     setEdits((prev) => {
       const next = { ...prev };
       for (const s of data ?? []) {
-        if (s.monto == null) continue; // sin sueldo previo: no hay de dónde partir, se carga 1x1
-        next[s.cuil] = (Number(s.monto) * (1 + pct / 100)).toFixed(2);
+        const base = s.monto ?? s.sugerencia?.valor;
+        if (base == null) continue; // sin sueldo previo: no hay de dónde partir, se carga 1x1
+        next[s.cuil] = (Number(base) * (1 + pct / 100)).toFixed(2);
       }
       return next;
     });
@@ -160,6 +163,12 @@ export function SueldosMensualizadosTab() {
                       onChange={(e) => setEdits((prev) => ({ ...prev, [s.cuil]: e.target.value }))}
                       className="w-40 rounded-md border border-line bg-surface px-2 py-1 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
                     />
+                    {!s.resuelto && (
+                      <p className="mt-1 text-[11px] text-amber-700">
+                        Sin resolver para {etiquetaMes(mes, anio)}
+                        {s.sugerencia ? ` — sugerido: $${s.sugerencia.valor} (de ${etiquetaMes(s.sugerencia.periodo.mes, s.sugerencia.periodo.anio)})` : ''}
+                      </p>
+                    )}
                   </td>
                 </tr>
               ))}
