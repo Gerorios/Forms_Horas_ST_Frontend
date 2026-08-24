@@ -147,6 +147,9 @@ export interface Novedad {
   motivoAnulacion: string | null;
   anuladaPorCuil: string | null;
   anuladaEn: string | null;
+  /** Cuándo se guardó el registro (distinto de `fechaInicio`, que es cuándo
+   * arrancó la ausencia/novedad en sí) — "fecha de carga" en el detalle. */
+  createdAt: string;
 }
 
 export interface CrearNovedadInput {

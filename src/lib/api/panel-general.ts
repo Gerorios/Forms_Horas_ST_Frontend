@@ -68,6 +68,13 @@ export interface FilaDetalleDiario {
    * la jornada (el operario trabajó ahí ese día) pero no es accionable por
    * este usuario — decisión 2026-08-19, "jornada completa". */
   esMiContrato: boolean;
+  /** Auditoría: quién cargó el registro y cuándo (created_at, no confundir
+   * con `fecha`, que es el día trabajado) — 2026-08-21. */
+  cargadoPorNombre: string;
+  cargadoEn: string;
+  /** null hasta que se resuelve (estado sigue en 'pendiente'). */
+  aprobadoPorNombre: string | null;
+  aprobadoEn: string | null;
 }
 
 /** Un renglón del Detalle diario: el día de una persona, desplegable, con
@@ -127,6 +134,12 @@ export interface RegistroControlDiario {
   estado: 'pendiente' | 'aprobado' | 'desaprobado';
   tareas: string[];
   observacion: string | null;
+  /** Auditoría: quién cargó el registro y cuándo — mismo criterio que
+   * FilaDetalleDiario (2026-08-21). */
+  cargadoPorNombre: string;
+  cargadoEn: string;
+  aprobadoPorNombre: string | null;
+  aprobadoEn: string | null;
 }
 
 /** Un operario-día con más de 13hs sumadas cruzando todos los contratos —

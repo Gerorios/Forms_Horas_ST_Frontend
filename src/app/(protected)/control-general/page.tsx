@@ -25,6 +25,47 @@ function pasaPersona(cuil: string, seleccionados: string[]) {
   return seleccionados.length === 0 || seleccionados.includes(cuil);
 }
 
+function formatearFechaHora(iso: string): string {
+  return new Date(iso).toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/** Renglón chico y gris con la auditoría de un registro: quién lo cargó y
+ * cuándo, y quién lo aprobó/desaprobó y cuándo (si ya se resolvió). No
+ * compite visualmente con tareas/observación — es contexto, no lo operativo. */
+function AuditoriaRegistro({
+  estado,
+  cargadoPorNombre,
+  cargadoEn,
+  aprobadoPorNombre,
+  aprobadoEn,
+}: {
+  estado: string;
+  cargadoPorNombre: string;
+  cargadoEn: string;
+  aprobadoPorNombre: string | null;
+  aprobadoEn: string | null;
+}) {
+  const verbo = estado === 'desaprobado' ? 'Desaprobado' : 'Aprobado';
+  return (
+    <div className="mt-1 text-[11px] text-slate">
+      <span>
+        Cargado por {cargadoPorNombre || '—'} · {formatearFechaHora(cargadoEn)}
+      </span>
+      {aprobadoPorNombre && aprobadoEn && (
+        <span className="ml-2">
+          · {verbo} por {aprobadoPorNombre} · {formatearFechaHora(aprobadoEn)}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** Cuántas filas del detalle diario se muestran por página ("Ver más"). */
 const PAGINA_DETALLE = 50;
 
@@ -142,6 +183,13 @@ function FragmentoDetalleDiario({
                     {r.tareas.length > 0 ? r.tareas.join(', ') : 'Sin tareas'}
                     {r.observacion && <span className="block italic">“{r.observacion}”</span>}
                   </div>
+                  <AuditoriaRegistro
+                    estado={r.estado}
+                    cargadoPorNombre={r.cargadoPorNombre}
+                    cargadoEn={r.cargadoEn}
+                    aprobadoPorNombre={r.aprobadoPorNombre}
+                    aprobadoEn={r.aprobadoEn}
+                  />
                 </li>
               ))}
             </ul>
@@ -204,6 +252,13 @@ function FragmentoControlDiario({
                       <span className="block italic">“{r.observacion}”</span>
                     )}
                   </div>
+                  <AuditoriaRegistro
+                    estado={r.estado}
+                    cargadoPorNombre={r.cargadoPorNombre}
+                    cargadoEn={r.cargadoEn}
+                    aprobadoPorNombre={r.aprobadoPorNombre}
+                    aprobadoEn={r.aprobadoEn}
+                  />
                 </li>
               ))}
             </ul>
