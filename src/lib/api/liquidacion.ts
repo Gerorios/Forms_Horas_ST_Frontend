@@ -7,7 +7,7 @@ export interface CategoriaUocra {
   activo: boolean;
 }
 
-export type RegimenLiquidacion = 'jornalizado' | 'fijo' | 'mensualizado' | 'por_tantos' | 'administrativo';
+export type RegimenLiquidacion = 'jornalizado' | 'fijo' | 'fijo_105' | 'mensualizado' | 'por_tantos' | 'administrativo';
 export type ModalidadPago = 'en_b' | 'con_descuentos';
 export type TipoBonoNoRemunerativo = 'monto_fijo' | 'porcentaje';
 
