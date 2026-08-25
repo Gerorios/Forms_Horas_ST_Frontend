@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { FilaDetalleEmpleado } from '@/lib/api/liquidacion';
 import { formatMoney } from './fila-empleado';
 
-const COLUMNAS = 13;
+const COLUMNAS = 14;
 
 /**
  * Tabla propia para el régimen "por tantos" (relevadores) — separada de
@@ -27,14 +27,15 @@ export function TablaPorTantos({
             <th className="px-3 py-2.5 font-medium">Relevador</th>
             <th className="px-3 py-2.5 font-medium">Categoría</th>
             <th className="px-3 py-2.5 font-medium">Km</th>
-            <th className="px-3 py-2.5 font-medium">Monto bruto</th>
+            <th className="px-3 py-2.5 font-medium">Monto neto</th>
             <th className="px-3 py-2.5 font-medium">Hs totales</th>
             <th className="px-3 py-2.5 font-medium">Hs CCT</th>
             <th className="px-3 py-2.5 font-medium">Total bruto</th>
             <th className="px-3 py-2.5 font-medium">Hs extra</th>
-            <th className="px-3 py-2.5 font-medium">$$ Hs Extras (en B)</th>
             <th className="px-3 py-2.5 font-medium">Presentismo</th>
-            <th className="px-3 py-2.5 font-medium">TOTAL</th>
+            <th className="px-3 py-2.5 font-medium">Bono</th>
+            <th className="px-3 py-2.5 font-medium">Monto A</th>
+            <th className="px-3 py-2.5 font-medium">Monto B</th>
             <th className="px-3 py-2.5 font-medium">Alertas</th>
             <th className="px-3 py-2.5 font-medium"></th>
           </tr>
@@ -81,9 +82,12 @@ function FilaPorTantos({ fila: f, km }: { fila: FilaDetalleEmpleado; km: string 
         <td className="px-3 py-2.5 tabular-nums">
           {f.horasExtra !== null ? Number(f.horasExtra).toFixed(2) : '—'}
         </td>
-        <td className="px-3 py-2.5 tabular-nums">{formatMoney(f.montoExtra)}</td>
         <td className="px-3 py-2.5 tabular-nums">{formatMoney(f.presentismo)}</td>
-        <td className="px-3 py-2.5 font-medium tabular-nums">{formatMoney(f.total)}</td>
+        <td className="px-3 py-2.5 tabular-nums">{formatMoney(f.noRemunerativo)}</td>
+        <td className="px-3 py-2.5 font-medium tabular-nums">
+          {formatMoney(String(Number(f.basico) + Number(f.presentismo) + Number(f.noRemunerativo)))}
+        </td>
+        <td className="px-3 py-2.5 font-medium tabular-nums">{formatMoney(f.montoExtra)}</td>
         <td className="px-3 py-2.5">
           {f.datoFaltante && (
             <span className="rounded bg-danger/10 px-1 text-xs font-medium text-danger" title={f.datoFaltante}>

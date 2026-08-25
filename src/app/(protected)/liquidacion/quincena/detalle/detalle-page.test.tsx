@@ -123,8 +123,8 @@ const filaPorTantos = {
   montoExtra: '372000.00',
   presentismo: '105600.00',
   totalPlus: '0.00',
-  noRemunerativo: '0.00',
-  total: '1005600.00',
+  noRemunerativo: '33550.00',
+  total: '1039150.00',
   modalidadPago: null,
   etiquetaNovedades: '',
   datoFaltante: null,
@@ -260,19 +260,33 @@ describe('DetalleQuincenaPage', () => {
     expect(screen.getByText('Sin novedades en el período.')).toBeInTheDocument();
   });
 
-  it('la tabla de "por tantos" muestra km, monto bruto, horas y el extra ya sin ×1.5, etiquetado en B', () => {
+  it('la tabla de "por tantos" muestra km, monto neto, horas y el extra ya sin ×1.5, etiquetado como Monto B', () => {
     renderPage();
     expect(screen.getByText('Por tantos (relevadores)')).toBeInTheDocument();
-    expect(screen.getByText('$$ Hs Extras (en B)')).toBeInTheDocument();
+    expect(screen.getByText('Monto neto')).toBeInTheDocument();
+    expect(screen.getByText('Monto B')).toBeInTheDocument();
 
     const fila = screen.getByRole('cell', { name: 'RELEVADOR PABLO' }).closest('tr')!;
     expect(fila).toHaveTextContent('175.00'); // km cargado
-    expect(fila).toHaveTextContent('900.000,00'); // monto bruto (km × precio del rango)
+    expect(fila).toHaveTextContent('900.000,00'); // monto neto (km × precio del rango)
     expect(fila).toHaveTextContent('150.00'); // horas totales
     expect(fila).toHaveTextContent('88.00'); // horas CCT
     expect(fila).toHaveTextContent('62.00'); // horas extra
-    // Extra en B: 62 × tarifa, SIN el ×1.5 de jornalizado (que hubiera dado 558.000).
+    // Monto B: 62 × tarifa, SIN el ×1.5 de jornalizado (que hubiera dado 558.000).
     expect(fila).toHaveTextContent('372.000,00');
+  });
+
+  it('la tabla de "por tantos" muestra el bono no remunerativo y separa Monto A (bruto+presentismo+bono) de Monto B', () => {
+    renderPage();
+    // Mismo encabezado "Bono" existe en la tabla principal — alcanza con
+    // que exista también acá (patrón ya usado arriba para "Hs totales").
+    expect(screen.getAllByRole('columnheader', { name: 'Bono' }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('columnheader', { name: 'Monto A' })).toBeInTheDocument();
+
+    const fila = screen.getByRole('cell', { name: 'RELEVADOR PABLO' }).closest('tr')!;
+    expect(fila).toHaveTextContent('33.550,00'); // bono no remunerativo
+    // Monto A = total bruto (528.000) + presentismo (105.600) + bono (33.550)
+    expect(fila).toHaveTextContent('667.150,00');
   });
 
   it('el filtro de Empleado también acota la tabla de "por tantos"', async () => {
