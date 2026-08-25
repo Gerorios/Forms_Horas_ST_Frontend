@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { FilaDetalleEmpleado, RegimenLiquidacion } from '@/lib/api/liquidacion';
 import { DetalleEmpleado } from './detalle-empleado';
 
@@ -19,7 +19,9 @@ export function formatMoney(v: string) {
   return Number(v).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
 }
 
-export function FilaEmpleado({
+// Memoizado: con 100+ filas montadas, un re-render del padre (ej. tipear en
+// un filtro) no debería repintar todas las filas si su `fila` no cambió.
+export const FilaEmpleado = memo(function FilaEmpleado({
   fila,
   contratosDestacados,
 }: {
@@ -93,4 +95,4 @@ export function FilaEmpleado({
       )}
     </>
   );
-}
+});
