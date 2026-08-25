@@ -23,6 +23,7 @@ import {
 const REGIMEN_LABEL: Record<RegimenLiquidacion, string> = {
   jornalizado: 'Jornalizado (por horas)',
   fijo: 'Fijo (88hs por quincena)',
+  fijo_105: 'Fijo 105hs (88 básico + 17,5 extra fijas)',
   mensualizado: 'Mensualizado (monto fijo por quincena)',
   por_tantos: 'Por tantos (por cantidad)',
   administrativo: 'Administrativo (se liquida por otro circuito)',
@@ -38,7 +39,7 @@ const POR_PAGINA = 20;
 /** Regímenes que admiten contratos de imputación para el corte por contrato
  * del Análisis (plan 2026-08-12, addendum): sin horas reales que prorratear,
  * el costo se reparte en partes iguales entre los contratos asignados. */
-const REGIMENES_CON_IMPUTACION: RegimenLiquidacion[] = ['mensualizado', 'fijo', 'por_tantos'];
+const REGIMENES_CON_IMPUTACION: RegimenLiquidacion[] = ['mensualizado', 'fijo', 'fijo_105', 'por_tantos'];
 
 /** Selector múltiple de contratos de imputación de UNA fila. Guarda con el
  * upsert individual (el masivo NO toca imputación), re-mandando el resto del
