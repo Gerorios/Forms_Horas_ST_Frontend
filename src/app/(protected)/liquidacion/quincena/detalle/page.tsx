@@ -143,20 +143,28 @@ export default function DetalleQuincenaPage() {
     [filas, empleadoSel, regimenSel, categoriaSel, contratoSel],
   );
 
-  const filasVisibles = filas.filter(
-    (f) =>
-      pasaEmpleado(f.cuil, empleadoSel) &&
-      pasaRegimen(f, regimenSel) &&
-      pasaCategoria(f, categoriaSel) &&
-      pasaContrato(f.dias, contratoSel),
+  const filasVisibles = useMemo(
+    () =>
+      filas.filter(
+        (f) =>
+          pasaEmpleado(f.cuil, empleadoSel) &&
+          pasaRegimen(f, regimenSel) &&
+          pasaCategoria(f, categoriaSel) &&
+          pasaContrato(f.dias, contratoSel),
+      ),
+    [filas, empleadoSel, regimenSel, categoriaSel, contratoSel],
   );
   // Las filas sin perfil no tienen contrato/régimen/categoría asignados, así
   // que esos filtros no les aplican: quedan siempre visibles (solo el filtro
   // de empleado las filtra) y se atenúan cuando hay un filtro de contrato
   // activo, para no desaparecer en silencio.
-  const sinPerfilVisibles = sinPerfil.filter((e) => pasaEmpleado(e.cuil, empleadoSel));
-  const filasPorTantosVisibles = filasPorTantos.filter(
-    (f) => pasaEmpleado(f.cuil, empleadoSel) && pasaCategoria(f, categoriaSel),
+  const sinPerfilVisibles = useMemo(
+    () => sinPerfil.filter((e) => pasaEmpleado(e.cuil, empleadoSel)),
+    [sinPerfil, empleadoSel],
+  );
+  const filasPorTantosVisibles = useMemo(
+    () => filasPorTantos.filter((f) => pasaEmpleado(f.cuil, empleadoSel) && pasaCategoria(f, categoriaSel)),
+    [filasPorTantos, empleadoSel, categoriaSel],
   );
 
   const hayFiltros = empleadoSel.length > 0 || regimenSel.length > 0 || categoriaSel.length > 0 || contratoSel.length > 0;

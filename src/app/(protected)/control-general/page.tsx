@@ -2,12 +2,22 @@
 
 import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { PageHeader } from '@/components/page-header';
 import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
 import { MultiFiltro } from '@/components/ui/barra-filtros';
 import { opcionesFacetadas } from '@/lib/facetado';
-import { HorasPorQuincenaChart } from '@/features/control-general/horas-por-quincena-chart';
-import { RankingOperarios } from '@/features/control-general/ranking-operarios';
+
+// Recharts (~100kb+) no hace falta en el bundle inicial de la página — cada
+// gráfico se carga recién cuando se renderiza, sin bloquear KPIs/tablas.
+const HorasPorQuincenaChart = dynamic(
+  () => import('@/features/control-general/horas-por-quincena-chart').then((m) => m.HorasPorQuincenaChart),
+  { ssr: false },
+);
+const RankingOperarios = dynamic(
+  () => import('@/features/control-general/ranking-operarios').then((m) => m.RankingOperarios),
+  { ssr: false },
+);
 import {
   useResumenOperarios,
   useSinCarga,

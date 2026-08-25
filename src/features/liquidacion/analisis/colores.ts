@@ -31,3 +31,13 @@ export function fmtPct(n: number, conSigno = false): string {
   const texto = `${n.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`;
   return conSigno && n > 0 ? `+${texto}` : texto;
 }
+
+/** Acá subir es COSTO: la suba fuerte va en rojo, la suba normal en warn y
+ * la baja queda neutra (slate). Vive acá (no en top-cobradores.tsx, que
+ * importa recharts) para que la página pueda usarla sin cargar el gráfico
+ * — la tabla de variaciones reusa el mismo código de color. */
+export function claseDelta(deltaPct: number) {
+  if (deltaPct > 25) return 'text-danger';
+  if (deltaPct > 0) return 'text-warn';
+  return 'text-slate';
+}

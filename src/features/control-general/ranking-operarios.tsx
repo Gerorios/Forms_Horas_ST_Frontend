@@ -11,7 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { ResumenOperario } from '@/lib/api/panel-general';
-import { COLOR_SERIE_1 } from './horas-por-quincena-chart';
+import { COLOR_SERIE_1 } from './chart-colors';
 
 function TooltipRanking({
   active,

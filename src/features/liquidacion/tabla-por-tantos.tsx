@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { FilaDetalleEmpleado } from '@/lib/api/liquidacion';
 import { formatMoney } from './fila-empleado';
 
@@ -57,7 +57,8 @@ export function TablaPorTantos({
   );
 }
 
-function FilaPorTantos({ fila: f, km }: { fila: FilaDetalleEmpleado; km: string | null }) {
+// Memoizado por el mismo motivo que FilaEmpleado (ver ese archivo).
+const FilaPorTantos = memo(function FilaPorTantos({ fila: f, km }: { fila: FilaDetalleEmpleado; km: string | null }) {
   const [expandido, setExpandido] = useState(false);
 
   return (
@@ -126,4 +127,4 @@ function FilaPorTantos({ fila: f, km }: { fila: FilaDetalleEmpleado; km: string 
       )}
     </>
   );
-}
+});
