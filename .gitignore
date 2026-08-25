@@ -44,3 +44,4 @@ next-env.d.ts
 # scratch / local (SDD, Claude Code)
 .superpowers/
 .claude/
+.worktrees/
