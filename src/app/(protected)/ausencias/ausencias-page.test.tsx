@@ -23,7 +23,7 @@ function nov(overrides: Partial<Novedad> = {}): Novedad {
     estadoHys: 'pendiente',
     operario: { cuil: '20111111111', apellido_nombre: 'PEREZ JUAN', legajo: 1001 },
     tipoNovedad: { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
-    cargadoPor: { cuil: '20999999999', email: 'sup@test.local' },
+    cargadoPor: { cuil: '20999999999', nombre: 'SUPERVISOR TEST' },
     estado: 'activa',
     motivoAnulacion: null,
     anuladaPorCuil: null,

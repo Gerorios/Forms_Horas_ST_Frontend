@@ -140,7 +140,9 @@ export interface Novedad {
   adjuntoUrl: string | null;
   operario: { cuil: string; apellido_nombre: string; legajo: number };
   tipoNovedad: { id: number; nombre: string; requiereAprobacionHys: boolean };
-  cargadoPor: { cuil: string; email: string };
+  /** Nombre resuelto vía snuempleados (fallback a nombreFueraNomina) — un
+   * email tipo "10801@st.local" no identifica a nadie con el tiempo. */
+  cargadoPor: { cuil: string; nombre: string };
   /** Vigencia del registro (no confundir con `estadoHys`, la resolución de HyS) —
    * mismo eje que `EstadoCargaCombustible` en cargas de combustible. */
   estado: EstadoNovedad;
