@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/page-header';
 import { PillActivo } from '@/features/admin/pill-activo';
 import { EstacionEditRow } from '@/features/admin/estacion-edit-row';
 import { useAdminEstacionesServicio, useCrearEstacionServicio, useToggleEstacionServicio } from '@/lib/api/admin';
+import { Button } from '@/components/button';
 
 export default function EstacionesServicioAdminPage() {
   const { data, isLoading } = useAdminEstacionesServicio();
@@ -58,13 +59,9 @@ export default function EstacionesServicioAdminPage() {
         title="Estaciones de servicio"
         action={
           !mostrarForm && (
-            <button
-              type="button"
-              onClick={() => setMostrarForm(true)}
-              className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95"
-            >
+            <Button variant="primary" onClick={() => setMostrarForm(true)}>
               Nueva estación
-            </button>
+            </Button>
           )
         }
       />
@@ -92,21 +89,12 @@ export default function EstacionesServicioAdminPage() {
             placeholder="CUIT 30-12345678-9 (opcional)"
             className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
           />
-          <button
-            type="button"
-            disabled={crear.isPending || !nombre.trim()}
-            onClick={agregar}
-            className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-          >
+          <Button variant="primary" disabled={crear.isPending || !nombre.trim()} onClick={agregar}>
             {crear.isPending ? 'Guardando…' : 'Guardar'}
-          </button>
-          <button
-            type="button"
-            onClick={cerrarForm}
-            className="rounded-md border border-line px-4 py-2 text-sm font-medium text-slate transition hover:bg-accent/60"
-          >
+          </Button>
+          <Button variant="secondary" onClick={cerrarForm}>
             Cancelar
-          </button>
+          </Button>
         </div>
       )}
 

@@ -19,6 +19,7 @@ import {
   type PerfilLiquidacion,
   type ContratoLiquidacion,
 } from '@/lib/api/liquidacion';
+import { Button } from '@/components/button';
 
 const REGIMEN_LABEL: Record<RegimenLiquidacion, string> = {
   jornalizado: 'Jornalizado (por horas)',
@@ -85,15 +86,15 @@ function ContratosImputacionCell({
         onChange={setIds}
       />
       {dirty && (
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="xs"
           aria-label={`Guardar contratos de ${nombre}`}
           disabled={upsert.isPending}
           onClick={guardar}
-          className="rounded-md bg-brand px-2 py-1 text-xs font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
         >
           Guardar
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -369,14 +370,9 @@ export default function PerfilesLiquidacionPage() {
             </label>
           )}
         </div>
-        <button
-          type="button"
-          disabled={!puedeAsignar || upsertMasivo.isPending}
-          onClick={asignar}
-          className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-        >
+        <Button variant="primary" disabled={!puedeAsignar || upsertMasivo.isPending} onClick={asignar}>
           Asignar a {seleccionados.length || ''} seleccionado{seleccionados.length === 1 ? '' : 's'}
-        </button>
+        </Button>
       </div>
 
       <BarraFiltros
@@ -515,22 +511,22 @@ export default function PerfilesLiquidacionPage() {
               Página {paginaSegura} de {totalPaginas} — {filtrados.length} empleado{filtrados.length === 1 ? '' : 's'}
             </span>
             <div className="flex gap-2">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 disabled={paginaSegura <= 1}
                 onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                className="rounded-md border border-line px-3 py-1.5 font-medium text-ink transition hover:bg-accent/50 disabled:opacity-50"
               >
                 Anterior
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 disabled={paginaSegura >= totalPaginas}
                 onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                className="rounded-md border border-line px-3 py-1.5 font-medium text-ink transition hover:bg-accent/50 disabled:opacity-50"
               >
                 Siguiente
-              </button>
+              </Button>
             </div>
           </div>
         </>

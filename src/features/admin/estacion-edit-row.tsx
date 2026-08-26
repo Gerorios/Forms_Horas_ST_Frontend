@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useActualizarEstacionServicio } from '@/lib/api/admin';
+import { Button } from '@/components/button';
 import type { EstacionServicio } from '@/types/domain';
 
 const inputCls =
@@ -68,13 +69,9 @@ export function EstacionEditRow({ estacion, pill }: { estacion: EstacionServicio
         {estacion.cuit && <span className="text-xs text-slate tabular-nums">{fmtCuit(estacion.cuit)}</span>}
         <span className="ml-auto flex items-center gap-2">
           {pill}
-          <button
-            type="button"
-            onClick={() => (abierto ? cerrar() : setAbierto(true))}
-            className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60"
-          >
+          <Button variant="secondary" size="sm" onClick={() => (abierto ? cerrar() : setAbierto(true))}>
             {abierto ? 'Cerrar' : 'Editar ▾'}
-          </button>
+          </Button>
         </span>
       </div>
       {abierto && (
@@ -100,21 +97,12 @@ export function EstacionEditRow({ estacion, pill }: { estacion: EstacionServicio
             </label>
           </div>
           <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={!puedeGuardar}
-              onClick={guardar}
-              className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-            >
+            <Button variant="primary" disabled={!puedeGuardar} onClick={guardar}>
               {actualizar.isPending ? 'Guardando…' : 'Guardar'}
-            </button>
-            <button
-              type="button"
-              onClick={cerrar}
-              className="rounded-md border border-line px-4 py-2 text-sm font-medium text-slate transition hover:bg-accent/60"
-            >
+            </Button>
+            <Button variant="secondary" onClick={cerrar}>
               Cancelar
-            </button>
+            </Button>
           </div>
         </div>
       )}

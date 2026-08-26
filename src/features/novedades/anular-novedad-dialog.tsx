@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@/components/button';
 
 /** Confirmación de anulación de una novedad (PATCH /novedades/:id/anular) —
  * mismo patrón que AnularCargaDialog (features/combustible/detalle-carga.tsx):
@@ -36,21 +37,16 @@ export function AnularNovedadDialog({
           Confirmo que quiero anular esta novedad
         </label>
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md px-3 py-2 text-sm text-slate hover:bg-accent/60"
-          >
+          <Button variant="ghost" onClick={onCancel}>
             Cancelar
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="danger-solid"
             disabled={motivo.trim() === '' || !confirmado || anulando}
             onClick={() => onConfirmar(motivo.trim())}
-            className="rounded-md bg-danger px-4 py-2 text-sm font-medium text-white transition hover:brightness-95 disabled:opacity-50"
           >
             Anular novedad
-          </button>
+          </Button>
         </div>
       </div>
     </div>

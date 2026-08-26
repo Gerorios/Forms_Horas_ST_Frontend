@@ -4,6 +4,9 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
+import { TableSkeleton } from '@/components/skeleton';
+import { TabCount } from '@/components/tab-count';
+import { Button } from '@/components/button';
 import { BarraFiltros } from '@/components/ui/barra-filtros';
 import { QuincenaCampos } from '@/features/mis-registros/quincena-select';
 import { EditarNovedadDialog } from '@/features/novedades/editar-novedad-dialog';
@@ -21,10 +24,10 @@ import { useSession } from '@/lib/auth/session';
 import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
 import type { EstadoHys, Novedad, ResumenAusenciaOperario } from '@/types/domain';
 
-const TABS: { value: EstadoHys; label: string }[] = [
-  { value: 'pendiente', label: 'Pendientes' },
-  { value: 'aprobada', label: 'Justificadas' },
-  { value: 'desaprobada', label: 'Injustificadas' },
+const TABS: { value: EstadoHys; label: string; tono: 'warn' | 'approved' | 'danger' }[] = [
+  { value: 'pendiente', label: 'Pendientes', tono: 'warn' },
+  { value: 'aprobada', label: 'Justificadas', tono: 'approved' },
+  { value: 'desaprobada', label: 'Injustificadas', tono: 'danger' },
 ];
 
 const ACCION: Record<
@@ -75,21 +78,12 @@ function ResolverDialog({
           />
         </label>
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md px-3 py-2 text-sm text-slate hover:bg-accent/60"
-          >
+          <Button variant="ghost" onClick={onCancel}>
             Cancelar
-          </button>
-          <button
-            type="button"
-            disabled={confirmando}
-            onClick={() => onConfirm(descargo.trim())}
-            className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="primary" disabled={confirmando} onClick={() => onConfirm(descargo.trim())}>
             {info.boton}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -177,6 +171,15 @@ export default function AusenciasPage() {
   );
   const filtradas = useMemo(() => ausencias.filter((n) => n.estadoHys === estado), [ausencias, estado]);
 
+  // Contador por pestaña (badge junto al nombre): de un vistazo, cuántas
+  // ausencias hay en cada estado sin tener que entrar a cada pestaña.
+  const conteos = useMemo(() => {
+    if (!data) return undefined;
+    const acc: Record<EstadoHys, number> = { pendiente: 0, aprobada: 0, desaprobada: 0, no_aplica: 0 };
+    for (const n of ausencias) acc[n.estadoHys]++;
+    return acc;
+  }, [data, ausencias]);
+
   const ausenciasAnuladas = useMemo(
     () => (data ?? []).filter((n) => n.tipoNovedad.nombre === 'Ausencia' && n.estado === 'anulada'),
     [data],
@@ -255,13 +258,14 @@ export default function AusenciasPage() {
               key={t.value}
               type="button"
               onClick={() => setEstado(t.value)}
-              className={`-mb-px border-b-2 px-3 py-2 text-sm transition ${
+              className={`-mb-px flex items-center border-b-2 px-3 py-2 text-sm transition ${
                 estado === t.value
                   ? 'border-brand font-medium text-ink'
                   : 'border-transparent text-slate hover:text-ink'
               }`}
             >
               {t.label}
+              <TabCount value={conteos?.[t.value]} tono={t.tono} />
             </button>
           ))}
         </div>
@@ -274,8 +278,11 @@ export default function AusenciasPage() {
       <BarraFiltros hayFiltros={false} onLimpiar={() => {}}>
         <QuincenaCampos value={periodo} onChange={setPeriodo} />
         {puedeGestionar && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
+            className="ml-auto"
+            disabled={resumen.isLoading}
             onClick={() => {
               // Nunca bajar un CSV vacío en silencio: si la consulta falló o no
               // hay datos, el usuario tiene que enterarse (revisión 2026-08-19).
@@ -289,16 +296,14 @@ export default function AusenciasPage() {
               }
               descargarResumenCsv(resumen.data, periodo);
             }}
-            disabled={resumen.isLoading}
-            className="ml-auto rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-accent/60 disabled:opacity-50"
           >
             Exportar
-          </button>
+          </Button>
         )}
       </BarraFiltros>
 
       {isLoading ? (
-        <p className="text-slate">Cargando…</p>
+        <TableSkeleton rows={5} cols={5} />
       ) : filtradas.length === 0 ? (
         <p className="rounded-xl border border-dashed border-line bg-surface p-8 text-center text-sm text-slate">
           Sin ausencias en este estado.
@@ -343,16 +348,16 @@ export default function AusenciasPage() {
                     <StatusBadge estado={n.estadoHys} />
                   </td>
                   <td className="px-4 py-2.5">
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
+                      size="xs"
                       onClick={(e) => {
                         e.stopPropagation();
                         setDetalle(n);
                       }}
-                      className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-accent/60"
                     >
                       Ver
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}

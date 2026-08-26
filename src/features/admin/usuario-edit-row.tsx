@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useEditarUsuario, useRoles, useContratosAdmin, useTiposNovedadAdmin, type UsuarioAdmin } from '@/lib/api/admin';
+import { Button } from '@/components/button';
 
 const inputCls =
   'rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
@@ -133,13 +134,9 @@ export function UsuarioEditRow({
         </td>
         <td className="px-4 py-2.5">{estado}</td>
         <td className="px-4 py-2.5">
-          <button
-            type="button"
-            onClick={() => (abierto ? cerrar() : setAbierto(true))}
-            className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60"
-          >
+          <Button variant="secondary" size="sm" onClick={() => (abierto ? cerrar() : setAbierto(true))}>
             {abierto ? 'Cerrar' : 'Editar ▾'}
-          </button>
+          </Button>
         </td>
       </tr>
       {abierto && (
@@ -268,28 +265,15 @@ export function UsuarioEditRow({
                 </div>
               )}
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={!puedeGuardar}
-                  onClick={guardar}
-                  className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-                >
+                <Button variant="primary" disabled={!puedeGuardar} onClick={guardar}>
                   {editar.isPending ? 'Guardando…' : 'Guardar'}
-                </button>
-                <button
-                  type="button"
-                  onClick={cerrar}
-                  className="rounded-md border border-line px-4 py-2 text-sm font-medium text-slate transition hover:bg-accent/60"
-                >
+                </Button>
+                <Button variant="secondary" onClick={cerrar}>
                   Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={onResetearPassword}
-                  className="ml-auto rounded-md border border-line px-4 py-2 text-sm font-medium text-slate transition hover:bg-accent/60"
-                >
+                </Button>
+                <Button variant="secondary" className="ml-auto" onClick={onResetearPassword}>
                   Resetear contraseña
-                </button>
+                </Button>
               </div>
             </div>
           </td>

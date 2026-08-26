@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { FiltroNumero, FiltroSelect } from '@/components/ui/barra-filtros';
+import { Button } from '@/components/button';
 import { useSueldosMensualizados, useGuardarSueldosMensualizados, mensajeDeError } from '@/lib/api/liquidacion';
 
 const NOMBRES_MES = [
@@ -78,14 +79,9 @@ export function SueldosMensualizadosTab() {
       <PageHeader
         title={`Sueldos mensualizados de ${etiquetaMes(mes, anio)}`}
         action={
-          <button
-            type="button"
-            onClick={guardarTodos}
-            disabled={guardar.isPending || (data ?? []).length === 0}
-            className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-          >
+          <Button variant="primary" onClick={guardarTodos} disabled={guardar.isPending || (data ?? []).length === 0}>
             {guardar.isPending ? 'Guardando…' : `Guardar sueldos de ${etiquetaMes(mes, anio)}`}
-          </button>
+          </Button>
         }
       />
       <p className="text-sm text-slate">
@@ -116,14 +112,9 @@ export function SueldosMensualizadosTab() {
               className="w-28 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
             />
           </label>
-          <button
-            type="button"
-            onClick={aplicarPorcentaje}
-            disabled={!porcentaje}
-            className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60 disabled:opacity-50"
-          >
+          <Button variant="secondary" size="sm" onClick={aplicarPorcentaje} disabled={!porcentaje}>
             Aplicar a todos
-          </button>
+          </Button>
         </div>
       </div>
 

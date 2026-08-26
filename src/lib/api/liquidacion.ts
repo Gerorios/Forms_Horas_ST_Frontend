@@ -407,10 +407,11 @@ export function useCalculoQuincena(anio: number, mes: number, quincena: number, 
 }
 
 // ---- Alertas previas a liquidar ----
-export function useAlertasQuincena(anio: number, mes: number, quincena: number) {
+export function useAlertasQuincena(anio: number, mes: number, quincena: number, enabled = true) {
   return useQuery({
     queryKey: ['liquidacion', 'alertas', anio, mes, quincena],
     queryFn: () => get<AlertasQuincena>('/liquidacion/quincena/alertas', { anio, mes, quincena }),
+    enabled,
   });
 }
 

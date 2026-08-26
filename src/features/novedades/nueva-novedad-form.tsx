@@ -6,6 +6,7 @@ import { useCrearNovedad, useTiposNovedad } from '@/lib/api/novedades';
 import { useSession } from '@/lib/auth/session';
 import { OperariosSelect } from '@/features/reporte/operarios-select';
 import { AdjuntoInput } from '@/features/novedades/adjunto-input';
+import { Button } from '@/components/button';
 import type { EmpleadoBusqueda } from '@/types/domain';
 
 export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
@@ -114,14 +115,9 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
         />
       </label>
       <AdjuntoInput onArchivo={setAdjunto} />
-      <button
-        type="button"
-        disabled={!puede || crear.isPending}
-        onClick={enviar}
-        className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-      >
+      <Button variant="primary" disabled={!puede || crear.isPending} onClick={enviar}>
         {crear.isPending ? 'Guardando…' : 'Cargar novedad'}
-      </button>
+      </Button>
     </div>
   );
 }

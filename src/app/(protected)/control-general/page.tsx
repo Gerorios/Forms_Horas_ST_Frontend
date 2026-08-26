@@ -1,7 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
 import { MultiFiltro } from '@/components/ui/barra-filtros';
@@ -20,6 +19,19 @@ import {
 } from '@/lib/api/panel-general';
 import { useProvincias } from '@/lib/api/catalogos';
 import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
+import {
+  ClockIcon,
+  UsersIcon,
+  TrendIcon,
+  ClipboardIcon,
+  AlertUserIcon,
+  BarsIcon,
+  TrophyIcon,
+  WarnTriIcon,
+  ListIcon,
+  ChevronIcon,
+} from '@/components/stat-icons';
+import { Skeleton, TableSkeleton } from '@/components/skeleton';
 
 function pasaPersona(cuil: string, seleccionados: string[]) {
   return seleccionados.length === 0 || seleccionados.includes(cuil);
@@ -75,16 +87,24 @@ const ESTILO_ESTADO: Record<string, string> = {
   desaprobado: 'text-danger',
 };
 
+const CHIP_TONO: Record<'warn' | 'danger' | 'neutral', string> = {
+  warn: 'bg-warn/15 text-warn',
+  danger: 'bg-danger/15 text-danger',
+  neutral: 'bg-brand/20 text-brand-deep',
+};
+
 function StatTile({
   label,
   value,
   tono,
+  icon,
   onClick,
 }: {
   label: string;
   value: number;
   /** Colorea el número solo cuando hay algo que atender (value > 0) — un 0 no es una alerta. */
   tono?: 'warn' | 'danger';
+  icon: ReactNode;
   onClick?: () => void;
 }) {
   const colorValor =
@@ -95,8 +115,13 @@ function StatTile({
         : 'text-ink';
   const contenido = (
     <>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate">{label}</p>
-      <p className={`mt-1 text-3xl font-semibold tabular-nums ${colorValor}`}>{value}</p>
+      <div className="flex items-center gap-2">
+        <span className={`flex h-7 w-7 flex-none items-center justify-center rounded-lg ${CHIP_TONO[tono ?? 'neutral']}`}>
+          {icon}
+        </span>
+        <p className="text-xs font-medium uppercase tracking-wide text-slate">{label}</p>
+      </div>
+      <p className={`mt-1.5 text-3xl font-semibold tabular-nums ${colorValor}`}>{value}</p>
     </>
   );
   if (onClick)
@@ -104,12 +129,16 @@ function StatTile({
       <button
         type="button"
         onClick={onClick}
-        className="rounded-xl border border-line bg-surface p-4 text-left transition hover:border-brand/40"
+        className="animate-in fade-in-0 slide-in-from-bottom-1 rounded-xl border border-line bg-surface p-4 text-left transition duration-300 hover:-translate-y-0.5 hover:border-brand/40"
       >
         {contenido}
       </button>
     );
-  return <div className="rounded-xl border border-line bg-surface p-4">{contenido}</div>;
+  return (
+    <div className="animate-in fade-in-0 slide-in-from-bottom-1 rounded-xl border border-line bg-surface p-4 transition duration-300">
+      {contenido}
+    </div>
+  );
 }
 
 /** Fila de la zona de revisión (>13hs/día): compacta, expandible al detalle
@@ -133,7 +162,7 @@ function FragmentoDetalleDiario({
     <>
       <tr
         onClick={onToggle}
-        className="cursor-pointer border-b border-line text-ink transition last:border-0 hover:bg-sand/60"
+        className="cursor-pointer border-b border-l-2 border-line border-l-transparent text-ink transition last:border-b-0 hover:border-l-brand hover:bg-sand/60"
         title={abierto ? 'Ocultar el detalle del día' : 'Ver qué hizo ese día'}
       >
         <td className="tabular-nums px-4 py-2.5">{dia.fecha}</td>
@@ -158,7 +187,11 @@ function FragmentoDetalleDiario({
             </span>
           )}
         </td>
-        <td className="px-4 py-2.5 text-slate">{abierto ? '▾' : '▸'}</td>
+        <td className="px-4 py-2.5 text-slate">
+          <span className={`inline-block transition-transform duration-200 ${abierto ? 'rotate-90' : ''}`}>
+            <ChevronIcon />
+          </span>
+        </td>
       </tr>
       {abierto && (
         <tr className="border-b border-line bg-sand/60 last:border-0">
@@ -215,7 +248,7 @@ function FragmentoControlDiario({
           y el clic del botón burbujea hasta ahí, así el teclado también anda. */}
       <tr
         onClick={onToggle}
-        className="cursor-pointer border-b border-line text-ink transition last:border-0 hover:bg-sand/60"
+        className="cursor-pointer border-b border-l-2 border-line border-l-transparent text-ink transition last:border-b-0 hover:border-l-brand hover:bg-sand/60"
         title={abierto ? 'Ocultar el detalle del día' : 'Ver qué hizo ese día'}
       >
         <td className="tabular-nums px-4 py-2.5">{dia.fecha}</td>
@@ -230,7 +263,11 @@ function FragmentoControlDiario({
         </td>
         <td className="tabular-nums px-4 py-2.5 font-medium">{dia.totalHoras}</td>
         <td className="px-4 py-2.5 text-slate">{dia.contratos.join(', ')}</td>
-        <td className="px-4 py-2.5 text-slate">{abierto ? '▾' : '▸'}</td>
+        <td className="px-4 py-2.5 text-slate">
+          <span className={`inline-block transition-transform duration-200 ${abierto ? 'rotate-90' : ''}`}>
+            <ChevronIcon />
+          </span>
+        </td>
       </tr>
       {abierto && (
         <tr className="border-b border-line bg-sand/60 last:border-0">
@@ -426,29 +463,43 @@ export default function ControlGeneralPage() {
       </QuincenaSelect>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatTile label="Horas de la quincena" value={horasQuincena} />
-        <StatTile label="Operarios con carga" value={resumenFiltrado.length} />
-        <StatTile label="Con horas extra (+88hs)" value={conHorasExtra} tono="warn" />
-        <StatTile label="Filas pendientes de revisar" value={filasPendientes} tono="warn" />
-        <StatTile label="Sin carga" value={(sinCarga ?? []).length} tono="danger" onClick={irASinCarga} />
+        <StatTile label="Horas de la quincena" value={horasQuincena} icon={<ClockIcon />} />
+        <StatTile label="Operarios con carga" value={resumenFiltrado.length} icon={<UsersIcon />} />
+        <StatTile label="Con horas extra (+88hs)" value={conHorasExtra} tono="warn" icon={<TrendIcon />} />
+        <StatTile label="Filas pendientes de revisar" value={filasPendientes} tono="warn" icon={<ClipboardIcon />} />
+        <StatTile
+          label="Sin carga"
+          value={(sinCarga ?? []).length}
+          tono="danger"
+          icon={<AlertUserIcon />}
+          onClick={irASinCarga}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
         <div className="space-y-3 rounded-xl border border-line bg-surface p-4">
-          <h2 className="font-display text-sm font-semibold text-ink">Horas por quincena</h2>
+          <h2 className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
+            <span className="text-brand-deep">
+              <BarsIcon />
+            </span>
+            Horas por quincena
+          </h2>
           {cargandoHistorico ? (
-            <p className="text-slate">Cargando…</p>
+            <Skeleton className="h-56 w-full" />
           ) : (
             <HorasPorQuincenaChart datos={historico ?? []} />
           )}
         </div>
 
         <div className="space-y-3 rounded-xl border border-line bg-surface p-4">
-          <h2 className="font-display text-sm font-semibold text-ink">
+          <h2 className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
+            <span className="text-brand-deep">
+              <TrophyIcon />
+            </span>
             Ranking — mayor cantidad de horas
           </h2>
           {cargandoResumen ? (
-            <p className="text-slate">Cargando…</p>
+            <Skeleton className="h-56 w-full" />
           ) : (
             <RankingOperarios resumen={resumenFiltrado} />
           )}
@@ -456,7 +507,10 @@ export default function ControlGeneralPage() {
       </div>
 
       <div className="space-y-3">
-        <h2 className="font-display text-sm font-semibold text-ink">
+        <h2 className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
+          <span className="text-warn">
+            <WarnTriIcon />
+          </span>
           Control — más de 13 hs en un día
         </h2>
         <p className="text-xs text-slate">
@@ -465,7 +519,7 @@ export default function ControlGeneralPage() {
           suman al total, pero se muestran al expandir.
         </p>
         {cargandoControl ? (
-          <p className="text-slate">Cargando…</p>
+          <TableSkeleton rows={3} cols={5} />
         ) : (
           <div className="overflow-hidden rounded-xl border border-line bg-surface">
             <table className="w-full text-sm">
@@ -506,7 +560,12 @@ export default function ControlGeneralPage() {
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-sm font-semibold text-ink">Detalle diario</h2>
+          <h2 className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
+            <span className="text-brand-deep">
+              <ListIcon />
+            </span>
+            Detalle diario
+          </h2>
           {(detalle ?? []).some((d) => d.registros.some((r) => !r.esMiContrato)) && (
             <span className="text-xs text-slate" data-testid="leyenda-jornada-completa">
               Las horas del día incluyen lo que estas personas hicieron en otros contratos:
@@ -520,7 +579,7 @@ export default function ControlGeneralPage() {
           )}
         </div>
         {cargandoDetalle ? (
-          <p className="text-slate">Cargando…</p>
+          <TableSkeleton rows={6} cols={5} />
         ) : (
           <div className="overflow-hidden rounded-xl border border-line bg-surface">
             <table className="w-full text-sm">
@@ -571,7 +630,12 @@ export default function ControlGeneralPage() {
 
       <div ref={sinCargaRef} className="space-y-3 scroll-mt-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-sm font-semibold text-ink">Sin carga en esta quincena</h2>
+          <h2 className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
+            <span className="text-danger">
+              <AlertUserIcon />
+            </span>
+            Sin carga en esta quincena
+          </h2>
           <MultiFiltro
             label="Empleado"
             ariaLabel="Buscar empleado sin carga"
@@ -586,7 +650,7 @@ export default function ControlGeneralPage() {
           Admin, no está limitado a tus contratos.
         </p>
         {cargandoSinCarga ? (
-          <p className="text-slate">Cargando…</p>
+          <TableSkeleton rows={5} cols={4} />
         ) : (
           <div className="overflow-hidden rounded-xl border border-line bg-surface">
             <table className="w-full text-sm">

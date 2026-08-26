@@ -11,6 +11,7 @@ import { MovilesSelect } from '@/features/reporte/moviles-select';
 import { CargandoModal } from '@/features/reporte/cargando-modal';
 import { useGeolocation } from '@/features/reporte/use-geolocation';
 import { PageHeader } from '@/components/page-header';
+import { Button } from '@/components/button';
 import type { EmpleadoBusqueda } from '@/types/domain';
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
@@ -187,14 +188,9 @@ export default function ReportePage() {
       </Card>
 
       <div className="sticky bottom-0 -mx-4 flex items-center justify-end border-t border-line bg-sand/80 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-        <button
-          type="button"
-          disabled={crear.isPending}
-          onClick={intentarEnviar}
-          className="rounded-md bg-brand px-5 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-        >
+        <Button variant="primary" disabled={crear.isPending} onClick={intentarEnviar}>
           Reportar
-        </button>
+        </Button>
       </div>
 
       {crear.isPending && <CargandoModal />}

@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/page-header';
 import { PillActivo } from '@/features/admin/pill-activo';
 import { TipoNovedadEditRow } from '@/features/admin/tipo-novedad-edit-row';
 import { useTiposNovedadAdmin, useCrearTipoNovedad, useToggleTipoNovedad } from '@/lib/api/admin';
+import { Button } from '@/components/button';
 
 export default function TiposNovedadAdminPage() {
   const { data, isLoading } = useTiposNovedadAdmin();
@@ -47,14 +48,9 @@ export default function TiposNovedadAdminPage() {
             Genera plus
           </label>
         </div>
-        <button
-          type="button"
-          disabled={crear.isPending}
-          onClick={agregar}
-          className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-        >
+        <Button variant="primary" disabled={crear.isPending} onClick={agregar}>
           Agregar tipo
-        </button>
+        </Button>
       </div>
       {isLoading ? (
         <p className="text-slate">Cargando…</p>

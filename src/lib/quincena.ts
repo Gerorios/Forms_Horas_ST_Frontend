@@ -33,6 +33,16 @@ export function quincenaDeFecha(d: Date): Quincena {
   };
 }
 
+/** Días que faltan (inclusive) para el cierre de la quincena, contando desde
+ * `hoy` a medianoche local — 0 el último día, nunca negativo. */
+export function diasParaCierreQuincena(q: Quincena, hoy: Date = new Date()): number {
+  const { hasta } = rangoQuincena(q);
+  const hoyMidnight = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  const hastaMidnight = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate());
+  const ms = hastaMidnight.getTime() - hoyMidnight.getTime();
+  return Math.max(0, Math.round(ms / 86_400_000));
+}
+
 /** La quincena inmediata anterior — ya cerrada, sin el ruido de "todavía no
  * le tocaba cargar" de la quincena en curso. */
 export function quincenaAnterior(q: Quincena): Quincena {

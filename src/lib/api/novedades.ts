@@ -17,9 +17,10 @@ export function useTiposNovedad() {
  * server-side) — quien llama decide si filtra server-side o, como hace
  * /novedades hoy con tipo/operario/estadoHys, se queda con todo y filtra en
  * cliente. */
-export function useNovedades(periodo?: Quincena, estado?: EstadoNovedad) {
+export function useNovedades(periodo?: Quincena, estado?: EstadoNovedad, enabled = true) {
   return useQuery({
     queryKey: ['novedades', periodo, estado],
+    enabled,
     queryFn: async () =>
       (
         await api.get<Novedad[]>('/novedades', {

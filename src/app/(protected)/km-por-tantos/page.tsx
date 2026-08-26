@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { FiltroNumero, FiltroSelect } from '@/components/ui/barra-filtros';
 import { useKmPorTantos, useCargarKmPorTantos, mensajeDeError } from '@/lib/api/liquidacion';
+import { Button } from '@/components/button';
 
 const NOMBRES_MES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -59,14 +60,9 @@ export default function KmPorTantosPage() {
       <PageHeader
         title="Km por tantos"
         action={
-          <button
-            type="button"
-            onClick={guardarTodos}
-            disabled={cargarKms.isPending || (data ?? []).length === 0}
-            className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-          >
+          <Button variant="primary" onClick={guardarTodos} disabled={cargarKms.isPending || (data ?? []).length === 0}>
             {cargarKms.isPending ? 'Guardando…' : 'Guardar todos'}
-          </button>
+          </Button>
         }
       />
       <p className="text-sm text-slate">

@@ -14,6 +14,8 @@ import {
 import { FotoTicketView } from './foto-ticket-view';
 import { ContratoTareas } from './contrato-tareas';
 import { StatusBadge } from '@/components/status-badge';
+import { BlockSkeleton } from '@/components/skeleton';
+import { Button } from '@/components/button';
 import type { CargaCombustible, MedioPagoCombustible } from '@/types/domain';
 
 /** true si dos listas de ids tienen el mismo contenido, sin importar el orden. */
@@ -301,17 +303,12 @@ function EditarCargaDialog({
         </label>
 
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="rounded-md px-3 py-2 text-sm text-slate hover:bg-accent/60">
+          <Button variant="ghost" onClick={onCancel}>
             Cancelar
-          </button>
-          <button
-            type="button"
-            disabled={!valido || guardando}
-            onClick={guardar}
-            className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="primary" disabled={!valido || guardando} onClick={guardar}>
             Guardar cambios
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -348,17 +345,16 @@ function AnularCargaDialog({
           Confirmo que quiero anular esta carga
         </label>
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="rounded-md px-3 py-2 text-sm text-slate hover:bg-accent/60">
+          <Button variant="ghost" onClick={onCancel}>
             Cancelar
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="danger-solid"
             disabled={motivo.trim() === '' || !confirmado || anulando}
             onClick={() => onConfirmar(motivo.trim())}
-            className="rounded-md bg-danger px-4 py-2 text-sm font-medium text-white transition hover:brightness-95 disabled:opacity-50"
           >
             Anular carga
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -417,7 +413,9 @@ export function DetalleCarga({ id, onClose }: { id: number; onClose: () => void 
         </div>
 
         {isLoading || !carga ? (
-          <p className="mt-4 text-slate">Cargando…</p>
+          <div className="mt-4">
+            <BlockSkeleton lines={5} />
+          </div>
         ) : (
           <div className="mt-4 space-y-5">
             {carga.estado === 'anulada' && (
@@ -472,20 +470,12 @@ export function DetalleCarga({ id, onClose }: { id: number; onClose: () => void 
 
             {puedeActuar && (
               <div className="flex justify-end gap-2 border-t border-line pt-4">
-                <button
-                  type="button"
-                  onClick={() => setDialogo('editar')}
-                  className="rounded-md border border-line px-4 py-2 text-sm font-medium text-ink transition hover:bg-accent/60"
-                >
+                <Button variant="secondary" onClick={() => setDialogo('editar')}>
                   Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDialogo('anular')}
-                  className="rounded-md bg-danger px-4 py-2 text-sm font-medium text-white transition hover:brightness-95"
-                >
+                </Button>
+                <Button variant="danger-solid" onClick={() => setDialogo('anular')}>
                   Anular
-                </button>
+                </Button>
               </div>
             )}
           </div>

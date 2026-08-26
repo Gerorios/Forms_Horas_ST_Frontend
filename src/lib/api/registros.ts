@@ -19,10 +19,10 @@ export function useCrearReporteBatch() {
 
 /** Rango server-side (fix de crecimiento 2026-08-18): se pide solo la quincena
  * visible en vez de la vida entera del usuario. */
-export function useMisRegistros(operarioCuil: string, rango?: { desde: string; hasta: string }) {
+export function useMisRegistros(operarioCuil: string, rango?: { desde: string; hasta: string }, enabled = true) {
   return useQuery({
     queryKey: ['mis-registros', operarioCuil, rango?.desde, rango?.hasta],
-    enabled: !!operarioCuil,
+    enabled: !!operarioCuil && enabled,
     queryFn: async () =>
       (
         await api.get<RegistroHoras[]>('/registros-horas', {

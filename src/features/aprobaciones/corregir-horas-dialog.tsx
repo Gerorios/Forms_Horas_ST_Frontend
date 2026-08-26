@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@/components/button';
 
 export function CorregirHorasDialog({
   horasActuales,
@@ -49,21 +50,12 @@ export function CorregirHorasDialog({
           />
         </label>
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md px-3 py-2 text-sm text-slate hover:bg-accent/60"
-          >
+          <Button variant="ghost" onClick={onCancel}>
             Cancelar
-          </button>
-          <button
-            type="button"
-            disabled={!puedeConfirmar}
-            onClick={() => onConfirm(horasNum!, motivo.trim())}
-            className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="primary" disabled={!puedeConfirmar} onClick={() => onConfirm(horasNum!, motivo.trim())}>
             Confirmar corrección
-          </button>
+          </Button>
         </div>
       </div>
     </div>
