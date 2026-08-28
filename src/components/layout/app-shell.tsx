@@ -7,19 +7,25 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useSession } from '@/lib/auth/session';
 import { navForRole, type NavItem } from '@/components/layout/nav';
 import { NavIcon } from '@/components/layout/nav-icons';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 /** Rutas cuyas tablas necesitan todo el ancho de pantalla (el resto usa max-w-5xl). */
 const RUTAS_ANCHAS = ['/liquidacion', '/control-general', '/combustible', '/admin/usuarios'];
 
-function Brand() {
+function Brand({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <div className="flex items-center gap-2.5">
+    <Link
+      href="/"
+      onClick={onNavigate}
+      aria-label="Ir al inicio"
+      className="flex items-center gap-2.5 rounded-md transition hover:opacity-80"
+    >
       <Image src="/logo.png" alt="" width={34} height={34} className="rounded-full" />
       <div className="leading-tight">
         <p className="font-display text-sm font-semibold text-ink">Registro de Horas</p>
         <p className="text-[11px] text-slate">Gestión de cuadrillas</p>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -79,6 +85,7 @@ function UserFooter({
           <p className="truncate text-sm font-medium text-ink">{nombre}</p>
         </div>
       </div>
+      <ThemeToggle />
       <button
         type="button"
         onClick={onLogout}
@@ -125,7 +132,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <aside className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-line bg-surface py-4 transition-[width,padding] duration-200 md:flex ${plegado ? 'w-14 px-2' : 'w-60 px-3'}`}>
         <div className={plegado ? 'flex justify-center' : 'px-1'}>
           {plegado ? (
-            <Image src="/logo.png" alt="" width={34} height={34} className="rounded-full" />
+            <Link href="/" aria-label="Ir al inicio" className="block rounded-full transition hover:opacity-80">
+              <Image src="/logo.png" alt="" width={34} height={34} className="rounded-full" />
+            </Link>
           ) : (
             <Brand />
           )}
@@ -141,6 +150,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {nombre.slice(0, 2).toUpperCase()}
             </span>
+            <ThemeToggle compact />
             <button
               type="button"
               aria-label="Cerrar sesión"
@@ -202,7 +212,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="absolute inset-0 bg-ink/40" onClick={() => setDrawerAbierto(false)} aria-hidden />
           <div className="absolute inset-y-0 left-0 flex w-64 flex-col border-r border-line bg-surface px-3 py-4">
             <div className="flex items-center justify-between px-1">
-              <Brand />
+              <Brand onNavigate={() => setDrawerAbierto(false)} />
               <button
                 type="button"
                 aria-label="Cerrar menú"

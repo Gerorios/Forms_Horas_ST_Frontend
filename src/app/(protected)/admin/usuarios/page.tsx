@@ -11,6 +11,7 @@ import { ResetearPasswordDialog } from '@/features/admin/resetear-password-dialo
 import { UsuarioEditRow } from '@/features/admin/usuario-edit-row';
 import { UsuarioForm } from '@/features/admin/usuario-form';
 import { useUsuariosAdmin, useEditarUsuario, useRoles, useResetearPassword, type UsuarioAdmin } from '@/lib/api/admin';
+import { Button } from '@/components/button';
 
 export default function UsuariosAdminPage() {
   const { data, isLoading } = useUsuariosAdmin();
@@ -75,14 +76,12 @@ export default function UsuariosAdminPage() {
         title="Usuarios"
         action={
           <div className="flex gap-2">
-            <button type="button" onClick={() => setModo((m) => (m === 'masiva' ? null : 'masiva'))}
-              className="rounded-md border border-line px-4 py-2 text-sm font-medium text-slate transition hover:bg-accent/60">
+            <Button variant="secondary" onClick={() => setModo((m) => (m === 'masiva' ? null : 'masiva'))}>
               Alta masiva
-            </button>
-            <button type="button" onClick={() => setModo((m) => (m === 'individual' ? null : 'individual'))}
-              className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95">
+            </Button>
+            <Button variant="primary" onClick={() => setModo((m) => (m === 'individual' ? null : 'individual'))}>
               {modo === 'individual' ? 'Cerrar' : 'Nuevo usuario'}
-            </button>
+            </Button>
           </div>
         }
       />

@@ -8,6 +8,7 @@ import { RegistrosCards } from '@/features/mis-registros/registros-cards';
 import { CargasAgrupadas } from '@/features/mis-registros/cargas-agrupadas';
 import { quincenaDeFecha, rangoQuincenaISO, type Quincena } from '@/lib/quincena';
 import { PageHeader } from '@/components/page-header';
+import { ClockIcon, ClipboardIcon } from '@/components/stat-icons';
 
 type Tab = 'mias' | 'cargadas';
 
@@ -35,12 +36,13 @@ export default function MisRegistrosPage() {
               key={t}
               type="button"
               onClick={() => setTab(t)}
-              className={`-mb-px border-b-2 px-3 py-2 text-sm transition ${
+              className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition ${
                 tab === t
                   ? 'border-brand font-medium text-ink'
                   : 'border-transparent text-slate hover:text-ink'
               }`}
             >
+              {t === 'mias' ? <ClockIcon /> : <ClipboardIcon />}
               {t === 'mias' ? 'Mis horas' : 'Cargas que hice'}
             </button>
           ))}

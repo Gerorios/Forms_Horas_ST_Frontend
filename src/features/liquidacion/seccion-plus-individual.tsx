@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { FiltroNumero, FiltroSelect } from '@/components/ui/barra-filtros';
 import { OperariosSelect } from '@/features/reporte/operarios-select';
+import { Button } from '@/components/button';
 import { usePlusIndividual, useCargarPlusIndividual, useEliminarPlusIndividual, mensajeDeError } from '@/lib/api/liquidacion';
 import type { EmpleadoBusqueda } from '@/types/domain';
 
@@ -118,14 +119,9 @@ export function SeccionPlusIndividual({ titulo }: { titulo: ReactNode }) {
               className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
             />
           </label>
-          <button
-            type="button"
-            disabled={!puedeCargar || cargar.isPending}
-            onClick={cargarPlus}
-            className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-          >
+          <Button variant="primary" disabled={!puedeCargar || cargar.isPending} onClick={cargarPlus}>
             {operarios.length > 1 ? `Cargar a ${operarios.length} empleados` : 'Cargar'}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -151,13 +147,9 @@ export function SeccionPlusIndividual({ titulo }: { titulo: ReactNode }) {
                   <td className="px-3 py-2 tabular-nums text-ink">${Number(p.monto).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                   <td className="px-3 py-2 text-slate">{p.motivo}</td>
                   <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => eliminarPlus(p.id)}
-                      className="rounded-md border border-danger px-2.5 py-1 text-xs font-medium text-danger transition hover:bg-danger/10"
-                    >
+                    <Button variant="danger" size="xs" onClick={() => eliminarPlus(p.id)}>
                       Eliminar
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}

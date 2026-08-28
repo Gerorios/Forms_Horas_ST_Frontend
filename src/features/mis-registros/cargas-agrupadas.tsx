@@ -5,6 +5,8 @@ import { agruparPorLote } from '@/lib/agrupar';
 import { enQuincena, type Quincena } from '@/lib/quincena';
 import { infoCorreccion, type CorreccionInput, type InfoCorreccion } from '@/lib/correccion';
 import { LoteResumenCard } from '@/components/lote-resumen-card';
+import { CardsSkeleton } from '@/components/skeleton';
+import { ClockIcon } from '@/components/stat-icons';
 import type { RegistroHoras } from '@/types/domain';
 
 export function CargasAgrupadas({
@@ -84,7 +86,7 @@ export function CargasAgrupadas({
     [grupos, infoCorreccionPorLote],
   );
 
-  if (isLoading) return <p className="text-slate">Cargando…</p>;
+  if (isLoading) return <CardsSkeleton count={4} />;
   if (grupos.length === 0)
     return (
       <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center text-sm text-slate">
@@ -94,8 +96,9 @@ export function CargasAgrupadas({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl bg-brand p-5 text-center">
-        <div className="text-xs font-medium uppercase tracking-wide text-ink/70">
+      <div className="animate-in fade-in-0 slide-in-from-bottom-1 rounded-xl bg-brand p-5 text-center duration-300">
+        <div className="flex items-center justify-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink/70">
+          <ClockIcon />
           Total {quincena.parte === 1 ? '1ª' : '2ª'} quincena
         </div>
         <div className="text-4xl font-extrabold tabular-nums text-ink">{total} hs</div>

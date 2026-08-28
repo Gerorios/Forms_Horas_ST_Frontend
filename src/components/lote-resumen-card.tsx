@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ResumenCarga } from './resumen-carga';
 import { StatusBadge } from './status-badge';
+import { Button } from './button';
 import type { GrupoLote } from '@/lib/agrupar';
 import type { InfoCorreccion } from '@/lib/correccion';
 
@@ -62,13 +63,9 @@ export function LoteResumenCard({
       <ResumenCarga grupo={grupo} />
 
       <div className="px-4 py-3">
-        <button
-          type="button"
-          onClick={() => setExpandido((v) => !v)}
-          className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60"
-        >
+        <Button variant="secondary" size="sm" onClick={() => setExpandido((v) => !v)}>
           {expandido ? 'Cerrar' : 'Ver detalle ▾'}
-        </button>
+        </Button>
       </div>
 
       {expandido && (
@@ -132,14 +129,15 @@ export function LoteResumenCard({
                       <span className="text-xs text-danger">Motivo: {f.motivoDesaprobacion}</span>
                     )}
                     {onReabrir && f.accionable && (
-                      <button
-                        type="button"
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        className="ml-auto"
                         disabled={reabrirPending}
                         onClick={() => onReabrir(f.id, f.operario.apellido_nombre)}
-                        className="ml-auto rounded-md border border-line px-2.5 py-1 text-xs font-medium text-slate transition hover:bg-accent/60 disabled:opacity-50"
                       >
                         Reabrir
-                      </button>
+                      </Button>
                     )}
                   </div>
                 ))}

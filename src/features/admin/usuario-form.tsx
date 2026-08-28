@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { OperariosSelect } from '@/features/reporte/operarios-select';
 import { useCrearUsuario, useRoles, useContratosAdmin, useTiposNovedadAdmin } from '@/lib/api/admin';
+import { Button } from '@/components/button';
 import type { EmpleadoBusqueda } from '@/types/domain';
 
 export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
@@ -194,10 +195,9 @@ export function UsuarioForm({ onCreado }: { onCreado: () => void }) {
           )}
         </div>
       )}
-      <button type="button" disabled={!puede || crear.isPending} onClick={enviar}
-        className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50">
+      <Button variant="primary" disabled={!puede || crear.isPending} onClick={enviar}>
         {crear.isPending ? 'Creando…' : 'Crear usuario'}
-      </button>
+      </Button>
     </div>
   );
 }

@@ -115,6 +115,6 @@ describe('RegistrosCards', () => {
 
   it('isLoading muestra el estado de carga', () => {
     render(<RegistrosCards registros={undefined} quincena={QUINCENA_1} isLoading />);
-    expect(screen.getByText('Cargando…')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Cargando…' })).toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { Button } from '@/components/button';
 
 const MAX_MB = 10;
 const MAX_BYTES = MAX_MB * 1024 * 1024;
@@ -58,14 +59,9 @@ export function AdjuntoInput({
         onChange={elegirArchivo}
         className="hidden"
       />
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => inputRef.current?.click()}
-        className="w-fit rounded-md border border-line px-3 py-1.5 text-sm font-normal text-ink transition hover:bg-accent/60 disabled:opacity-50"
-      >
+      <Button variant="secondary" size="sm" className="w-fit" disabled={disabled} onClick={() => inputRef.current?.click()}>
         {nombre ? 'Cambiar archivo' : 'Elegir archivo'}
-      </button>
+      </Button>
       {nombre && <span className="text-xs font-normal text-slate">{nombre}</span>}
       {error && (
         <span role="alert" className="text-xs font-normal text-danger">

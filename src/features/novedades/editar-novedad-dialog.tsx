@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTiposNovedad } from '@/lib/api/novedades';
 import { OperariosSelect } from '@/features/reporte/operarios-select';
 import { AdjuntoInput } from '@/features/novedades/adjunto-input';
+import { Button } from '@/components/button';
 import type { EmpleadoBusqueda, Novedad } from '@/types/domain';
 
 /** Modal de edición de una novedad (PATCH /novedades/:id, Admin only) — mismo
@@ -120,21 +121,12 @@ export function EditarNovedadDialog({
         <AdjuntoInput label="Reemplazar certificado (opcional)" onArchivo={setAdjunto} />
 
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md px-3 py-2 text-sm text-slate hover:bg-accent/60"
-          >
+          <Button variant="ghost" onClick={onCancel}>
             Cancelar
-          </button>
-          <button
-            type="button"
-            disabled={!valido || guardando}
-            onClick={guardar}
-            className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="primary" disabled={!valido || guardando} onClick={guardar}>
             {guardando ? 'Guardando…' : 'Guardar cambios'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

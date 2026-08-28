@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/page-header';
 import { ContratoEditRow } from '@/features/admin/contrato-edit-row';
 import { PillActivo } from '@/features/admin/pill-activo';
 import { useContratosAdmin, useCrearContrato, useEditarContrato, useUsuariosAdmin } from '@/lib/api/admin';
+import { Button } from '@/components/button';
 
 export default function ContratosAdminPage() {
   const { data, isLoading } = useContratosAdmin();
@@ -54,14 +55,9 @@ export default function ContratosAdminPage() {
           placeholder="Nombre del contrato"
           className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
         />
-        <button
-          type="button"
-          disabled={crear.isPending}
-          onClick={agregar}
-          className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-        >
+        <Button variant="primary" disabled={crear.isPending} onClick={agregar}>
           Agregar
-        </button>
+        </Button>
       </div>
       {isLoading ? (
         <p className="text-slate">Cargando…</p>
