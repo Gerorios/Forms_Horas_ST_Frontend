@@ -12,12 +12,20 @@ const h = vi.hoisted(() => ({
 
 vi.mock('@/lib/api/novedades', () => ({
   useTiposNovedad: () => ({
-    data: [{ id: 5, nombre: 'Ausencia', requiereAprobacionHys: true }],
+    data: [
+      { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
+      { id: 4, nombre: 'Guardia Pasiva', requiereAprobacionHys: false },
+    ],
   }),
   useCrearNovedad: () => ({ mutateAsync: crear, isPending: false }),
 }));
 vi.mock('@/lib/api/empleados', () => ({
-  useBuscarEmpleados: () => ({ data: [{ cuil: '20169', apellido_nombre: 'GOMEZ', legajo: 1, cargo: 'OF' }] }),
+  useBuscarEmpleados: () => ({
+    data: [
+      { cuil: '20169', apellido_nombre: 'GOMEZ', legajo: 1, cargo: 'OF' },
+      { cuil: '20170', apellido_nombre: 'PEREZ', legajo: 2, cargo: 'OF' },
+    ],
+  }),
 }));
 vi.mock('@/lib/auth/session', () => ({ useSession: () => ({ perfil: h.perfil }) }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), promise: vi.fn() } }));
@@ -85,5 +93,47 @@ describe('NuevaNovedadForm', () => {
     const form = crear.mock.calls[0][0] as FormData;
     expect(form.has('fechaFin')).toBe(false);
     expect(form.has('justificacionTexto')).toBe(false);
+  });
+
+  describe('Guardia Pasiva — carga para varios operarios', () => {
+    async function elegirGuardiaPasivaConDosOperarios() {
+      await userEvent.selectOptions(screen.getByLabelText('Tipo'), '4');
+      await userEvent.type(screen.getByPlaceholderText(/buscar operario/i), 'gomez');
+      await userEvent.click(await screen.findByText(/GOMEZ/));
+      await userEvent.type(screen.getByPlaceholderText(/buscar operario/i), 'perez');
+      await userEvent.click(await screen.findByText(/PEREZ/));
+      await userEvent.type(screen.getByLabelText('Fecha inicio'), '2026-08-28');
+    }
+
+    it('crea una novedad independiente por cada operario elegido', async () => {
+      render(<NuevaNovedadForm onCreada={vi.fn()} />);
+      await elegirGuardiaPasivaConDosOperarios();
+      await userEvent.click(screen.getByRole('button', { name: /cargar a 2 operarios/i }));
+
+      await waitFor(() => expect(crear).toHaveBeenCalledTimes(2));
+      const cuils = crear.mock.calls.map((c) => (c[0] as FormData).get('operarioCuil'));
+      expect(cuils.sort()).toEqual(['20169', '20170']);
+      for (const call of crear.mock.calls) {
+        const form = call[0] as FormData;
+        expect(form.get('tipoNovedadId')).toBe('4');
+        expect(form.get('fechaInicio')).toBe('2026-08-28');
+      }
+    });
+
+    it('no muestra el input de adjunto', async () => {
+      render(<NuevaNovedadForm onCreada={vi.fn()} />);
+      await userEvent.selectOptions(screen.getByLabelText('Tipo'), '4');
+      expect(screen.queryByText('Certificado (opcional)')).not.toBeInTheDocument();
+    });
+
+    it('al cambiar a otro tipo, la selección de operarios vuelve a uno solo', async () => {
+      render(<NuevaNovedadForm onCreada={vi.fn()} />);
+      await elegirGuardiaPasivaConDosOperarios();
+      expect(screen.getAllByRole('button', { name: /^Quitar /i })).toHaveLength(2);
+
+      await userEvent.selectOptions(screen.getByLabelText('Tipo'), '5');
+      expect(screen.getAllByRole('button', { name: /^Quitar /i })).toHaveLength(1);
+      expect(screen.getByText(/PEREZ/)).toBeInTheDocument();
+    });
   });
 });

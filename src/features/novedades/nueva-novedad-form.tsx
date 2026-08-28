@@ -28,23 +28,45 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
   const [justificacion, setJustificacion] = useState('');
   const [adjunto, setAdjunto] = useState<File | null>(null);
 
-  const puede = operario.length === 1 && tipoNovedadId != null && fechaInicio !== '';
+  // Guardia Pasiva es el único tipo que se carga para varios operarios a la
+  // vez (pedido explícito 2026-08-28): misma fecha/justificación, una
+  // novedad independiente por operario — no hay adjunto en este caso (no
+  // aplica a Guardia Pasiva y no tendría a quién asociarse entre varios).
+  const esGuardiaPasiva = tipos.find((t) => t.id === tipoNovedadId)?.nombre === 'Guardia Pasiva';
 
-  async function enviar() {
-    if (!puede || tipoNovedadId == null) return;
+  const puede =
+    (esGuardiaPasiva ? operario.length >= 1 : operario.length === 1) &&
+    tipoNovedadId != null &&
+    fechaInicio !== '';
+
+  function cambiarTipo(id: number | null) {
+    setTipoNovedadId(id);
+    if (tipos.find((t) => t.id === id)?.nombre !== 'Guardia Pasiva') {
+      setOperario((prev) => prev.slice(-1));
+    }
+  }
+
+  function construirForm(cuil: string) {
     const form = new FormData();
-    form.append('operarioCuil', operario[0].cuil);
+    form.append('operarioCuil', cuil);
     form.append('tipoNovedadId', String(tipoNovedadId));
     form.append('fechaInicio', fechaInicio);
     if (fechaFin) form.append('fechaFin', fechaFin);
     if (justificacion) form.append('justificacionTexto', justificacion);
     if (adjunto) form.append('adjunto', adjunto, adjunto.name);
+    return form;
+  }
 
-    const promesa = crear.mutateAsync(form);
+  async function enviar() {
+    if (!puede || tipoNovedadId == null) return;
+    const promesa = Promise.all(operario.map((op) => crear.mutateAsync(construirForm(op.cuil))));
     toast.promise(promesa, {
-      loading: 'Guardando novedad…',
-      success: 'Novedad cargada',
-      error: 'No se pudo cargar la novedad',
+      loading: operario.length > 1 ? `Guardando para ${operario.length} operarios…` : 'Guardando novedad…',
+      success: operario.length > 1 ? `Novedad cargada para ${operario.length} operarios` : 'Novedad cargada',
+      error:
+        operario.length > 1
+          ? 'No se pudo cargar para todos — revisá quién quedó pendiente'
+          : 'No se pudo cargar la novedad',
     });
     try {
       await promesa;
@@ -63,16 +85,12 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
   return (
     <div className="space-y-3 rounded-xl border border-line bg-surface p-5">
       <h2 className="font-medium text-ink">Nueva novedad</h2>
-      <div className="space-y-1">
-        <span className="text-sm font-medium text-ink">Operario</span>
-        <OperariosSelect value={operario} onChange={(v) => setOperario(v.slice(-1))} />
-      </div>
       <label className="flex flex-col gap-1 text-sm font-medium text-ink">
         Tipo
         <select
           aria-label="Tipo"
           value={tipoNovedadId ?? ''}
-          onChange={(e) => setTipoNovedadId(e.target.value ? Number(e.target.value) : null)}
+          onChange={(e) => cambiarTipo(e.target.value ? Number(e.target.value) : null)}
           className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
         >
           <option value="">—</option>
@@ -83,6 +101,15 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
           ))}
         </select>
       </label>
+      <div className="space-y-1">
+        <span className="text-sm font-medium text-ink">Operario</span>
+        {esGuardiaPasiva && (
+          <p className="text-xs text-slate">
+            Podés elegir varios operarios: se carga la misma guardia pasiva para cada uno.
+          </p>
+        )}
+        <OperariosSelect value={operario} onChange={(v) => setOperario(esGuardiaPasiva ? v : v.slice(-1))} />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm font-medium text-ink">
           Fecha inicio
@@ -114,9 +141,13 @@ export function NuevaNovedadForm({ onCreada }: { onCreada: () => void }) {
           rows={2}
         />
       </label>
-      <AdjuntoInput onArchivo={setAdjunto} />
+      {!esGuardiaPasiva && <AdjuntoInput onArchivo={setAdjunto} />}
       <Button variant="primary" disabled={!puede || crear.isPending} onClick={enviar}>
-        {crear.isPending ? 'Guardando…' : 'Cargar novedad'}
+        {crear.isPending
+          ? 'Guardando…'
+          : operario.length > 1
+            ? `Cargar a ${operario.length} operarios`
+            : 'Cargar novedad'}
       </Button>
     </div>
   );
