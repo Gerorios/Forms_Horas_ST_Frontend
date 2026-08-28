@@ -36,16 +36,6 @@ export default function RootLayout({
       lang="es"
       className={`${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
     >
-      <head>
-        {/* Bloqueante a propósito: aplica la clase `dark` antes del primer
-            paint para no mostrar un flash con el tema equivocado. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}",
-          }}
-        />
-      </head>
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
       </body>

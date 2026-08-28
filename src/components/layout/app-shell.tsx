@@ -7,7 +7,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useSession } from '@/lib/auth/session';
 import { navForRole, type NavItem } from '@/components/layout/nav';
 import { NavIcon } from '@/components/layout/nav-icons';
-import { ThemeToggle } from '@/components/theme-toggle';
 
 /** Rutas cuyas tablas necesitan todo el ancho de pantalla (el resto usa max-w-5xl). */
 const RUTAS_ANCHAS = ['/liquidacion', '/control-general', '/combustible', '/admin/usuarios'];
@@ -85,7 +84,6 @@ function UserFooter({
           <p className="truncate text-sm font-medium text-ink">{nombre}</p>
         </div>
       </div>
-      <ThemeToggle />
       <button
         type="button"
         onClick={onLogout}
@@ -150,7 +148,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {nombre.slice(0, 2).toUpperCase()}
             </span>
-            <ThemeToggle compact />
             <button
               type="button"
               aria-label="Cerrar sesión"
