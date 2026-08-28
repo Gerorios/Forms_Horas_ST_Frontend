@@ -11,13 +11,9 @@ import {
   YAxis,
 } from 'recharts';
 import type { PuntoHistorico } from '@/lib/api/panel-general';
+import { COLOR_SERIE_1, COLOR_SERIE_2 } from './chart-colors';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-
-/** Serie 1ra/2da quincena — par validado (contraste y daltonismo) sobre
- * superficie blanca; chart-1 es el brand-deep de la app. */
-export const COLOR_SERIE_1 = '#a97a16';
-export const COLOR_SERIE_2 = '#3b6fc4';
 
 type FilaMes = { etiqueta: string; q1: number; q2: number };
 

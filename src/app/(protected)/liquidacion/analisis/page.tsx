@@ -1,15 +1,31 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { PageHeader } from '@/components/page-header';
 import { FiltroNumero, FiltroSelect } from '@/components/ui/barra-filtros';
 import { useAnalisisQuincena } from '@/lib/api/liquidacion';
 import { quincenaDeFecha } from '@/lib/quincena';
-import { fmtHoras, fmtMoneda, fmtPct } from '@/features/liquidacion/analisis/colores';
-import { ComposicionPago } from '@/features/liquidacion/analisis/composicion-pago';
-import { TopCobradores, claseDelta } from '@/features/liquidacion/analisis/top-cobradores';
-import { ContratosChart } from '@/features/liquidacion/analisis/contratos-chart';
-import { HistoricoChart } from '@/features/liquidacion/analisis/historico-chart';
+import { fmtHoras, fmtMoneda, fmtPct, claseDelta } from '@/features/liquidacion/analisis/colores';
+
+// Recharts (~100kb+) no hace falta en el bundle inicial de la página — cada
+// gráfico se carga recién cuando se renderiza, sin bloquear KPIs/tablas.
+const ComposicionPago = dynamic(
+  () => import('@/features/liquidacion/analisis/composicion-pago').then((m) => m.ComposicionPago),
+  { ssr: false },
+);
+const TopCobradores = dynamic(
+  () => import('@/features/liquidacion/analisis/top-cobradores').then((m) => m.TopCobradores),
+  { ssr: false },
+);
+const ContratosChart = dynamic(
+  () => import('@/features/liquidacion/analisis/contratos-chart').then((m) => m.ContratosChart),
+  { ssr: false },
+);
+const HistoricoChart = dynamic(
+  () => import('@/features/liquidacion/analisis/historico-chart').then((m) => m.HistoricoChart),
+  { ssr: false },
+);
 
 const NOMBRES_MES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',

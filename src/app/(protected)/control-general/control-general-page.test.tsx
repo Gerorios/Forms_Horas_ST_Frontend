@@ -262,16 +262,20 @@ describe('ControlGeneralPage', () => {
     expect(idxSinCarga).toBeGreaterThan(idxDetalle);
   });
 
-  it('el gráfico histórico recibe los datos del hook (dos series con leyenda)', () => {
+  // Los gráficos se cargan con next/dynamic({ ssr: false }) — código
+  // recharts fuera del bundle inicial, ver auditoría de performance
+  // 2026-08-25. Como consecuencia, tardan un tick en aparecer: hay que
+  // esperarlos (findBy*), no asumir que están en el primer render.
+  it('el gráfico histórico recibe los datos del hook (dos series con leyenda)', async () => {
     const { container } = render(<ControlGeneralPage />);
-    expect(screen.getByText('1ra quincena')).toBeInTheDocument();
+    expect(await screen.findByText('1ra quincena', {}, { timeout: 15000 })).toBeInTheDocument();
     expect(screen.getByText('2da quincena')).toBeInTheDocument();
     expect(container.querySelectorAll('.recharts-bar').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('el ranking muestra a los operarios del resumen', () => {
+  it('el ranking muestra a los operarios del resumen', async () => {
     render(<ControlGeneralPage />);
-    expect(screen.getAllByText('PEREZ JUAN').length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('PEREZ JUAN')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('GOMEZ ANA').length).toBeGreaterThan(0);
   });
 
