@@ -95,26 +95,9 @@
   --sidebar-ring: #ecb332;
 }
 
-/* Modo oscuro (activado 2026-08-25 vía ThemeToggle, agrega/saca esta clase de
-   <html>). Redefine ACÁ los tokens de marca (--color-*, declarados arriba en
-   @theme) además de los de shadcn: son variables CSS reales, así que
-   bg-surface/text-ink/border-line/etc. cambian solos en todos los componentes
-   existentes, sin tocar ningún archivo — mismo mecanismo que ya usaban
-   --background/--foreground. Brand y semánticos (approved/danger/warn) se
-   aclaran para mantener contraste sobre fondo oscuro; el dorado de marca no
-   cambia. --color-chart-* quedan afuera (validados solo sobre blanco, no se
-   usan en los módulos de este pilot). */
+/* .dark queda definido para que las utilidades dark: de shadcn no rompan el build.
+   No se activa: nunca se agrega la clase .dark. */
 .dark {
-  --color-ink: #faf9f6;
-  --color-slate: #a7abae;
-  --color-line: #3a3f45;
-  --color-sand: #1e2124;
-  --color-surface: #26292d;
-  --color-approved: #4bb789;
-  --color-danger: #e07354;
-  --color-warn: #e0a23a;
-  --color-alert: #e07354;
-
   --background: #1e2124;
   --foreground: #faf9f6;
   --card: #26292d;
