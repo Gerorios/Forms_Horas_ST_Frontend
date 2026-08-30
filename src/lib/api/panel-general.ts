@@ -109,9 +109,10 @@ function paramsFiltros(f: FiltrosPanel = {}) {
   };
 }
 
-export function useResumenOperarios(quincena: Quincena, filtros: FiltrosPanel = {}) {
+export function useResumenOperarios(quincena: Quincena, filtros: FiltrosPanel = {}, enabled = true) {
   return useQuery({
     queryKey: ['resumen-operarios', quincena, filtros],
+    enabled,
     queryFn: async () =>
       (
         await api.get<ResumenOperario[]>('/registros-horas/resumen-operarios', {
@@ -218,9 +219,10 @@ export function useDetalleDiario(quincena: Quincena, filtros: FiltrosPanel = {})
   });
 }
 
-export function useSinCarga(quincena: Quincena) {
+export function useSinCarga(quincena: Quincena, enabled = true) {
   return useQuery({
     queryKey: ['sin-carga', quincena],
+    enabled,
     queryFn: async () =>
       (
         await api.get<OperarioSinCarga[]>('/registros-horas/sin-carga', {

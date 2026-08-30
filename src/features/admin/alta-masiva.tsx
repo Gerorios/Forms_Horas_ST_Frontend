@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { OperariosSelect } from '@/features/reporte/operarios-select';
 import { useCrearUsuariosMasivo, type AltaMasivaResp } from '@/lib/api/admin';
+import { Button } from '@/components/button';
 import type { EmpleadoBusqueda } from '@/types/domain';
 
 export function AltaMasiva({ onListo }: { onListo: () => void }) {
@@ -45,23 +46,18 @@ export function AltaMasiva({ onListo }: { onListo: () => void }) {
         Elegí empleados y generá sus logins de solo consulta (rol Operario). Se crea email por legajo y contraseña aleatoria.
       </p>
       <OperariosSelect value={empleados} onChange={setEmpleados} />
-      <button
-        type="button"
-        disabled={empleados.length === 0 || crear.isPending}
-        onClick={generar}
-        className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-      >
+      <Button variant="primary" disabled={empleados.length === 0 || crear.isPending} onClick={generar}>
         {crear.isPending ? 'Generando…' : `Generar usuarios (${empleados.length})`}
-      </button>
+      </Button>
 
       {resultado && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-ink">Credenciales generadas ({resultado.creados.length})</h3>
             {resultado.creados.length > 0 && (
-              <button type="button" onClick={copiar} className="rounded-md border border-line px-3 py-1 text-xs text-slate hover:bg-accent/60">
+              <Button variant="secondary" size="xs" onClick={copiar}>
                 Copiar
-              </button>
+              </Button>
             )}
           </div>
           {resultado.creados.length > 0 && (

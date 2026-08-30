@@ -6,6 +6,7 @@ import { useResolverLote, useCorregirLote } from '@/lib/api/aprobaciones';
 import { DesaprobarDialog } from './desaprobar-dialog';
 import { CorregirHorasDialog } from './corregir-horas-dialog';
 import { ResumenCarga } from '@/components/resumen-carga';
+import { Button } from '@/components/button';
 import type { GrupoContrato, GrupoLote } from '@/lib/agrupar';
 
 export function LoteCard({ grupo }: { grupo: GrupoLote }) {
@@ -87,29 +88,15 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
       <ResumenCarga grupo={grupo} />
 
       <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-        <button
-          type="button"
-          disabled={resolverLote.isPending || !puedeConfirmar}
-          onClick={aprobar}
-          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-        >
+        <Button variant="primary" disabled={resolverLote.isPending || !puedeConfirmar} onClick={aprobar}>
           Aprobar {etiqueta}
-        </button>
-        <button
-          type="button"
-          disabled={resolverLote.isPending || !puedeConfirmar}
-          onClick={() => setDesaprobando(true)}
-          className="rounded-md border border-danger px-4 py-2 text-sm text-danger transition hover:bg-danger/10 disabled:opacity-50"
-        >
+        </Button>
+        <Button variant="danger" disabled={resolverLote.isPending || !puedeConfirmar} onClick={() => setDesaprobando(true)}>
           Desaprobar {etiqueta}
-        </button>
-        <button
-          type="button"
-          onClick={() => setExpandido((v) => !v)}
-          className="ml-auto rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60"
-        >
+        </Button>
+        <Button variant="secondary" size="sm" className="ml-auto" onClick={() => setExpandido((v) => !v)}>
           {expandido ? 'Cerrar' : 'Ver detalle ▾'}
-        </button>
+        </Button>
       </div>
 
       {expandido && (
@@ -121,13 +108,9 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
                 <span className="tabular-nums text-ink">{c.subtotalHoras} hs</span>
                 <span className="text-slate">{c.tareas.join(', ') || '—'}</span>
                 {c.accionable ? (
-                  <button
-                    type="button"
-                    onClick={() => setCorrigiendo(c)}
-                    className="ml-auto rounded-md border border-line px-2.5 py-1 text-xs font-medium text-slate transition hover:bg-accent/60"
-                  >
+                  <Button variant="secondary" size="xs" className="ml-auto" onClick={() => setCorrigiendo(c)}>
                     Corregir horas
-                  </button>
+                  </Button>
                 ) : (
                   <span className="ml-auto text-xs italic text-slate/70">otro contrato</span>
                 )}

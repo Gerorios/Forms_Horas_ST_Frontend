@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useEditarProvincia, type ProvinciaAdmin } from '@/lib/api/admin';
+import { Button } from '@/components/button';
 
 const inputCls =
   'rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
@@ -41,13 +42,14 @@ export function ProvinciaEditRow({ provincia }: { provincia: ProvinciaAdmin }) {
     <li className="text-sm text-ink">
       <div className="flex items-center gap-3 px-4 py-2.5">
         <span>{provincia.nombre}</span>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
+          className="ml-auto"
           onClick={() => (abierto ? cerrar() : setAbierto(true))}
-          className="ml-auto rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60"
         >
           {abierto ? 'Cerrar' : 'Editar ▾'}
-        </button>
+        </Button>
       </div>
       {abierto && (
         <div className="space-y-3 bg-accent/20 px-4 py-4">
@@ -56,21 +58,12 @@ export function ProvinciaEditRow({ provincia }: { provincia: ProvinciaAdmin }) {
             <input aria-label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputCls} />
           </label>
           <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={!puedeGuardar}
-              onClick={guardar}
-              className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-            >
+            <Button variant="primary" disabled={!puedeGuardar} onClick={guardar}>
               {editar.isPending ? 'Guardando…' : 'Guardar'}
-            </button>
-            <button
-              type="button"
-              onClick={cerrar}
-              className="rounded-md border border-line px-4 py-2 text-sm font-medium text-slate transition hover:bg-accent/60"
-            >
+            </Button>
+            <Button variant="secondary" onClick={cerrar}>
               Cancelar
-            </button>
+            </Button>
           </div>
         </div>
       )}

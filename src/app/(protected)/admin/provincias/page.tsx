@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { ProvinciaEditRow } from '@/features/admin/provincia-edit-row';
 import { useProvinciasAdmin, useCrearProvincia } from '@/lib/api/admin';
+import { Button } from '@/components/button';
 
 export default function ProvinciasAdminPage() {
   const { data, isLoading } = useProvinciasAdmin();
@@ -32,14 +33,9 @@ export default function ProvinciasAdminPage() {
           placeholder="Nueva provincia"
           className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
         />
-        <button
-          type="button"
-          disabled={crear.isPending}
-          onClick={agregar}
-          className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-        >
+        <Button variant="primary" disabled={crear.isPending} onClick={agregar}>
           Agregar
-        </button>
+        </Button>
       </div>
       {isLoading ? (
         <p className="text-slate">Cargando…</p>

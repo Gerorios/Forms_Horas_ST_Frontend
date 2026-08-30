@@ -3,6 +3,7 @@
 import { type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { StatusBadge } from '@/components/status-badge';
+import { Button } from '@/components/button';
 import { abrirAdjuntoNovedad } from '@/lib/api/novedades';
 import type { Novedad } from '@/types/domain';
 
@@ -106,7 +107,7 @@ export function DetalleNovedadDialog({
             <Fila label="Tipo" valor={novedad.tipoNovedad.nombre} />
             <Fila label="Desde" valor={novedad.fechaInicio.slice(0, 10)} />
             <Fila label="Hasta" valor={novedad.fechaFin ? novedad.fechaFin.slice(0, 10) : '—'} />
-            <Fila label="Cargado por" valor={novedad.cargadoPor.email} />
+            <Fila label="Cargado por" valor={novedad.cargadoPor.nombre} />
             <Fila label="Fecha de carga" valor={formatearFechaHora(novedad.createdAt)} />
           </div>
 
@@ -134,49 +135,26 @@ export function DetalleNovedadDialog({
               {accionesHys?.puedeGestionar &&
                 (novedad.estadoHys === 'pendiente' ? (
                   <>
-                    <button
-                      type="button"
-                      disabled={accionesHys.resolviendo}
-                      onClick={accionesHys.onJustificar}
-                      className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-                    >
+                    <Button variant="primary" disabled={accionesHys.resolviendo} onClick={accionesHys.onJustificar}>
                       Justificar
-                    </button>
-                    <button
-                      type="button"
-                      disabled={accionesHys.resolviendo}
-                      onClick={accionesHys.onNoJustificar}
-                      className="rounded-md border border-line px-4 py-2 text-sm font-medium text-ink transition hover:bg-accent/60 disabled:opacity-50"
-                    >
+                    </Button>
+                    <Button variant="secondary" disabled={accionesHys.resolviendo} onClick={accionesHys.onNoJustificar}>
                       No justificar
-                    </button>
+                    </Button>
                   </>
                 ) : (
-                  <button
-                    type="button"
-                    disabled={accionesHys.reabriendo}
-                    onClick={accionesHys.onReabrir}
-                    className="rounded-md border border-line px-4 py-2 text-sm font-medium text-ink transition hover:bg-accent/60 disabled:opacity-50"
-                  >
+                  <Button variant="secondary" disabled={accionesHys.reabriendo} onClick={accionesHys.onReabrir}>
                     Reabrir
-                  </button>
+                  </Button>
                 ))}
               {puedeActuar && (
                 <>
-                  <button
-                    type="button"
-                    onClick={onEditar}
-                    className="rounded-md border border-line px-4 py-2 text-sm font-medium text-ink transition hover:bg-accent/60"
-                  >
+                  <Button variant="secondary" onClick={onEditar}>
                     Editar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onAnular}
-                    className="rounded-md bg-danger px-4 py-2 text-sm font-medium text-white transition hover:brightness-95"
-                  >
+                  </Button>
+                  <Button variant="danger-solid" onClick={onAnular}>
                     Anular
-                  </button>
+                  </Button>
                 </>
               )}
             </div>

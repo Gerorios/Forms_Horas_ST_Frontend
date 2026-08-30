@@ -10,6 +10,8 @@ import { AnularNovedadDialog } from '@/features/novedades/anular-novedad-dialog'
 import { DetalleNovedadDialog } from '@/features/novedades/detalle-novedad-dialog';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
+import { TableSkeleton } from '@/components/skeleton';
+import { Button } from '@/components/button';
 import { BarraFiltros, MultiFiltro } from '@/components/ui/barra-filtros';
 import { PeriodoFiltro } from '@/features/novedades/periodo-filtro';
 import { opcionesFacetadas } from '@/lib/facetado';
@@ -180,13 +182,9 @@ export default function NovedadesPage() {
         eyebrow={esJefeCuadrilla ? 'Las que cargaste vos' : undefined}
         action={
           puedeCargar && (
-            <button
-              type="button"
-              onClick={() => setMostrarForm((v) => !v)}
-              className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-            >
+            <Button variant="primary" onClick={() => setMostrarForm((v) => !v)}>
               {mostrarForm ? 'Cerrar' : 'Nueva novedad'}
-            </button>
+            </Button>
           )
         }
       />
@@ -233,7 +231,7 @@ export default function NovedadesPage() {
       </BarraFiltros>
 
       {isLoading ? (
-        <p className="text-slate">Cargando…</p>
+        <TableSkeleton rows={5} cols={6} />
       ) : filtradas.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center text-sm text-slate">
           {(data ?? []).length === 0 ? 'Sin novedades.' : 'Ninguna novedad coincide con los filtros.'}
@@ -296,26 +294,26 @@ export default function NovedadesPage() {
                         <td className="px-4 py-2.5">
                           {!anulada && puedeEditar(n, perfil) && (
                             <div className="flex gap-2">
-                              <button
-                                type="button"
+                              <Button
+                                variant="secondary"
+                                size="xs"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setEditando(n);
                                 }}
-                                className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-accent/60"
                               >
                                 Editar
-                              </button>
-                              <button
-                                type="button"
+                              </Button>
+                              <Button
+                                variant="danger"
+                                size="xs"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setAnulando(n);
                                 }}
-                                className="rounded-md border border-danger px-2.5 py-1 text-xs font-medium text-danger transition hover:bg-danger/10"
                               >
                                 Anular
-                              </button>
+                              </Button>
                             </div>
                           )}
                         </td>

@@ -11,14 +11,16 @@ import { FiltrosRegistros, type FiltrosRegistrosOpciones, type FiltrosRegistrosV
 import { opcionesFacetadas } from '@/lib/facetado';
 import { quincenaDeFecha, enQuincena, rangoQuincenaISO, type Quincena } from '@/lib/quincena';
 import { PageHeader } from '@/components/page-header';
+import { CardsSkeleton } from '@/components/skeleton';
+import { TabCount } from '@/components/tab-count';
 import type { EstadoRegistro, RegistroPorAprobar } from '@/types/domain';
 
 type Tab = Extract<EstadoRegistro, 'pendiente' | 'aprobado' | 'desaprobado'>;
 
-const TABS: { value: Tab; label: string }[] = [
-  { value: 'pendiente', label: 'Pendientes' },
-  { value: 'aprobado', label: 'Aprobados' },
-  { value: 'desaprobado', label: 'Rechazados' },
+const TABS: { value: Tab; label: string; tono: 'warn' | 'approved' | 'danger' }[] = [
+  { value: 'pendiente', label: 'Pendientes', tono: 'warn' },
+  { value: 'aprobado', label: 'Aprobados', tono: 'approved' },
+  { value: 'desaprobado', label: 'Rechazados', tono: 'danger' },
 ];
 
 function pasaContrato(f: RegistroPorAprobar, seleccionados: string[]) {
@@ -66,10 +68,14 @@ export default function AprobacionesPage() {
   // crecimiento 2026-08-18) — el histórico crece sin techo y ya no se baja
   // entero. Pendientes sigue trayendo toda la cola (chica por naturaleza),
   // para poder avisar de los pendientes de otras quincenas.
-  const { data, isLoading } = usePorAprobar(
-    tab,
-    tab === 'pendiente' ? {} : rangoQuincenaISO(quincena),
-  );
+  // Se piden las 3 pestañas siempre (no solo la activa) para poder mostrar
+  // el contador de cada una junto al nombre, sin tener que entrar a mirarla.
+  const rango = rangoQuincenaISO(quincena);
+  const pendienteQuery = usePorAprobar('pendiente', {});
+  const aprobadoQuery = usePorAprobar('aprobado', rango);
+  const desaprobadoQuery = usePorAprobar('desaprobado', rango);
+  const { data, isLoading } =
+    tab === 'pendiente' ? pendienteQuery : tab === 'aprobado' ? aprobadoQuery : desaprobadoQuery;
 
   // Único filtro temporal: la quincena, en las 3 pestañas (decisión
   // 2026-08-18; antes convivían fecha exacta + quincena). En Pendientes el
@@ -104,6 +110,30 @@ export default function AprobacionesPage() {
     [filasDelPeriodo, filtros],
   );
   const grupos = useMemo(() => agruparPorLote(filas), [filas]);
+
+  // Contador por pestaña (badge junto al nombre): mismo criterio de filtrado
+  // que la pestaña activa (quincena + filtros elegidos), pero para las 3 a la
+  // vez, agrupado por lote igual que las tarjetas — así el número coincide
+  // con la cantidad de tarjetas que se verían al entrar a esa pestaña.
+  function contarLotes(datos: RegistroPorAprobar[] | undefined) {
+    if (datos === undefined) return undefined;
+    return agruparPorLote(
+      datos.filter(
+        (f) =>
+          pasaContrato(f, filtros.contratoIds ?? []) &&
+          pasaCargador(f, filtros.cargadoPorCuils ?? []) &&
+          pasaOperario(f, filtros.operarioCuils ?? []),
+      ),
+    ).length;
+  }
+  const pendienteDelPeriodo = verTodosPendientes
+    ? pendienteQuery.data
+    : pendienteQuery.data?.filter((f) => enQuincena(f.fecha, quincena));
+  const conteos: Record<Tab, number | undefined> = {
+    pendiente: contarLotes(pendienteDelPeriodo),
+    aprobado: contarLotes(aprobadoQuery.data),
+    desaprobado: contarLotes(desaprobadoQuery.data),
+  };
 
   // Las opciones de cada MultiFiltro salen de lo ya cargado en pantalla (no
   // hay un catálogo aparte) y se facetan con los DEMÁS filtros aplicados
@@ -165,13 +195,14 @@ export default function AprobacionesPage() {
             key={t.value}
             type="button"
             onClick={() => setTab(t.value)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm transition ${
+            className={`-mb-px flex items-center border-b-2 px-3 py-2 text-sm transition ${
               tab === t.value
                 ? 'border-brand font-medium text-ink'
                 : 'border-transparent text-slate hover:text-ink'
             }`}
           >
             {t.label}
+            <TabCount value={conteos[t.value]} tono={t.tono} />
           </button>
         ))}
       </div>
@@ -207,7 +238,7 @@ export default function AprobacionesPage() {
       </FiltrosRegistros>
 
       {isLoading ? (
-        <p className="text-slate">Cargando…</p>
+        <CardsSkeleton count={4} />
       ) : grupos.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line bg-surface p-8 text-center text-sm text-slate">
           {tab === 'pendiente' && verTodosPendientes ? (

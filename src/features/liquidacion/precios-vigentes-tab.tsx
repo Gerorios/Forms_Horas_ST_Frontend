@@ -19,6 +19,7 @@ import {
 } from '@/lib/api/liquidacion';
 import { aplicarIncremento } from './incremento';
 import { SeccionPlusIndividual } from './seccion-plus-individual';
+import { Button } from '@/components/button';
 
 const NOMBRES_MES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -104,12 +105,12 @@ function ConfirmarEdicionDialog({ periodo, onCancelar, onConfirmar }: { periodo:
           El cambio queda auditado.
         </p>
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onCancelar} className="rounded-md px-3 py-2 text-sm font-medium text-ink hover:bg-accent/50">
+          <Button variant="ghost" onClick={onCancelar}>
             Cancelar
-          </button>
-          <button type="button" onClick={onConfirmar} className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95">
+          </Button>
+          <Button variant="primary" onClick={onConfirmar}>
             Confirmar y guardar
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -179,9 +180,9 @@ function SeccionCategorias({ anio, mes }: { anio: number; mes: number }) {
       titulo="Precio por hora por categoría"
       accion={
         modo === 'lectura' && !isLoading ? (
-          <button type="button" onClick={iniciarEdicion} className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-accent/60">
+          <Button variant="secondary" size="sm" onClick={iniciarEdicion}>
             Editar categorías
-          </button>
+          </Button>
         ) : undefined
       }
     >
@@ -220,13 +221,9 @@ function SeccionCategorias({ anio, mes }: { anio: number; mes: number }) {
       ) : (
         <>
           <div className="flex flex-wrap items-end gap-2">
-            <button
-              type="button"
-              onClick={usarUltimosPrecios}
-              className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60"
-            >
+            <Button variant="secondary" size="sm" onClick={usarUltimosPrecios}>
               Usar últimos precios
-            </button>
+            </Button>
             <label className="flex flex-col text-xs text-slate">
               Incremento (%)
               <input
@@ -238,14 +235,14 @@ function SeccionCategorias({ anio, mes }: { anio: number; mes: number }) {
                 className="w-28 rounded-md border border-line bg-surface px-2 py-1.5 tabular-nums text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
               />
             </label>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               disabled={!pct || Number.isNaN(Number(pct))}
               onClick={() => setDialogPct(true)}
-              className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60 disabled:opacity-50"
             >
               Aplicar a todas
-            </button>
+            </Button>
           </div>
           {(data ?? []).map((c) => (
             <label key={c.id} className="flex items-center justify-between gap-3 text-sm text-ink">
@@ -261,17 +258,12 @@ function SeccionCategorias({ anio, mes }: { anio: number; mes: number }) {
             </label>
           ))}
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setModo('lectura')} className="rounded-md px-4 py-2 text-sm font-medium text-ink hover:bg-accent/50">
+            <Button variant="ghost" onClick={() => setModo('lectura')}>
               Cancelar
-            </button>
-            <button
-              type="button"
-              disabled={!completo || guardar.isPending}
-              onClick={onGuardarClick}
-              className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-            >
+            </Button>
+            <Button variant="primary" disabled={!completo || guardar.isPending} onClick={onGuardarClick}>
               Guardar categorías de {periodo}
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -287,20 +279,19 @@ function SeccionCategorias({ anio, mes }: { anio: number; mes: number }) {
               los campos, nada se guarda hasta confirmar el guardado de abajo.
             </p>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setDialogPct(false)} className="rounded-md px-3 py-2 text-sm font-medium text-ink hover:bg-accent/50">
+              <Button variant="ghost" onClick={() => setDialogPct(false)}>
                 Cancelar
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => {
                   const base = Object.fromEntries((data ?? []).map((c) => [c.id, ultimoPrecio(c)]));
                   setImportes(aplicarIncremento(base, Number(pct)));
                   setDialogPct(false);
                 }}
-                className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95"
               >
                 Aplicar {Number(pct) >= 0 ? '+' : ''}{Number(pct)}%
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -383,9 +374,9 @@ function SeccionBono({ anio, mes }: { anio: number; mes: number }) {
       titulo="Bono no remunerativo por categoría (opcional)"
       accion={
         modo === 'lectura' && !isLoading ? (
-          <button type="button" onClick={iniciarEdicion} className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-accent/60">
+          <Button variant="secondary" size="sm" onClick={iniciarEdicion}>
             Editar bonos
-          </button>
+          </Button>
         ) : undefined
       }
     >
@@ -432,13 +423,9 @@ function SeccionBono({ anio, mes }: { anio: number; mes: number }) {
       ) : (
         <>
           <p className="text-xs text-slate">Elegí &quot;Sin bono este mes&quot; para dejar constancia explícita de que UOCRA no anunció nada — no es lo mismo que dejarlo sin revisar.</p>
-          <button
-            type="button"
-            onClick={usarUltimosPrecios}
-            className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60"
-          >
+          <Button variant="secondary" size="sm" onClick={usarUltimosPrecios}>
             Usar últimos precios
-          </button>
+          </Button>
           {(data ?? []).map((b) => (
             <div key={b.categoriaUocraId} className="flex flex-wrap items-center gap-2 text-sm text-ink">
               <span className="w-40 shrink-0">{b.nombre}</span>
@@ -465,17 +452,12 @@ function SeccionBono({ anio, mes }: { anio: number; mes: number }) {
             </div>
           ))}
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setModo('lectura')} className="rounded-md px-4 py-2 text-sm font-medium text-ink hover:bg-accent/50">
+            <Button variant="ghost" onClick={() => setModo('lectura')}>
               Cancelar
-            </button>
-            <button
-              type="button"
-              disabled={guardar.isPending}
-              onClick={onGuardarClick}
-              className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-            >
+            </Button>
+            <Button variant="primary" disabled={guardar.isPending} onClick={onGuardarClick}>
               Guardar bonos de {periodo}
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -539,9 +521,9 @@ function SeccionNovedadesPlus({ anio, mes }: { anio: number; mes: number }) {
       titulo="Monto por novedad con plus (Guardia Pasiva, Viáticos, etc.)"
       accion={
         modo === 'lectura' && !isLoading ? (
-          <button type="button" onClick={iniciarEdicion} className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-accent/60">
+          <Button variant="secondary" size="sm" onClick={iniciarEdicion}>
             Editar montos
-          </button>
+          </Button>
         ) : undefined
       }
     >
@@ -579,13 +561,9 @@ function SeccionNovedadesPlus({ anio, mes }: { anio: number; mes: number }) {
         </>
       ) : (
         <>
-          <button
-            type="button"
-            onClick={usarUltimosPrecios}
-            className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60"
-          >
+          <Button variant="secondary" size="sm" onClick={usarUltimosPrecios}>
             Usar últimos precios
-          </button>
+          </Button>
           {(data ?? []).map((t) => (
             <label key={t.tipoNovedadId} className="flex items-center justify-between gap-3 text-sm text-ink">
               {t.nombre}
@@ -600,17 +578,12 @@ function SeccionNovedadesPlus({ anio, mes }: { anio: number; mes: number }) {
             </label>
           ))}
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setModo('lectura')} className="rounded-md px-4 py-2 text-sm font-medium text-ink hover:bg-accent/50">
+            <Button variant="ghost" onClick={() => setModo('lectura')}>
               Cancelar
-            </button>
-            <button
-              type="button"
-              disabled={!completo || guardar.isPending}
-              onClick={onGuardarClick}
-              className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-            >
+            </Button>
+            <Button variant="primary" disabled={!completo || guardar.isPending} onClick={onGuardarClick}>
               Guardar novedades con plus de {periodo}
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -681,9 +654,9 @@ function SeccionRangosKm({ anio, mes }: { anio: number; mes: number }) {
       titulo="Rangos de km — régimen «por tantos»"
       accion={
         modo === 'lectura' && !isLoading ? (
-          <button type="button" onClick={iniciarEdicion} className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-accent/60">
+          <Button variant="secondary" size="sm" onClick={iniciarEdicion}>
             Editar rangos
-          </button>
+          </Button>
         ) : undefined
       }
     >
@@ -723,14 +696,14 @@ function SeccionRangosKm({ anio, mes }: { anio: number; mes: number }) {
         </>
       ) : (
         <>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={usarUltimosPrecios}
             disabled={!data?.sugerencia?.rangosKm?.length}
-            className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-slate transition hover:bg-accent/60 disabled:opacity-50"
           >
             Usar últimos precios
-          </button>
+          </Button>
           {rangos.map((r, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2 text-sm text-ink">
               <input
@@ -764,17 +737,12 @@ function SeccionRangosKm({ anio, mes }: { anio: number; mes: number }) {
             </div>
           ))}
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setModo('lectura')} className="rounded-md px-4 py-2 text-sm font-medium text-ink hover:bg-accent/50">
+            <Button variant="ghost" onClick={() => setModo('lectura')}>
               Cancelar
-            </button>
-            <button
-              type="button"
-              disabled={!completo || guardar.isPending}
-              onClick={onGuardarClick}
-              className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-            >
+            </Button>
+            <Button variant="primary" disabled={!completo || guardar.isPending} onClick={onGuardarClick}>
               Guardar rangos de {periodo}
-            </button>
+            </Button>
           </div>
         </>
       )}

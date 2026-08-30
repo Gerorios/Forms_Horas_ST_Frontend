@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { PageHeader } from '@/components/page-header';
 import { BarraFiltros, FiltroFecha, MultiFiltro } from '@/components/ui/barra-filtros';
 import { opcionesFacetadas } from '@/lib/facetado';
+import { TableSkeleton } from '@/components/skeleton';
 
 const ESTADO_LABEL: Record<'activa' | 'anulada', string> = { activa: 'Activas', anulada: 'Anuladas' };
 
@@ -107,7 +108,7 @@ export default function CombustiblePage() {
       </BarraFiltros>
 
       {isLoading ? (
-        <p className="text-slate">Cargando…</p>
+        <TableSkeleton rows={5} cols={9} />
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
           <table className="w-full text-sm">

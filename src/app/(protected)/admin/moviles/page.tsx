@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/page-header';
 import { PillActivo } from '@/features/admin/pill-activo';
 import { MovilEditRow } from '@/features/admin/movil-edit-row';
 import { useMovilesAdmin, useCrearMovil, useCrearMovilesMasivo, useToggleMovil } from '@/lib/api/admin';
+import { Button } from '@/components/button';
 
 /** Separa por salto de línea o coma (CSV en una fila o una lista, cualquiera
  * de las dos), recorta espacios y saca vacíos/duplicados. */
@@ -78,14 +79,9 @@ export default function MovilesAdminPage() {
           placeholder="Descripción (opcional)"
           className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
         />
-        <button
-          type="button"
-          disabled={crear.isPending}
-          onClick={agregar}
-          className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
-        >
+        <Button variant="primary" disabled={crear.isPending} onClick={agregar}>
           Agregar
-        </button>
+        </Button>
       </div>
 
       <div className="space-y-2 rounded-xl border border-line bg-surface p-4">
@@ -99,14 +95,13 @@ export default function MovilesAdminPage() {
           className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
         />
         <div className="flex items-center gap-3">
-          <button
-            type="button"
+          <Button
+            variant="primary"
             disabled={crearMasivo.isPending || parsearIdentificadores(listado).length === 0}
             onClick={cargarListado}
-            className="rounded-md bg-brand px-4 py-2 font-medium text-ink transition hover:brightness-95 disabled:opacity-50"
           >
             {crearMasivo.isPending ? 'Cargando…' : 'Cargar listado'}
-          </button>
+          </Button>
           {listado.trim() !== '' && (
             <span className="text-xs text-slate">
               {parsearIdentificadores(listado).length} identificador(es) detectado(s) — se omiten los que ya existan.
