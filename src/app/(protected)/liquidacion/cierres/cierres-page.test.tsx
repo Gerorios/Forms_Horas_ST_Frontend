@@ -203,18 +203,10 @@ describe('CierresPage', () => {
     expect(toastError).toHaveBeenCalled();
   });
 
-  it('"Ver detalle" abre el diálogo con la tabla congelada de ese cierre', async () => {
+  it('"Ver detalle" es un link a la página propia del cierre', () => {
     renderPage();
     const fila = screen.getByText('ANA LIQUIDADORA').closest('[data-cierre-id]')!;
-    await userEvent.click(within(fila as HTMLElement).getByRole('button', { name: /ver detalle/i }));
-
-    expect(useCierreMock).toHaveBeenCalledWith(20);
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    const dialogo = screen.getByRole('dialog');
-    expect(within(dialogo).getByText('GOMEZ CARLOS')).toBeInTheDocument();
-    expect(within(dialogo).getByText('42')).toBeInTheDocument();
-    expect(within(dialogo).getByText('Tartagal')).toBeInTheDocument();
-    // Montos pasan por Number(...) antes de formatear (algunos llegan como string).
-    expect(within(dialogo).getByText('$ 626.875,20')).toBeInTheDocument();
+    const link = within(fila as HTMLElement).getByRole('link', { name: /ver detalle/i });
+    expect(link).toHaveAttribute('href', '/liquidacion/cierres/20');
   });
 });

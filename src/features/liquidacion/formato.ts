@@ -1,6 +1,6 @@
 // Helpers de formateo compartidos por las pantallas de Liquidación — antes
 // reimplementados de forma casi idéntica en varios archivos (cierres/page,
-// cierre-detalle-dialog, cerrar-quincena-dialog, fila-empleado). Fix round 1
+// cerrar-quincena-dialog, fila-empleado). Fix round 1
 // del review de Task 10 (2026-08-30-cierre-liquidacion-export): una sola
 // definición de cada uno en el repo.
 

@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/button';
 import { useCierres, descargarExcelCierre, mensajeDeError, type CierreResumen } from '@/lib/api/liquidacion';
-import { CierreDetalleDialog } from '@/features/liquidacion/cierre-detalle-dialog';
 import { formatMoney, nombreQuincena } from '@/features/liquidacion/formato';
 
 function formatFechaHora(iso: string) {
@@ -53,14 +53,12 @@ function FilaVersion({
   resaltado,
   descargando,
   onDescargar,
-  onVerDetalle,
 }: {
   cierre: CierreResumen;
   esVigente: boolean;
   resaltado: boolean;
   descargando: string | null;
   onDescargar: (id: number, porTantos: boolean) => void;
-  onVerDetalle: (id: number) => void;
 }) {
   const keyExcel = `${cierre.id}-excel`;
   const keyB = `${cierre.id}-b`;
@@ -96,9 +94,12 @@ function FilaVersion({
         <Button variant="secondary" size="sm" disabled={descargando === keyB} onClick={() => onDescargar(cierre.id, true)}>
           {descargando === keyB ? 'Descargando…' : 'Por tantos B'}
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => onVerDetalle(cierre.id)}>
+        <Link
+          href={`/liquidacion/cierres/${cierre.id}`}
+          className="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium text-slate hover:bg-accent/30 hover:text-ink"
+        >
           Ver detalle
-        </Button>
+        </Link>
       </div>
     </div>
   );
@@ -111,7 +112,6 @@ function GrupoCierreCard({
   nuevoId,
   descargando,
   onDescargar,
-  onVerDetalle,
 }: {
   grupo: GrupoCierre;
   expandido: boolean;
@@ -119,7 +119,6 @@ function GrupoCierreCard({
   nuevoId: number | null;
   descargando: string | null;
   onDescargar: (id: number, porTantos: boolean) => void;
-  onVerDetalle: (id: number) => void;
 }) {
   const hayAnteriores = grupo.anteriores.length > 0;
   return (
@@ -146,7 +145,6 @@ function GrupoCierreCard({
           resaltado={grupo.vigente.id === nuevoId}
           descargando={descargando}
           onDescargar={onDescargar}
-          onVerDetalle={onVerDetalle}
         />
         {expandido &&
           grupo.anteriores.map((c) => (
@@ -157,7 +155,6 @@ function GrupoCierreCard({
               resaltado={c.id === nuevoId}
               descargando={descargando}
               onDescargar={onDescargar}
-              onVerDetalle={onVerDetalle}
             />
           ))}
       </div>
@@ -172,7 +169,6 @@ export default function CierresPage() {
   const nuevoId = nuevoParam != null && nuevoParam !== '' ? Number(nuevoParam) : null;
 
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
-  const [detalleId, setDetalleId] = useState<number | null>(null);
   const [descargando, setDescargando] = useState<string | null>(null);
 
   const grupos = useMemo(() => agruparCierres(data ?? []), [data]);
@@ -225,13 +221,10 @@ export default function CierresPage() {
               nuevoId={nuevoId}
               descargando={descargando}
               onDescargar={descargar}
-              onVerDetalle={setDetalleId}
             />
           ))}
         </div>
       )}
-
-      {detalleId != null && <CierreDetalleDialog cierreId={detalleId} onClose={() => setDetalleId(null)} />}
     </section>
   );
 }
