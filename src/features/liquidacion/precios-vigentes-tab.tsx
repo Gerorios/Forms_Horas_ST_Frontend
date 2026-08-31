@@ -306,7 +306,7 @@ function SeccionCategorias({ anio, mes }: { anio: number; mes: number }) {
 
 // ---- Bono no remunerativo (único campo opcional) ----
 function SeccionBono({ anio, mes }: { anio: number; mes: number }) {
-  const { data, isLoading } = useBonosPeriodo(anio, mes);
+  const { data, isLoading } = useBonosPeriodo(anio, mes, 1); // TODO(Task 8): selector de quincena
   const guardar = useGuardarBonosPeriodo();
   const [modo, setModo] = useState<'lectura' | 'edicion'>('lectura');
   const [bonos, setBonos] = useState<Record<number, { tipo: TipoBonoNoRemunerativo | ''; valor: string }>>({});
@@ -355,7 +355,7 @@ function SeccionBono({ anio, mes }: { anio: number; mes: number }) {
         valor: edit?.valor ? Number(edit.valor) : 0,
       };
     });
-    const promesa = guardar.mutateAsync({ anio, mes, bonos: bonosDto });
+    const promesa = guardar.mutateAsync({ anio, mes, quincena: 1, bonos: bonosDto }); // TODO(Task 8): selector de quincena
     toast.promise(promesa, {
       loading: `Guardando bonos de ${periodo}…`,
       success: `Bonos de ${periodo} guardados`,
