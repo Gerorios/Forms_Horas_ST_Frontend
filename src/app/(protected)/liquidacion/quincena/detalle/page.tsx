@@ -295,23 +295,26 @@ export default function DetalleQuincenaPage() {
           </p>
 
           <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-            <table className="w-full min-w-[1250px] text-sm">
+            {/* Sin min-width grande: la tabla debe entrar en pantalla sin
+                scroll horizontal (pedido 2026-08-31); las alertas van
+                apiladas y el hint de expandir es solo un chevron. */}
+            <table className="w-full min-w-[960px] text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
-                  <th className="px-3 py-2.5 font-medium">Empleado</th>
-                  <th className="px-3 py-2.5 font-medium">Régimen</th>
-                  <th className="px-3 py-2.5 font-medium">Categoría</th>
-                  <th className="px-3 py-2.5 font-medium">Hs totales</th>
-                  <th className="px-3 py-2.5 font-medium">Hs CCT</th>
-                  <th className="px-3 py-2.5 font-medium">Hs extra</th>
-                  <th className="px-3 py-2.5 font-medium">Total bruto</th>
-                  <th className="px-3 py-2.5 font-medium">$$ Hs Extras</th>
-                  <th className="px-3 py-2.5 font-medium">Presentismo</th>
-                  <th className="px-3 py-2.5 font-medium">Plus</th>
-                  <th className="px-3 py-2.5 font-medium">Bono</th>
-                  <th className="px-3 py-2.5 font-medium">TOTAL</th>
-                  <th className="px-3 py-2.5 font-medium">Alertas</th>
-                  <th className="px-3 py-2.5 font-medium"></th>
+                  <th className="px-2 py-2.5 font-medium">Empleado</th>
+                  <th className="px-2 py-2.5 font-medium">Régimen</th>
+                  <th className="px-2 py-2.5 font-medium">Categoría</th>
+                  <th className="px-2 py-2.5 font-medium">Hs totales</th>
+                  <th className="px-2 py-2.5 font-medium">Hs CCT</th>
+                  <th className="px-2 py-2.5 font-medium">Hs extra</th>
+                  <th className="px-2 py-2.5 font-medium">Total bruto</th>
+                  <th className="px-2 py-2.5 font-medium">$$ Hs Extras</th>
+                  <th className="px-2 py-2.5 font-medium">Presentismo</th>
+                  <th className="px-2 py-2.5 font-medium">Plus</th>
+                  <th className="px-2 py-2.5 font-medium">Bono</th>
+                  <th className="px-2 py-2.5 font-medium">TOTAL</th>
+                  <th className="px-2 py-2.5 font-medium">Alertas</th>
+                  <th className="px-2 py-2.5 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
@@ -325,12 +328,12 @@ export default function DetalleQuincenaPage() {
                     style={contratoSel.length > 0 ? { opacity: 0.5 } : undefined}
                     title={contratoSel.length > 0 ? 'Sin datos de contrato para filtrar' : undefined}
                   >
-                    <td className="px-3 py-2.5">{e.nombre}</td>
-                    <td className="px-3 py-2.5" colSpan={9}>
+                    <td className="px-2 py-2.5">{e.nombre}</td>
+                    <td className="px-2 py-2.5" colSpan={9}>
                       {e.motivo === 'sin_perfil' ? 'Sin perfil de liquidación asignado' : 'Perfil incompleto'} —{' '}
                       {e.horasAprobadas}hs aprobadas
                     </td>
-                    <td className="px-3 py-2.5" colSpan={4}>
+                    <td className="px-2 py-2.5" colSpan={4}>
                       <Link href="/liquidacion/perfiles" className="underline">
                         Ir a Perfiles de empleados →
                       </Link>

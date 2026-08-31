@@ -21,23 +21,23 @@ export function TablaPorTantos({
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-      <table className="w-full min-w-[1100px] text-sm">
+      <table className="w-full min-w-[960px] text-sm">
         <thead>
           <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
-            <th className="px-3 py-2.5 font-medium">Relevador</th>
-            <th className="px-3 py-2.5 font-medium">Categoría</th>
-            <th className="px-3 py-2.5 font-medium">Km</th>
-            <th className="px-3 py-2.5 font-medium">Monto neto</th>
-            <th className="px-3 py-2.5 font-medium">Hs totales</th>
-            <th className="px-3 py-2.5 font-medium">Hs CCT</th>
-            <th className="px-3 py-2.5 font-medium">Total bruto</th>
-            <th className="px-3 py-2.5 font-medium">Hs extra</th>
-            <th className="px-3 py-2.5 font-medium">Presentismo</th>
-            <th className="px-3 py-2.5 font-medium">Bono</th>
-            <th className="px-3 py-2.5 font-medium">Monto A</th>
-            <th className="px-3 py-2.5 font-medium">Monto B</th>
-            <th className="px-3 py-2.5 font-medium">Alertas</th>
-            <th className="px-3 py-2.5 font-medium"></th>
+            <th className="px-2 py-2.5 font-medium">Relevador</th>
+            <th className="px-2 py-2.5 font-medium">Categoría</th>
+            <th className="px-2 py-2.5 font-medium">Km</th>
+            <th className="px-2 py-2.5 font-medium">Monto neto</th>
+            <th className="px-2 py-2.5 font-medium">Hs totales</th>
+            <th className="px-2 py-2.5 font-medium">Hs CCT</th>
+            <th className="px-2 py-2.5 font-medium">Total bruto</th>
+            <th className="px-2 py-2.5 font-medium">Hs extra</th>
+            <th className="px-2 py-2.5 font-medium">Presentismo</th>
+            <th className="px-2 py-2.5 font-medium">Bono</th>
+            <th className="px-2 py-2.5 font-medium">Monto A</th>
+            <th className="px-2 py-2.5 font-medium">Monto B</th>
+            <th className="px-2 py-2.5 font-medium">Alertas</th>
+            <th className="px-2 py-2.5 font-medium"></th>
           </tr>
         </thead>
         <tbody>
@@ -67,36 +67,38 @@ const FilaPorTantos = memo(function FilaPorTantos({ fila: f, km }: { fila: FilaD
         className="cursor-pointer border-b border-line text-ink last:border-0 hover:bg-accent/30"
         onClick={() => setExpandido((v) => !v)}
       >
-        <td className="px-3 py-2.5">{f.nombre}</td>
-        <td className="px-3 py-2.5">{f.categoria ?? '—'}</td>
-        <td className="px-3 py-2.5 tabular-nums">{km ?? '—'}</td>
-        <td className="px-3 py-2.5 tabular-nums">
+        <td className="px-2 py-2.5">{f.nombre}</td>
+        <td className="px-2 py-2.5">{f.categoria ?? '—'}</td>
+        <td className="px-2 py-2.5 tabular-nums">{km ?? '—'}</td>
+        <td className="px-2 py-2.5 tabular-nums">
           {f.montoKmBruto != null ? formatMoney(f.montoKmBruto) : '—'}
         </td>
-        <td className="px-3 py-2.5 tabular-nums">
+        <td className="px-2 py-2.5 tabular-nums">
           {f.horasTotal !== null ? Number(f.horasTotal).toFixed(2) : '—'}
         </td>
-        <td className="px-3 py-2.5 tabular-nums">
+        <td className="px-2 py-2.5 tabular-nums">
           {f.horasCct !== null ? Number(f.horasCct).toFixed(2) : '—'}
         </td>
-        <td className="px-3 py-2.5 tabular-nums">{formatMoney(f.basico)}</td>
-        <td className="px-3 py-2.5 tabular-nums">
+        <td className="px-2 py-2.5 tabular-nums">{formatMoney(f.basico)}</td>
+        <td className="px-2 py-2.5 tabular-nums">
           {f.horasExtra !== null ? Number(f.horasExtra).toFixed(2) : '—'}
         </td>
-        <td className="px-3 py-2.5 tabular-nums">{formatMoney(f.presentismo)}</td>
-        <td className="px-3 py-2.5 tabular-nums">{formatMoney(f.noRemunerativo)}</td>
-        <td className="px-3 py-2.5 font-medium tabular-nums">
+        <td className="px-2 py-2.5 tabular-nums">{formatMoney(f.presentismo)}</td>
+        <td className="px-2 py-2.5 tabular-nums">{formatMoney(f.noRemunerativo)}</td>
+        <td className="px-2 py-2.5 font-medium tabular-nums">
           {formatMoney(String(Number(f.basico) + Number(f.presentismo) + Number(f.noRemunerativo)))}
         </td>
-        <td className="px-3 py-2.5 font-medium tabular-nums">{formatMoney(f.montoExtra)}</td>
-        <td className="px-3 py-2.5">
+        <td className="px-2 py-2.5 font-medium tabular-nums">{formatMoney(f.montoExtra)}</td>
+        <td className="px-2 py-2.5">
           {f.datoFaltante && (
             <span className="rounded bg-danger/10 px-1 text-xs font-medium text-danger" title={f.datoFaltante}>
               falta dato
             </span>
           )}
         </td>
-        <td className="px-3 py-2.5 text-right text-xs text-slate">{expandido ? 'Cerrar ▴' : 'Ver detalle ▾'}</td>
+        <td className="px-2 py-2.5 text-right text-xs text-slate" title={expandido ? 'Cerrar' : 'Ver detalle'}>
+          {expandido ? '▴' : '▾'}
+        </td>
       </tr>
       {expandido && (
         <tr className="border-b border-line last:border-0">
