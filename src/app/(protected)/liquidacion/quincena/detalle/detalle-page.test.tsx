@@ -273,7 +273,8 @@ describe('DetalleQuincenaPage', () => {
   it('la tabla de "por tantos" tiene su propia pestaña de detalle con las novedades del período', async () => {
     renderPage();
     const fila = screen.getByRole('cell', { name: 'RELEVADOR PABLO' }).closest('tr')!;
-    expect(fila).toHaveTextContent(/ver detalle/i);
+    // El hint de expandir es un chevron con title (antes decía "Ver detalle ▾").
+    expect(fila).toHaveTextContent('▾');
 
     await userEvent.click(screen.getByText('RELEVADOR PABLO'));
     expect(screen.getByText('Novedades del período')).toBeInTheDocument();

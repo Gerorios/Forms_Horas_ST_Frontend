@@ -40,26 +40,28 @@ export const FilaEmpleado = memo(function FilaEmpleado({
         className="cursor-pointer border-b border-line text-ink last:border-0 hover:bg-accent/30"
         onClick={() => setExpandido((v) => !v)}
       >
-        <td className="px-3 py-2.5">{fila.nombre}</td>
-        <td className="px-3 py-2.5">{REGIMEN_LABEL[fila.regimen] ?? fila.regimen}</td>
-        <td className="px-3 py-2.5">{fila.categoria ?? '—'}</td>
-        <td className="px-3 py-2.5 tabular-nums">
+        <td className="px-2 py-2.5">{fila.nombre}</td>
+        <td className="px-2 py-2.5">{REGIMEN_LABEL[fila.regimen] ?? fila.regimen}</td>
+        <td className="px-2 py-2.5">{fila.categoria ?? '—'}</td>
+        <td className="px-2 py-2.5 tabular-nums">
           {fila.horasTotal !== null ? Number(fila.horasTotal).toFixed(2) : '—'}
         </td>
-        <td className="px-3 py-2.5 tabular-nums">
+        <td className="px-2 py-2.5 tabular-nums">
           {fila.horasCct !== null ? Number(fila.horasCct).toFixed(2) : '—'}
         </td>
-        <td className="px-3 py-2.5 tabular-nums">
+        <td className="px-2 py-2.5 tabular-nums">
           {fila.horasExtra !== null ? Number(fila.horasExtra).toFixed(2) : '—'}
         </td>
-        <td className="px-3 py-2.5 tabular-nums">{formatMoney(fila.basico)}</td>
-        <td className="px-3 py-2.5 tabular-nums">{formatMoney(fila.montoExtra)}</td>
-        <td className="px-3 py-2.5 tabular-nums">{formatMoney(fila.presentismo)}</td>
-        <td className="px-3 py-2.5 tabular-nums">{formatMoney(fila.totalPlus)}</td>
-        <td className="px-3 py-2.5 tabular-nums">{formatMoney(fila.noRemunerativo)}</td>
-        <td className="px-3 py-2.5 font-medium tabular-nums">{formatMoney(fila.total)}</td>
-        <td className="px-3 py-2.5">
-          <div className="flex flex-wrap gap-1">
+        <td className="px-2 py-2.5 tabular-nums">{formatMoney(fila.basico)}</td>
+        <td className="px-2 py-2.5 tabular-nums">{formatMoney(fila.montoExtra)}</td>
+        <td className="px-2 py-2.5 tabular-nums">{formatMoney(fila.presentismo)}</td>
+        <td className="px-2 py-2.5 tabular-nums">{formatMoney(fila.totalPlus)}</td>
+        <td className="px-2 py-2.5 tabular-nums">{formatMoney(fila.noRemunerativo)}</td>
+        <td className="px-2 py-2.5 font-medium tabular-nums">{formatMoney(fila.total)}</td>
+        <td className="px-2 py-2.5">
+          {/* Chips apilados en columna: la celda queda angosta (ancho del chip
+              más largo) en vez de estirar la tabla a lo ancho. */}
+          <div className="flex flex-col items-start gap-0.5">
             {fila.pendientesAprobacion > 0 && (
               <span
                 className="rounded bg-warn/10 px-1 text-xs font-medium text-warn"
@@ -94,7 +96,9 @@ export const FilaEmpleado = memo(function FilaEmpleado({
             )}
           </div>
         </td>
-        <td className="px-3 py-2.5 text-right text-xs text-slate">{expandido ? 'Cerrar ▴' : 'Ver detalle ▾'}</td>
+        <td className="px-2 py-2.5 text-right text-xs text-slate" title={expandido ? 'Cerrar' : 'Ver detalle'}>
+          {expandido ? '▴' : '▾'}
+        </td>
       </tr>
       {expandido && (
         <tr className="border-b border-line last:border-0">
