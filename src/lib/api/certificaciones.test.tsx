@@ -93,3 +93,67 @@ describe('filtrado client-side por período', () => {
     expect(result.current.data?.filter((c) => !c.cargado)).toHaveLength(1);
   });
 });
+
+// FastAPI espera `contratos=A&contratos=B` (claves repetidas, sin corchetes)
+// para `List[str] = Query(default=[])` — el serializer de arrays por defecto
+// de axios emite `contratos[]=A&...`, que FastAPI no bindea. Estos tests
+// verifican que los hooks de Task 7 arman los query params a mano.
+describe('hooks de /analytics/* (Task 7): serialización de filtros', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.resetModules();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('useEvolucionMensual: contratos/provincias van como claves repetidas sin corchetes', async () => {
+    const { apiCert, useEvolucionMensual } = await import('./certificaciones');
+    const spy = vi.spyOn(apiCert, 'get').mockResolvedValue({ data: [] });
+
+    const { result } = renderHook(
+      () =>
+        useEvolucionMensual({
+          contratos: ['K5', 'K6'],
+          provincias: ['Salta'],
+          tipo: 'OPEX',
+          desde: '2026-01',
+          hasta: '2026-08',
+        }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    const [url, config] = spy.mock.calls[0];
+    expect(url).toBe('/analytics/evolucion-mensual');
+    const params = config?.params as URLSearchParams;
+    expect(params.toString()).toBe(
+      'contratos=K5&contratos=K6&provincias=Salta&tipo=OPEX&desde=2026-01&hasta=2026-08',
+    );
+  });
+
+  it('useTopItems: sin filtros, no manda query params vacíos', async () => {
+    const { apiCert, useTopItems } = await import('./certificaciones');
+    const spy = vi.spyOn(apiCert, 'get').mockResolvedValue({ data: [] });
+
+    const { result } = renderHook(() => useTopItems({}), { wrapper });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    const [, config] = spy.mock.calls[0];
+    const params = config?.params as URLSearchParams;
+    expect(params.toString()).toBe('');
+  });
+
+  it('useEstadoCargasCompleto: trae el histórico completo sin filtrar por período', async () => {
+    const { apiCert, useEstadoCargasCompleto } = await import('./certificaciones');
+    vi.spyOn(apiCert, 'get').mockResolvedValue({
+      data: [
+        { contrato: 'K5', periodo: '2026-07', cargado: true, usuario: 'ana', cargado_en: '2026-07-05', filas_cargadas: 10, estado: 'ok' },
+        { contrato: 'K5', periodo: '2026-08', cargado: false, usuario: null, cargado_en: null, filas_cargadas: 0, estado: 'pendiente' },
+      ],
+    });
+
+    const { result } = renderHook(() => useEstadoCargasCompleto(), { wrapper });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data).toHaveLength(2);
+  });
+});

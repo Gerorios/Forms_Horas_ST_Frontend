@@ -21,6 +21,158 @@ apiCert.interceptors.request.use((config) => {
 const getCert = async <T>(url: string, params?: Record<string, unknown>) =>
   (await apiCert.get<T>(url, params ? { params } : undefined)).data;
 
+// ---- Filtros comunes de /analytics/* (Task 7) ----
+export interface FiltrosAnalytics {
+  contratos?: string[];
+  provincias?: string[];
+  tipo?: 'OPEX' | 'CAPEX';
+  desde?: string;
+  hasta?: string;
+}
+
+/** El backend usa FastAPI `Query(default=[])` para `contratos`/`provincias`
+ * (List[str]): espera claves repetidas SIN corchetes (`contratos=A&contratos=B`).
+ * El serializer de arrays por defecto de axios emite `contratos[]=A&...`, que
+ * FastAPI no bindea — por eso se arma el `URLSearchParams` a mano acá en vez
+ * de pasar el objeto `filtros` directo como `params`. */
+function paramsAnalytics(filtros: FiltrosAnalytics): URLSearchParams {
+  const usp = new URLSearchParams();
+  for (const c of filtros.contratos ?? []) usp.append('contratos', c);
+  for (const p of filtros.provincias ?? []) usp.append('provincias', p);
+  if (filtros.tipo) usp.append('tipo', filtros.tipo);
+  if (filtros.desde) usp.append('desde', filtros.desde);
+  if (filtros.hasta) usp.append('hasta', filtros.hasta);
+  return usp;
+}
+
+const getCertAnalytics = async <T>(url: string, filtros: FiltrosAnalytics) =>
+  (await apiCert.get<T>(url, { params: paramsAnalytics(filtros) })).data;
+
+// ---- GET /analytics/evolucion-mensual (FastAPI) ----
+// NOTA (Task 7): el brief describía el shape como { periodo, monto, pgn } —
+// analytics.py (fuente de verdad) devuelve { periodo, monto_total, pgn_total }.
+// Se sigue el código real.
+export interface EvolucionMensualPunto {
+  periodo: string;
+  monto_total: number;
+  pgn_total: number;
+}
+
+export function useEvolucionMensual(filtros: FiltrosAnalytics) {
+  return useQuery({
+    queryKey: ['certificaciones', 'analytics', 'evolucion-mensual', filtros],
+    queryFn: () => getCertAnalytics<EvolucionMensualPunto[]>('/analytics/evolucion-mensual', filtros),
+  });
+}
+
+// ---- GET /analytics/por-contrato-mes (FastAPI) ----
+export interface PorContratoMesPunto {
+  periodo: string;
+  contrato: string;
+  monto_total: number;
+  pgn_total: number;
+}
+
+export function usePorContratoMes(filtros: FiltrosAnalytics) {
+  return useQuery({
+    queryKey: ['certificaciones', 'analytics', 'por-contrato-mes', filtros],
+    queryFn: () => getCertAnalytics<PorContratoMesPunto[]>('/analytics/por-contrato-mes', filtros),
+  });
+}
+
+// ---- GET /analytics/por-provincia (FastAPI) ----
+export interface PorProvinciaPunto {
+  provincia: string;
+  monto_total: number;
+  pgn_total: number;
+  lineas: number;
+}
+
+export function usePorProvincia(filtros: FiltrosAnalytics) {
+  return useQuery({
+    queryKey: ['certificaciones', 'analytics', 'por-provincia', filtros],
+    queryFn: () => getCertAnalytics<PorProvinciaPunto[]>('/analytics/por-provincia', filtros),
+  });
+}
+
+// ---- GET /analytics/top-items (FastAPI) ----
+// NOTA (Task 7): el brief describía { item_codigo, tarea, monto, cantidad } —
+// analytics.py no tiene un campo `cantidad`; devuelve además `contrato` y
+// `pgn_total`. Se sigue el código real.
+export interface TopItemPunto {
+  item_codigo: string;
+  tarea: string;
+  contrato: string;
+  monto_total: number;
+  pgn_total: number;
+}
+
+export function useTopItems(filtros: FiltrosAnalytics) {
+  return useQuery({
+    queryKey: ['certificaciones', 'analytics', 'top-items', filtros],
+    queryFn: () => getCertAnalytics<TopItemPunto[]>('/analytics/top-items', filtros),
+  });
+}
+
+// ---- GET /analytics/interanual (FastAPI) ----
+// NOTA (Task 7): el brief describía un array plano [{ mes, actual, anterior,
+// variacion }] — analytics.py devuelve un objeto { anio_actual, anio_anterior,
+// meses: [...] } con monto Y pgn por separado (el endpoint tampoco acepta
+// `desde`/`hasta`: siempre compara año actual vs anterior). Se sigue el
+// código real.
+export interface InteranualMes {
+  mes: number;
+  monto_actual: number | null;
+  monto_anterior: number | null;
+  pgn_actual: number | null;
+  pgn_anterior: number | null;
+  var_monto: number | null;
+  var_pgn: number | null;
+}
+
+export interface InteranualResponse {
+  anio_actual: number | null;
+  anio_anterior: number | null;
+  meses: InteranualMes[];
+}
+
+export function useInteranual(filtros: FiltrosAnalytics) {
+  return useQuery({
+    queryKey: ['certificaciones', 'analytics', 'interanual', filtros],
+    queryFn: () => getCertAnalytics<InteranualResponse>('/analytics/interanual', filtros),
+  });
+}
+
+// ---- GET /analytics/contratos y /analytics/provincias (FastAPI) — listas
+// para poblar los MultiFiltro de la barra de filtros de Analytics ----
+export function useContratosAnalytics() {
+  return useQuery({
+    queryKey: ['certificaciones', 'analytics', 'contratos-disponibles'],
+    queryFn: () => getCert<string[]>('/analytics/contratos'),
+  });
+}
+
+export function useProvinciasAnalytics() {
+  return useQuery({
+    queryKey: ['certificaciones', 'analytics', 'provincias-disponibles'],
+    queryFn: () => getCert<string[]>('/analytics/provincias'),
+  });
+}
+
+/** Histórico completo de `/analytics/estado-cargas` (sin filtro de período),
+ * para la matriz operativa contrato×período — mismo endpoint y mismo
+ * queryKey base que `useEstadoCargas` (Task 6, que filtra a un período con
+ * `select`); acá se necesita TODO el histórico para armar la matriz, así
+ * que va sin `select` y con su propia entrada de caché en TanStack Query
+ * (agrega `'todas'` a la key para no pisar el resultado ya cacheado por
+ * `useEstadoCargas`). */
+export function useEstadoCargasCompleto() {
+  return useQuery({
+    queryKey: ['certificaciones', 'estado-cargas', 'todas'],
+    queryFn: () => getCert<EstadoCargaContrato[]>('/analytics/estado-cargas'),
+  });
+}
+
 // ---- GET /certificaciones/resumen (FastAPI) ----
 export interface FilaResumenCert {
   periodo: string;
@@ -44,14 +196,17 @@ export function useResumenCert(periodo: string) {
 }
 
 // ---- GET /analytics/estado-cargas (FastAPI) ----
+// NOTA (Task 7): `filas_cargadas` y `estado` también son `null` cuando el
+// contrato no cargó ese período (analytics.py devuelve `None` en ese caso) —
+// se corrige el tipo, antes marcado como no-nulo (Task 6).
 export interface EstadoCargaContrato {
   contrato: string;
   periodo: string;
   cargado: boolean;
   usuario: string | null;
   cargado_en: string | null;
-  filas_cargadas: number;
-  estado: string;
+  filas_cargadas: number | null;
+  estado: string | null;
 }
 
 /** El backend devuelve TODO el histórico contrato×período desde 2025-01 (no
