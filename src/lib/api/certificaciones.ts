@@ -30,10 +30,15 @@ export interface FilaResumenCert {
   monto_total: number;
 }
 
+/** El backend NO filtra por período (devuelve las últimas ~200 filas de
+ * TODOS los períodos, orden desc, cada fila trae su `periodo`) — el filtro
+ * por período seleccionado se hace client-side acá. Si el volumen crece,
+ * agregar filtro server-side (query param real en el endpoint). */
 export function useResumenCert(periodo: string) {
   return useQuery({
-    queryKey: ['certificaciones', 'resumen', periodo],
-    queryFn: () => getCert<FilaResumenCert[]>('/certificaciones/resumen', { periodo }),
+    queryKey: ['certificaciones', 'resumen'],
+    queryFn: () => getCert<FilaResumenCert[]>('/certificaciones/resumen'),
+    select: (filas) => filas.filter((f) => f.periodo === periodo),
     enabled: periodo !== '',
   });
 }
@@ -41,28 +46,42 @@ export function useResumenCert(periodo: string) {
 // ---- GET /analytics/estado-cargas (FastAPI) ----
 export interface EstadoCargaContrato {
   contrato: string;
+  periodo: string;
   cargado: boolean;
+  usuario: string | null;
+  cargado_en: string | null;
+  filas_cargadas: number;
+  estado: string;
 }
 
-export function useEstadoCargas() {
+/** El backend devuelve TODO el histórico contrato×período desde 2025-01 (no
+ * acepta filtro) — el filtro por período seleccionado se hace client-side
+ * acá, mismo criterio que `useResumenCert`. */
+export function useEstadoCargas(periodo: string) {
   return useQuery({
     queryKey: ['certificaciones', 'estado-cargas'],
     queryFn: () => getCert<EstadoCargaContrato[]>('/analytics/estado-cargas'),
+    select: (filas) => filas.filter((f) => f.periodo === periodo),
+    enabled: periodo !== '',
   });
 }
 
-// ---- GET /analytics/presupuesto (FastAPI) — 403 para nivel 'carga' ----
-export interface PresupuestoResumen {
-  periodo: string;
-  presupuestado: number;
-  certificado: number;
-  pctEjecutado: number;
+// ---- GET /analytics/presupuesto (FastAPI) — lista, una fila por contrato;
+// 403 para nivel 'carga' ----
+export interface PresupuestoContrato {
+  contrato: string;
+  descripcion: string;
+  periodo_desde: string;
+  periodo_hasta: string;
+  monto_presupuesto: number;
+  consumido: number;
+  pct: number;
 }
 
 export function usePresupuesto() {
   return useQuery({
     queryKey: ['certificaciones', 'presupuesto'],
-    queryFn: () => getCert<PresupuestoResumen>('/analytics/presupuesto'),
+    queryFn: () => getCert<PresupuestoContrato[]>('/analytics/presupuesto'),
     retry: false, // 403 no corresponde reintentar (nivel 'carga' sin el permiso)
   });
 }

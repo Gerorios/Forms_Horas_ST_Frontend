@@ -73,7 +73,7 @@ export default function CertificacionesPage() {
   const periodo = `${anio}-${String(mes).padStart(2, '0')}`;
 
   const { data: resumen, isLoading: cargandoResumen } = useResumenCert(periodo);
-  const { data: estadoCargas, isLoading: cargandoEstado } = useEstadoCargas();
+  const { data: estadoCargas, isLoading: cargandoEstado } = useEstadoCargas(periodo);
   const { data: presupuesto, isError: errorPresupuesto } = usePresupuesto();
 
   // La incidencia MO solo se calcula si el usuario tiene el claim (admin/lectura
@@ -136,11 +136,49 @@ export default function CertificacionesPage() {
       )}
 
       {presupuesto && !errorPresupuesto && (
-        <Card titulo="Presupuesto">
-          <div className="grid grid-cols-3 gap-3">
-            <StatTile label="Presupuestado" value={fmtMoneda(presupuesto.presupuestado)} />
-            <StatTile label="Certificado" value={fmtMoneda(presupuesto.certificado)} />
-            <StatTile label="Ejecutado" value={fmtPct(presupuesto.pctEjecutado)} />
+        <Card titulo="Presupuesto por contrato">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" aria-label="Presupuesto por contrato">
+              <thead>
+                <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
+                  <th className="px-3 py-2.5 font-medium">Contrato</th>
+                  <th className="px-3 py-2.5 font-medium">Descripción</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Presupuesto</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Consumido</th>
+                  <th className="px-3 py-2.5 text-right font-medium">% ejecutado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {presupuesto.map((p) => (
+                  <tr key={p.contrato} className="border-b border-line text-ink last:border-0">
+                    <td className="px-3 py-2.5">{p.contrato}</td>
+                    <td className="px-3 py-2.5 text-slate">{p.descripcion}</td>
+                    <td className="tabular-nums px-3 py-2.5 text-right">{fmtMoneda(p.monto_presupuesto)}</td>
+                    <td className="tabular-nums px-3 py-2.5 text-right">{fmtMoneda(p.consumido)}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
+                          p.pct > 100
+                            ? 'bg-danger/10 text-danger ring-danger/25'
+                            : p.pct > 80
+                              ? 'bg-warn/10 text-warn ring-warn/25'
+                              : 'bg-approved/10 text-approved ring-approved/25'
+                        }`}
+                      >
+                        {fmtPct(p.pct)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {presupuesto.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-3 text-sm text-slate">
+                      Sin presupuesto cargado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </Card>
       )}
