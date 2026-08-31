@@ -5,4 +5,5 @@ export const LIQUIDACION_NAV = [
   { label: 'Perfiles de empleados', href: '/liquidacion/perfiles' },
   { label: 'Tarifas', href: '/liquidacion/tarifas' },
   { label: 'Análisis', href: '/liquidacion/analisis' },
+  { label: 'Cierres', href: '/liquidacion/cierres' },
 ];
