@@ -204,21 +204,31 @@ export function useGuardarCategoriasPeriodo() {
   });
 }
 
-// ---- Sección: bono no remunerativo por categoría (único campo opcional) ----
-export function useBonosPeriodo(anio: number, mes: number) {
+// ---- Sección: bono no remunerativo por categoría (único campo opcional; la
+// tarifa gana quincena, ver plan cierre-liquidacion-export) ----
+export function useBonosPeriodo(anio: number, mes: number, quincena: number) {
   return useQuery({
-    queryKey: ['liquidacion', 'tarifas-bonos', anio, mes],
-    queryFn: () => get<BonoPeriodoItem[]>(`/liquidacion/tarifas/bonos/${anio}/${mes}`),
+    queryKey: ['liquidacion', 'tarifas-bonos', anio, mes, quincena],
+    queryFn: () => get<BonoPeriodoItem[]>(`/liquidacion/tarifas/bonos/${anio}/${mes}/${quincena}`),
     enabled: periodoHabilitado(anio, mes),
   });
 }
 export function useGuardarBonosPeriodo() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ anio, mes, bonos }: { anio: number; mes: number; bonos: { categoriaUocraId: number; tipo: TipoBonoNoRemunerativo; valor: number }[] }) =>
-      api.put<BonoPeriodoItem[]>(`/liquidacion/tarifas/bonos/${anio}/${mes}`, { bonos }).then((r) => r.data),
+    mutationFn: ({
+      anio,
+      mes,
+      quincena,
+      bonos,
+    }: {
+      anio: number;
+      mes: number;
+      quincena: number;
+      bonos: { categoriaUocraId: number; tipo: TipoBonoNoRemunerativo; valor: number }[];
+    }) => api.put<BonoPeriodoItem[]>(`/liquidacion/tarifas/bonos/${anio}/${mes}/${quincena}`, { bonos }).then((r) => r.data),
     onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-bonos', vars.anio, vars.mes] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'tarifas-bonos', vars.anio, vars.mes, vars.quincena] });
       qc.invalidateQueries({ queryKey: ['liquidacion', 'quincena-detalle'] });
       qc.invalidateQueries({ queryKey: ['liquidacion', 'quincenas'] });
     },
@@ -473,6 +483,8 @@ export interface FilaDetalleEmpleado {
   modalidadPago: ModalidadPago | null;
   etiquetaNovedades: string;
   datoFaltante: string | null;
+  /** spec §6.4: provincia no mapeada (ver zonaDeProvincia en el backend) → null. */
+  zona: 'norte' | 'sur' | null;
   pendientesAprobacion: number;
   duplicadoCruzado: boolean;
   dias: DiaAprobado[];
@@ -540,4 +552,118 @@ export function useAnalisisQuincena(anio: number, mes: number, quincena: number)
     queryKey: ['liquidacion', 'analisis', anio, mes, quincena],
     queryFn: () => get<AnalisisQuincena>('/liquidacion/analisis', { anio, mes, quincena }),
   });
+}
+
+// ---- Cierres de liquidación (ver plan 2026-08-30-cierre-liquidacion-export).
+// Los Decimal de Prisma llegan serializados por JSON como string (mismo
+// criterio que el resto del archivo, p.ej. BonoPeriodoItem.bono.valor); por
+// eso los montos de CierreDetalleFila se tipan `number | string` — el
+// backend los emite `number` en el cálculo en memoria y `string` en los
+// pocos casos donde el detalle persistido devuelve el Decimal crudo. ----
+export interface CierreResumen {
+  id: number;
+  anio: number;
+  mes: number;
+  quincena: number;
+  version: number;
+  cerradoPor: { cuil: string; nombre: string };
+  nota: string | null;
+  /** El backend deserializa el JSON guardado; siempre llega como array. */
+  salvedades: string[];
+  createdAt: string;
+  totales: { total: number; norte: number; sur: number; sinZona: number; empleados: number };
+}
+
+export interface CierreDetalleFila {
+  cuil: string;
+  apellidoNombre: string;
+  legajo: number | null;
+  provincia: string | null;
+  localidad: string | null;
+  zona: 'norte' | 'sur' | null;
+  regimen: string;
+  categoria: string | null;
+  modalidadPago: string | null;
+  tienePresentismo: boolean;
+  precioBruto: number | string | null;
+  horasTotal: number | string | null;
+  horasCct: number | string | null;
+  horasExtra: number | string | null;
+  totalBruto: number | string;
+  montoHorasExtra: number | string;
+  montoPresentismo: number | string;
+  noRemunerativo: number | string;
+  montoGuardias: number | string;
+  montoProductividad: number | string;
+  plusIndividual: number | string;
+  kmTotal: number | string | null;
+  montoKmBruto: number | string | null;
+  montoA: number | string | null;
+  montoB: number | string | null;
+  novedadesTexto: string | null;
+  salvedad: string | null;
+  total: number | string;
+}
+
+export interface CierreDetalle extends CierreResumen {
+  detalle: CierreDetalleFila[];
+}
+
+export function useCierres() {
+  return useQuery({
+    queryKey: ['liquidacion', 'cierres'],
+    queryFn: () => get<CierreResumen[]>('/liquidacion/cierres'),
+  });
+}
+
+export function useCierre(id: number | null | undefined) {
+  return useQuery({
+    queryKey: ['liquidacion', 'cierres', id],
+    queryFn: () => get<CierreDetalle>(`/liquidacion/cierres/${id}`),
+    enabled: id != null,
+  });
+}
+
+export function useCrearCierre() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: { anio: number; mes: number; quincena: number; nota?: string }) =>
+      api.post<CierreResumen>('/liquidacion/cierres', dto).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'cierres'] });
+      qc.invalidateQueries({ queryKey: ['liquidacion', 'quincenas'] });
+    },
+  });
+}
+
+/**
+ * Extrae el filename de un header `content-disposition` tipo
+ * `attachment; filename="cierre.xlsx"` (con o sin comillas). Si no hay
+ * match usable, devuelve null para que el caller aplique su fallback.
+ */
+function filenameDeContentDisposition(header: string | undefined): string | null {
+  if (!header) return null;
+  const conComillas = /filename="([^"]+)"/i.exec(header);
+  if (conComillas?.[1]) return conComillas[1];
+  const sinComillas = /filename=([^;]+)/i.exec(header);
+  if (sinComillas?.[1]) return sinComillas[1].trim();
+  return null;
+}
+
+/**
+ * Descarga el Excel de un cierre ya generado y dispara el guardado en el
+ * navegador. `porTantos` elige entre el Excel general y el de "por tantos".
+ */
+export async function descargarExcelCierre(id: number, porTantos: boolean): Promise<void> {
+  const url = porTantos ? `/liquidacion/cierres/${id}/excel-por-tantos` : `/liquidacion/cierres/${id}/excel`;
+  const response = await api.get(url, { responseType: 'blob' });
+  const filename = filenameDeContentDisposition(response.headers['content-disposition']) ?? `cierre-${id}.xlsx`;
+  const objectUrl = URL.createObjectURL(response.data as Blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
 }

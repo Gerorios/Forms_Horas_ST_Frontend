@@ -9,6 +9,8 @@ import { opcionesFacetadas } from '@/lib/facetado';
 import { useDetalleQuincena, useKmPorTantos, type FilaDetalleEmpleado } from '@/lib/api/liquidacion';
 import { FilaEmpleado, REGIMEN_LABEL } from '@/features/liquidacion/fila-empleado';
 import { TablaPorTantos } from '@/features/liquidacion/tabla-por-tantos';
+import { CerrarQuincenaDialog } from '@/features/liquidacion/cerrar-quincena-dialog';
+import { Button } from '@/components/button';
 
 function nombreQuincena(quincena: number, mes: number, anio: number) {
   const nombreMes = new Date(2000, mes - 1, 1).toLocaleDateString('es-AR', { month: 'long' });
@@ -64,6 +66,7 @@ export default function DetalleQuincenaPage() {
   const [regimenSel, setRegimenSel] = useState<string[]>([]);
   const [categoriaSel, setCategoriaSel] = useState<string[]>([]);
   const [contratoSel, setContratoSel] = useState<string[]>([]);
+  const [cerrando, setCerrando] = useState(false);
 
   // "Por tantos" se muestra en una tabla propia (columnas y regla de extra
   // distintas — ver ADR-015), separada del resto de los regímenes.
@@ -175,6 +178,46 @@ export default function DetalleQuincenaPage() {
     setContratoSel([]);
   }
 
+  // Totales y salvedades para el diálogo de cierre — se derivan de los datos
+  // YA cargados en esta página (data.filas / data.sinPerfil), sin pegarle de
+  // nuevo al backend (ver brief Task 9). El backend recalcula todo al cerrar;
+  // la zona (spec §6.4) viaja en cada fila del detalle en vivo, así que la
+  // salvedad "sin zona" ya queda alineada entre el diálogo y el cierre real.
+  const totalesCierre = useMemo(() => {
+    const todasLasFilas = data?.filas ?? [];
+    return {
+      total: todasLasFilas.reduce((acc, f) => acc + Number(f.total), 0),
+      empleados: todasLasFilas.length + (data?.sinPerfil.length ?? 0),
+    };
+  }, [data]);
+
+  const salvedadesCierre = useMemo(() => {
+    const todasLasFilas = data?.filas ?? [];
+    const sinPerfilList = data?.sinPerfil ?? [];
+    const items: string[] = [];
+    const sinPerfilCount = sinPerfilList.filter((e) => e.motivo === 'sin_perfil').length;
+    const perfilIncompletoCount = sinPerfilList.filter((e) => e.motivo === 'perfil_incompleto').length;
+    const pendientesCount = todasLasFilas.filter((f) => f.pendientesAprobacion > 0).length;
+    const datoFaltanteCount = todasLasFilas.filter((f) => f.datoFaltante).length;
+    const sinZonaCount = todasLasFilas.filter((f) => f.zona === null).length;
+    if (sinPerfilCount > 0) {
+      items.push(`${sinPerfilCount} empleado${sinPerfilCount === 1 ? '' : 's'} sin perfil de liquidación asignado`);
+    }
+    if (perfilIncompletoCount > 0) {
+      items.push(`${perfilIncompletoCount} empleado${perfilIncompletoCount === 1 ? '' : 's'} con perfil incompleto`);
+    }
+    if (pendientesCount > 0) {
+      items.push(`${pendientesCount} empleado${pendientesCount === 1 ? '' : 's'} con horas pendientes de aprobar`);
+    }
+    if (datoFaltanteCount > 0) {
+      items.push(`${datoFaltanteCount} empleado${datoFaltanteCount === 1 ? '' : 's'} con datos faltantes para liquidar`);
+    }
+    if (sinZonaCount > 0) {
+      items.push(`${sinZonaCount} empleado${sinZonaCount === 1 ? '' : 's'} sin zona (provincia no mapeada)`);
+    }
+    return items;
+  }, [data]);
+
   if (!periodoValido) {
     return (
       <section className="space-y-5">
@@ -191,7 +234,26 @@ export default function DetalleQuincenaPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Liquidador" title={nombreQuincena(quincena, mes, anio)} />
+      <PageHeader
+        eyebrow="Liquidador"
+        title={nombreQuincena(quincena, mes, anio)}
+        action={
+          <Button variant="primary" onClick={() => setCerrando(true)} disabled={isLoading}>
+            Cerrar quincena
+          </Button>
+        }
+      />
+
+      {cerrando && (
+        <CerrarQuincenaDialog
+          anio={anio}
+          mes={mes}
+          quincena={quincena}
+          totales={totalesCierre}
+          salvedades={salvedadesCierre}
+          onCancel={() => setCerrando(false)}
+        />
+      )}
 
       {isLoading ? (
         <p className="text-slate">Cargando…</p>

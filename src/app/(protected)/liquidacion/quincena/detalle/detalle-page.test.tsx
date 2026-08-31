@@ -33,6 +33,7 @@ const filaJornalizado = {
   modalidadPago: 'en_b',
   etiquetaNovedades: 'Hs Extra y Presentismo en B',
   datoFaltante: null,
+  zona: 'norte' as const,
   pendientesAprobacion: 2,
   duplicadoCruzado: true,
   dias: [
@@ -66,6 +67,7 @@ const filaJornalizado2 = {
   modalidadPago: 'con_descuentos',
   etiquetaNovedades: '',
   datoFaltante: null,
+  zona: 'sur' as const,
   pendientesAprobacion: 0,
   duplicadoCruzado: false,
   dias: [
@@ -101,6 +103,7 @@ const filaMensualizado = {
   modalidadPago: null,
   etiquetaNovedades: '',
   datoFaltante: 'Falta cargar el sueldo mensualizado (Tarifas > Sueldos mensualizados)',
+  zona: null,
   pendientesAprobacion: 0,
   duplicadoCruzado: false,
   dias: [],
@@ -128,6 +131,7 @@ const filaPorTantos = {
   modalidadPago: null,
   etiquetaNovedades: '',
   datoFaltante: null,
+  zona: 'norte' as const,
   pendientesAprobacion: 0,
   duplicadoCruzado: false,
   dias: [],
@@ -157,6 +161,7 @@ vi.mock('sonner', () => ({ toast: { promise: vi.fn() } }));
 const searchParamsMock = new URLSearchParams({ anio: '2026', mes: '8', q: '1' });
 vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParamsMock,
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 import DetalleQuincenaPage from './page';
@@ -206,6 +211,21 @@ describe('DetalleQuincenaPage', () => {
     const fila = screen.getByText('MENSUAL JUAN').closest('tr')!;
     expect(fila).toHaveTextContent('1.00');
     expect(screen.getByText(/falta dato/)).toBeInTheDocument();
+  });
+
+  it('spec §6.4: muestra el chip "sin zona" para la fila con zona null y no para las demás', () => {
+    renderPage();
+    const filaSinZona = screen.getByText('MENSUAL JUAN').closest('tr')!;
+    expect(filaSinZona).toHaveTextContent('sin zona');
+
+    const filaConZona = screen.getByText('GOMEZ CARLOS').closest('tr')!;
+    expect(filaConZona).not.toHaveTextContent('sin zona');
+  });
+
+  it('spec §6.4: la salvedad "sin zona" aparece en el diálogo de cierre cuando hay filas con zona null', async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar quincena' }));
+    expect(screen.getByText(/1 empleado sin zona \(provincia no mapeada\)/)).toBeInTheDocument();
   });
 
   it('al expandir una fila muestra los días aprobados y las novedades con su efecto', async () => {
