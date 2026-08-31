@@ -3,19 +3,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useCierre, type CierreDetalleFila, type RegimenLiquidacion } from '@/lib/api/liquidacion';
 import { REGIMEN_LABEL } from '@/features/liquidacion/fila-empleado';
-
-function nombreQuincena(quincena: number, mes: number, anio: number) {
-  const nombreMes = new Date(2000, mes - 1, 1).toLocaleDateString('es-AR', { month: 'long' });
-  return `${quincena === 1 ? '1ª' : '2ª'} quincena de ${nombreMes} ${anio}`;
-}
-
-/** Los Decimal de Prisma llegan como `number` (cálculo en memoria) o
- * `string` (detalle persistido) — siempre se pasan por Number(...) antes de
- * formatear (ver lib/api/liquidacion.ts, comentario de CierreDetalleFila). */
-function formatMoney(v: number | string | null) {
-  if (v == null) return '—';
-  return Number(v).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
-}
+import { formatMoney, nombreQuincena } from '@/features/liquidacion/formato';
 
 function formatHoras(v: number | string | null) {
   if (v == null) return '—';

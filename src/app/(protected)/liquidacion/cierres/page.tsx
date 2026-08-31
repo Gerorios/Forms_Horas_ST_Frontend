@@ -7,15 +7,7 @@ import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/button';
 import { useCierres, descargarExcelCierre, mensajeDeError, type CierreResumen } from '@/lib/api/liquidacion';
 import { CierreDetalleDialog } from '@/features/liquidacion/cierre-detalle-dialog';
-
-function nombreQuincena(quincena: number, mes: number, anio: number) {
-  const nombreMes = new Date(2000, mes - 1, 1).toLocaleDateString('es-AR', { month: 'long' });
-  return `${quincena === 1 ? '1ª' : '2ª'} quincena de ${nombreMes} ${anio}`;
-}
-
-function formatMoney(v: number) {
-  return v.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
-}
+import { formatMoney, nombreQuincena } from '@/features/liquidacion/formato';
 
 function formatFechaHora(iso: string) {
   return new Date(iso).toLocaleString('es-AR', {

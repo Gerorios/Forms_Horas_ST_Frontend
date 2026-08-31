@@ -13,15 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/button';
 import { useCierres, useCrearCierre, mensajeDeError, type CierreResumen } from '@/lib/api/liquidacion';
-
-function nombreQuincena(quincena: number, mes: number, anio: number) {
-  const nombreMes = new Date(2000, mes - 1, 1).toLocaleDateString('es-AR', { month: 'long' });
-  return `${quincena === 1 ? '1ª' : '2ª'} quincena de ${nombreMes} ${anio}`;
-}
-
-function formatMoney(v: number) {
-  return v.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
-}
+import { formatMoney, nombreQuincena } from './formato';
 
 /** Versión máxima ya existente para ese período exacto, o 0 si no hay ninguna
  * (la próxima a crear es esa +1). */

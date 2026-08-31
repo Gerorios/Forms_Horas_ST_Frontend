@@ -3,6 +3,7 @@
 import { memo, useState } from 'react';
 import type { FilaDetalleEmpleado, RegimenLiquidacion } from '@/lib/api/liquidacion';
 import { DetalleEmpleado } from './detalle-empleado';
+import { formatMoney } from './formato';
 
 export const REGIMEN_LABEL: Record<RegimenLiquidacion, string> = {
   jornalizado: 'Jornalizado',
@@ -15,9 +16,10 @@ export const REGIMEN_LABEL: Record<RegimenLiquidacion, string> = {
 
 const COLUMNAS = 14;
 
-export function formatMoney(v: string) {
-  return Number(v).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
-}
+// Única definición en './formato' (fix round 1, Task 10 review): se
+// re-exporta acá porque el resto del feature ya la importa desde este
+// archivo (detalle-empleado.tsx, tabla-por-tantos.tsx).
+export { formatMoney };
 
 // Memoizado: con 100+ filas montadas, un re-render del padre (ej. tipear en
 // un filtro) no debería repintar todas las filas si su `fila` no cambió.
