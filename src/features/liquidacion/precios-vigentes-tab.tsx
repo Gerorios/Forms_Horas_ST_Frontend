@@ -26,6 +26,10 @@ const NOMBRES_MES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
 const MESES_OPCIONES = NOMBRES_MES.map((nombre, i) => ({ value: i + 1, label: nombre }));
+const QUINCENA_OPCIONES = [
+  { value: 1, label: '1ra (1 al 15)' },
+  { value: 2, label: '2da (16 a fin de mes)' },
+];
 
 function etiquetaPeriodo(anio: number, mes: number) {
   return `${NOMBRES_MES[mes - 1]} ${anio}`;
@@ -304,17 +308,22 @@ function SeccionCategorias({ anio, mes }: { anio: number; mes: number }) {
   );
 }
 
-// ---- Bono no remunerativo (único campo opcional) ----
-function SeccionBono({ anio, mes }: { anio: number; mes: number }) {
-  const { data, isLoading } = useBonosPeriodo(anio, mes, 1); // TODO(Task 8): selector de quincena
+// ---- Bono no remunerativo (único campo opcional; ahora versionado por
+// quincena — la tarjeta gana su PROPIO selector, independiente del de Plus
+// individual, siguiendo el mismo patrón visual) ----
+export function SeccionBono({ anio, mes }: { anio: number; mes: number }) {
+  const [quincenaBono, setQuincenaBono] = useState<1 | 2>(1);
+  const { data, isLoading } = useBonosPeriodo(anio, mes, quincenaBono);
   const guardar = useGuardarBonosPeriodo();
   const [modo, setModo] = useState<'lectura' | 'edicion'>('lectura');
   const [bonos, setBonos] = useState<Record<number, { tipo: TipoBonoNoRemunerativo | ''; valor: string }>>({});
   const [dialogConfirmar, setDialogConfirmar] = useState(false);
 
   useEffect(() => {
+    // Cambiar de período o de quincena descarta la edición en curso — evita
+    // guardar valores tipeados para una quincena que ya no es la elegida.
     setModo('lectura');
-  }, [anio, mes]);
+  }, [anio, mes, quincenaBono]);
 
   function iniciarEdicion() {
     setBonos(
@@ -355,7 +364,7 @@ function SeccionBono({ anio, mes }: { anio: number; mes: number }) {
         valor: edit?.valor ? Number(edit.valor) : 0,
       };
     });
-    const promesa = guardar.mutateAsync({ anio, mes, quincena: 1, bonos: bonosDto }); // TODO(Task 8): selector de quincena
+    const promesa = guardar.mutateAsync({ anio, mes, quincena: quincenaBono, bonos: bonosDto });
     toast.promise(promesa, {
       loading: `Guardando bonos de ${periodo}…`,
       success: `Bonos de ${periodo} guardados`,
@@ -380,6 +389,15 @@ function SeccionBono({ anio, mes }: { anio: number; mes: number }) {
         ) : undefined
       }
     >
+      <div className="flex flex-wrap items-end gap-2">
+        <FiltroSelect
+          label="Quincena"
+          value={quincenaBono}
+          onChange={(v) => setQuincenaBono(Number(v) as 1 | 2)}
+          opciones={QUINCENA_OPCIONES}
+          opcional={false}
+        />
+      </div>
       {isLoading ? (
         <p className="text-sm text-slate">Cargando…</p>
       ) : (data ?? []).length === 0 ? (
