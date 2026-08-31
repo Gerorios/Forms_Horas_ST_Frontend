@@ -483,6 +483,8 @@ export interface FilaDetalleEmpleado {
   modalidadPago: ModalidadPago | null;
   etiquetaNovedades: string;
   datoFaltante: string | null;
+  /** spec §6.4: provincia no mapeada (ver zonaDeProvincia en el backend) → null. */
+  zona: 'norte' | 'sur' | null;
   pendientesAprobacion: number;
   duplicadoCruzado: boolean;
   dias: DiaAprobado[];

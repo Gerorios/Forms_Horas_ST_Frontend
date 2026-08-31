@@ -18,7 +18,7 @@ import {
   type TipoBonoNoRemunerativo,
 } from '@/lib/api/liquidacion';
 import { aplicarIncremento } from './incremento';
-import { SeccionPlusIndividual } from './seccion-plus-individual';
+import { SeccionPlusIndividual, quincenaActual } from './seccion-plus-individual';
 import { Button } from '@/components/button';
 
 const NOMBRES_MES = [
@@ -312,7 +312,9 @@ function SeccionCategorias({ anio, mes }: { anio: number; mes: number }) {
 // quincena — la tarjeta gana su PROPIO selector, independiente del de Plus
 // individual, siguiendo el mismo patrón visual) ----
 export function SeccionBono({ anio, mes }: { anio: number; mes: number }) {
-  const [quincenaBono, setQuincenaBono] = useState<1 | 2>(1);
+  // Mismo default que Plus individual (quincenaActual(hoy)) — antes arrancaba
+  // fija en 1, dos tarjetas de la misma pantalla con defaults distintos.
+  const [quincenaBono, setQuincenaBono] = useState<1 | 2>(() => quincenaActual(new Date()));
   const { data, isLoading } = useBonosPeriodo(anio, mes, quincenaBono);
   const guardar = useGuardarBonosPeriodo();
   const [modo, setModo] = useState<'lectura' | 'edicion'>('lectura');

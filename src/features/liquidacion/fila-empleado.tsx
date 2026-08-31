@@ -84,6 +84,14 @@ export const FilaEmpleado = memo(function FilaEmpleado({
                 falta dato
               </span>
             )}
+            {fila.zona === null && (
+              <span
+                className="rounded bg-danger/10 px-1 text-xs font-medium text-danger"
+                title="Provincia no mapeada a una zona (norte: Salta/Jujuy, sur: Tucumán)"
+              >
+                sin zona
+              </span>
+            )}
           </div>
         </td>
         <td className="px-3 py-2.5 text-right text-xs text-slate">{expandido ? 'Cerrar ▴' : 'Ver detalle ▾'}</td>

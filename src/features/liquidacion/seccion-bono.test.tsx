@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -44,12 +44,33 @@ describe('SeccionBono — selector de quincena propio de la tarjeta', () => {
     guardarBonos.mockClear();
     useBonosPeriodoMock.mockClear();
     bonosData = [BONO_Q1];
+    // Default = quincenaActual(hoy) (finding 7 de la review final: antes
+    // arrancaba fija en 1, distinto del default de Plus individual). Fijamos
+    // "hoy" en un día de la 1ra quincena para que el test no dependa de la
+    // fecha real de ejecución.
+    // shouldAdvanceTime: los tests de interacción (userEvent) siguen andando
+    // con timers reales; solo se fija qué devuelve `new Date()`.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2026, 7, 5));
   });
 
-  it('arranca en la quincena 1 y consulta useBonosPeriodo con quincena=1', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('arranca en la quincena actual (1ra quincena hoy) y consulta useBonosPeriodo con quincena=1', () => {
     render(<SeccionBono anio={2026} mes={8} />);
     expect(useBonosPeriodoMock).toHaveBeenCalledWith(2026, 8, 1);
     expect(screen.getByText('$1.000,00')).toBeInTheDocument();
+  });
+
+  it('si hoy cae en la 2da quincena, arranca en quincena=2 (mismo default que Plus individual)', () => {
+    vi.setSystemTime(new Date(2026, 7, 20));
+    bonosData = [BONO_Q2];
+
+    render(<SeccionBono anio={2026} mes={8} />);
+
+    expect(useBonosPeriodoMock).toHaveBeenCalledWith(2026, 8, 2);
   });
 
   it('cambiar a la 2da quincena vuelve a consultar useBonosPeriodo con quincena=2', async () => {

@@ -20,7 +20,10 @@ const MESES_OPCIONES = [
   { value: 10, label: 'Octubre' }, { value: 11, label: 'Noviembre' }, { value: 12, label: 'Diciembre' },
 ];
 
-function quincenaActual(fecha: Date): 1 | 2 {
+// Exportado: SeccionBono (precios-vigentes-tab.tsx) usa el mismo helper para
+// que ambas tarjetas de la pantalla arranquen en la quincena vigente en vez
+// de defaults distintos (review final cierre-liquidación, finding 7).
+export function quincenaActual(fecha: Date): 1 | 2 {
   return fecha.getDate() <= 15 ? 1 : 2;
 }
 

@@ -180,8 +180,9 @@ export default function DetalleQuincenaPage() {
 
   // Totales y salvedades para el diálogo de cierre — se derivan de los datos
   // YA cargados en esta página (data.filas / data.sinPerfil), sin pegarle de
-  // nuevo al backend (ver brief Task 9). El backend recalcula todo al cerrar
-  // y es quien decide la zona norte/sur; acá no la distinguimos.
+  // nuevo al backend (ver brief Task 9). El backend recalcula todo al cerrar;
+  // la zona (spec §6.4) viaja en cada fila del detalle en vivo, así que la
+  // salvedad "sin zona" ya queda alineada entre el diálogo y el cierre real.
   const totalesCierre = useMemo(() => {
     const todasLasFilas = data?.filas ?? [];
     return {
@@ -198,6 +199,7 @@ export default function DetalleQuincenaPage() {
     const perfilIncompletoCount = sinPerfilList.filter((e) => e.motivo === 'perfil_incompleto').length;
     const pendientesCount = todasLasFilas.filter((f) => f.pendientesAprobacion > 0).length;
     const datoFaltanteCount = todasLasFilas.filter((f) => f.datoFaltante).length;
+    const sinZonaCount = todasLasFilas.filter((f) => f.zona === null).length;
     if (sinPerfilCount > 0) {
       items.push(`${sinPerfilCount} empleado${sinPerfilCount === 1 ? '' : 's'} sin perfil de liquidación asignado`);
     }
@@ -209,6 +211,9 @@ export default function DetalleQuincenaPage() {
     }
     if (datoFaltanteCount > 0) {
       items.push(`${datoFaltanteCount} empleado${datoFaltanteCount === 1 ? '' : 's'} con datos faltantes para liquidar`);
+    }
+    if (sinZonaCount > 0) {
+      items.push(`${sinZonaCount} empleado${sinZonaCount === 1 ? '' : 's'} sin zona (provincia no mapeada)`);
     }
     return items;
   }, [data]);
