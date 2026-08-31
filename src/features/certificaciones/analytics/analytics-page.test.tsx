@@ -42,6 +42,11 @@ vi.mock('@/lib/api/certificaciones', () => ({
   useEstadoCargasCompleto: (...args: unknown[]) => useEstadoCargasCompleto(...args),
 }));
 
+const useSession = vi.fn();
+vi.mock('@/lib/auth/session', () => ({
+  useSession: (...args: unknown[]) => useSession(...args),
+}));
+
 import AnalyticsPage from '@/app/(protected)/certificaciones/analytics/page';
 
 const evolucion: EvolucionMensualPunto[] = [
@@ -95,6 +100,7 @@ beforeEach(() => {
   useTopItems.mockReturnValue(ok(topItems));
   useInteranual.mockReturnValue(ok(interanual));
   useEstadoCargasCompleto.mockReturnValue(ok(estadoCargas));
+  useSession.mockReturnValue({ perfil: { cert: { nivel: 'admin', ks: [], inc: false } } });
 });
 
 describe('AnalyticsPage', () => {
@@ -150,6 +156,38 @@ describe('AnalyticsPage', () => {
     useEvolucionMensual.mockReturnValue(ok([]));
     render(<AnalyticsPage />);
     expect(await screen.findByText('Sin datos para el período filtrado.')).toBeInTheDocument();
+  });
+
+  it('la sección Comparación interanual avisa que no aplica el filtro de fechas', () => {
+    render(<AnalyticsPage />);
+    expect(
+      screen.getByText('Compara año completo actual vs anterior — no aplica el filtro de fechas.'),
+    ).toBeInTheDocument();
+  });
+
+  it('nivel "carga": no renderiza la sección Operativo ni dispara la query de estado-cargas', () => {
+    useSession.mockReturnValue({ perfil: { cert: { nivel: 'carga', ks: [], inc: false } } });
+    // `/analytics/estado-cargas` exige gerente/admin — el mock simula que el
+    // hook está deshabilitado (mismo comportamiento que TanStack Query con
+    // `enabled: false`: sin data, sin loading, sin error).
+    useEstadoCargasCompleto.mockReturnValue({ data: undefined, isLoading: false, isError: false });
+
+    render(<AnalyticsPage />);
+
+    expect(screen.queryByRole('region', { name: 'Operativo' })).not.toBeInTheDocument();
+    // Las otras 3 secciones exigidas siguen presentes — el gate es puntual.
+    expect(screen.getByRole('region', { name: 'Evolución mensual' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Por contrato' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Desagregado' })).toBeInTheDocument();
+
+    expect(useEstadoCargasCompleto.mock.calls.at(-1)?.[0]).toBe(false);
+  });
+
+  it('nivel distinto de "carga" (ej. admin): sí renderiza Operativo y habilita la query', () => {
+    useSession.mockReturnValue({ perfil: { cert: { nivel: 'lectura', ks: [], inc: false } } });
+    render(<AnalyticsPage />);
+    expect(screen.getByRole('region', { name: 'Operativo' })).toBeInTheDocument();
+    expect(useEstadoCargasCompleto.mock.calls.at(-1)?.[0]).toBe(true);
   });
 });
 

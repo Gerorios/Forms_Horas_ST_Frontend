@@ -72,8 +72,13 @@ export default function CertificacionesPage() {
 
   const periodo = `${anio}-${String(mes).padStart(2, '0')}`;
 
+  // `/analytics/estado-cargas` exige gerente/admin — el nivel `carga` del
+  // claim `cert` no tiene acceso (403). Se gatea la query (no se dispara) y
+  // no se muestran los KPIs de "certificaron/faltantes" para ese nivel.
+  const puedeVerEstadoCargas = perfil?.cert?.nivel !== 'carga';
+
   const { data: resumen, isLoading: cargandoResumen } = useResumenCert(periodo);
-  const { data: estadoCargas, isLoading: cargandoEstado } = useEstadoCargas(periodo);
+  const { data: estadoCargas, isLoading: cargandoEstado } = useEstadoCargas(periodo, puedeVerEstadoCargas);
   const { data: presupuesto, isError: errorPresupuesto } = usePresupuesto();
 
   // La incidencia MO solo se calcula si el usuario tiene el claim (admin/lectura
@@ -121,17 +126,21 @@ export default function CertificacionesPage() {
       </div>
 
       {cargandoResumen || cargandoEstado ? (
-        <TilesSkeleton count={4} />
+        <TilesSkeleton count={puedeVerEstadoCargas ? 4 : 2} />
       ) : (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className={`grid grid-cols-2 gap-3 ${puedeVerEstadoCargas ? 'lg:grid-cols-4' : ''}`}>
           <StatTile label="Total certificado del período" value={fmtMoneda(totalCertificado)} />
           <StatTile label="Líneas certificadas" value={String(totalLineas)} />
-          <StatTile label="Contratos que certificaron" value={String(contratosCertificaron)} />
-          <StatTile
-            label="Contratos faltantes"
-            value={String(contratosFaltantes)}
-            sub={contratosFaltantes > 0 ? 'Sin carga en el período' : undefined}
-          />
+          {puedeVerEstadoCargas && (
+            <>
+              <StatTile label="Contratos que certificaron" value={String(contratosCertificaron)} />
+              <StatTile
+                label="Contratos faltantes"
+                value={String(contratosFaltantes)}
+                sub={contratosFaltantes > 0 ? 'Sin carga en el período' : undefined}
+              />
+            </>
+          )}
         </div>
       )}
 

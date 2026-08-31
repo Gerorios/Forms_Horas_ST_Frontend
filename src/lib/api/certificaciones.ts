@@ -136,10 +136,19 @@ export interface InteranualResponse {
   meses: InteranualMes[];
 }
 
+/** El endpoint no acepta `desde`/`hasta` (siempre año actual vs. anterior) —
+ * se descartan acá antes de armar la query key y los params, para que ni se
+ * manden al backend ni disparen un refetch innecesario cuando el usuario
+ * cambia el rango de fechas de los demás gráficos. */
 export function useInteranual(filtros: FiltrosAnalytics) {
+  const filtrosSinFecha: FiltrosAnalytics = {
+    contratos: filtros.contratos,
+    provincias: filtros.provincias,
+    tipo: filtros.tipo,
+  };
   return useQuery({
-    queryKey: ['certificaciones', 'analytics', 'interanual', filtros],
-    queryFn: () => getCertAnalytics<InteranualResponse>('/analytics/interanual', filtros),
+    queryKey: ['certificaciones', 'analytics', 'interanual', filtrosSinFecha],
+    queryFn: () => getCertAnalytics<InteranualResponse>('/analytics/interanual', filtrosSinFecha),
   });
 }
 
@@ -165,11 +174,16 @@ export function useProvinciasAnalytics() {
  * `select`); acá se necesita TODO el histórico para armar la matriz, así
  * que va sin `select` y con su propia entrada de caché en TanStack Query
  * (agrega `'todas'` a la key para no pisar el resultado ya cacheado por
- * `useEstadoCargas`). */
-export function useEstadoCargasCompleto() {
+ * `useEstadoCargas`).
+ *
+ * Igual que `useEstadoCargas`: el endpoint exige gerente/admin (único de
+ * `/analytics/*` con esa restricción extra) — `habilitado` (default `true`)
+ * deja gatear la query para el nivel `carga` del claim `cert`. */
+export function useEstadoCargasCompleto(habilitado = true) {
   return useQuery({
     queryKey: ['certificaciones', 'estado-cargas', 'todas'],
     queryFn: () => getCert<EstadoCargaContrato[]>('/analytics/estado-cargas'),
+    enabled: habilitado,
   });
 }
 
@@ -211,13 +225,20 @@ export interface EstadoCargaContrato {
 
 /** El backend devuelve TODO el histórico contrato×período desde 2025-01 (no
  * acepta filtro) — el filtro por período seleccionado se hace client-side
- * acá, mismo criterio que `useResumenCert`. */
-export function useEstadoCargas(periodo: string) {
+ * acá, mismo criterio que `useResumenCert`.
+ *
+ * `/analytics/estado-cargas` exige rol gerente/admin (`require_gerente_or_admin`
+ * en analytics.py) — es el ÚNICO endpoint del módulo con esa restricción extra
+ * (el resto de `/analytics/*` acepta admin/gerente/jefe). El nivel `carga` del
+ * claim `cert` del front-end no tiene acceso; `habilitado` (default `true`)
+ * deja que quien llama al hook lo desactive para ese caso sin disparar un 403
+ * innecesario. */
+export function useEstadoCargas(periodo: string, habilitado = true) {
   return useQuery({
     queryKey: ['certificaciones', 'estado-cargas'],
     queryFn: () => getCert<EstadoCargaContrato[]>('/analytics/estado-cargas'),
     select: (filas) => filas.filter((f) => f.periodo === periodo),
-    enabled: periodo !== '',
+    enabled: periodo !== '' && habilitado,
   });
 }
 

@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
+import { useSession } from '@/lib/auth/session';
 import { PageHeader } from '@/components/page-header';
 import { BarraFiltros, FiltroFecha, FiltroSelect, MultiFiltro } from '@/components/ui/barra-filtros';
 import { BlockSkeleton, TableSkeleton, TilesSkeleton } from '@/components/skeleton';
@@ -68,15 +69,23 @@ function Seccion({ ariaLabel, titulo, children }: { ariaLabel: string; titulo: s
   );
 }
 
-/** Mensaje uniforme para queries que fallan por permisos (403 en varios
- * endpoints de `/analytics/*` para el rol `carga`) u otro error de red — no
- * hay forma de distinguirlos sin inspeccionar el status acá, así que el
- * mensaje es genérico. */
+/** Mensaje uniforme para queries que fallan — solo `/analytics/estado-cargas`
+ * está restringido a gerente/admin (403 para el nivel `carga`, ver
+ * `useEstadoCargasCompleto`; se gatea aparte con `enabled` para no pegarle
+ * al endpoint) y esta sección cubre cualquier otro error de red en el resto
+ * de `/analytics/*`. No hay forma de distinguirlos sin inspeccionar el
+ * status acá, así que el mensaje es genérico. */
 function EstadoError() {
   return <p className="text-sm text-slate">No se pudo cargar esta sección (verificá tu acceso a Analytics).</p>;
 }
 
 export default function AnalyticsPage() {
+  const { perfil } = useSession();
+  // `/analytics/estado-cargas` exige gerente/admin — el nivel `carga` del
+  // claim `cert` no tiene acceso (403). Se gatea la query (no se dispara) y
+  // no se renderiza la sección "Operativo" para ese nivel.
+  const puedeVerOperativo = perfil?.cert?.nivel !== 'carga';
+
   const [contratos, setContratos] = useState<string[]>([]);
   const [provincias, setProvincias] = useState<string[]>([]);
   const [tipo, setTipo] = useState<'' | 'OPEX' | 'CAPEX'>('');
@@ -103,7 +112,8 @@ export default function AnalyticsPage() {
   const { data: porProvincia, isLoading: cargandoProvincia, isError: errorProvincia } = usePorProvincia(filtros);
   const { data: topItemsData, isLoading: cargandoTopItems, isError: errorTopItems } = useTopItems(filtros);
   const { data: interanual, isLoading: cargandoInteranual, isError: errorInteranual } = useInteranual(filtros);
-  const { data: estadoCargas, isLoading: cargandoEstado, isError: errorEstado } = useEstadoCargasCompleto();
+  const { data: estadoCargas, isLoading: cargandoEstado, isError: errorEstado } =
+    useEstadoCargasCompleto(puedeVerOperativo);
 
   const hayFiltros =
     contratos.length > 0 || provincias.length > 0 || tipo !== '' || desde !== '' || hasta !== '';
@@ -222,6 +232,9 @@ export default function AnalyticsPage() {
           </Seccion>
         </div>
         <Seccion ariaLabel="Comparación interanual" titulo="Comparación interanual">
+          <p className="-mt-2 text-xs text-slate">
+            Compara año completo actual vs anterior — no aplica el filtro de fechas.
+          </p>
           {cargandoInteranual ? (
             <BlockSkeleton />
           ) : errorInteranual ? (
@@ -257,15 +270,17 @@ export default function AnalyticsPage() {
         </div>
       </Seccion>
 
-      <Seccion ariaLabel="Operativo" titulo="Operativo">
-        {cargandoEstado ? (
-          <TableSkeleton rows={5} cols={6} />
-        ) : errorEstado ? (
-          <EstadoError />
-        ) : (
-          <EstadoOperativo datos={estadoCargasFiltrado} />
-        )}
-      </Seccion>
+      {puedeVerOperativo && (
+        <Seccion ariaLabel="Operativo" titulo="Operativo">
+          {cargandoEstado ? (
+            <TableSkeleton rows={5} cols={6} />
+          ) : errorEstado ? (
+            <EstadoError />
+          ) : (
+            <EstadoOperativo datos={estadoCargasFiltrado} />
+          )}
+        </Seccion>
+      )}
     </section>
   );
 }

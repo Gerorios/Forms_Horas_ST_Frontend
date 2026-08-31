@@ -130,6 +130,32 @@ describe('hooks de /analytics/* (Task 7): serialización de filtros', () => {
     );
   });
 
+  it('useInteranual: el endpoint no acepta desde/hasta — no se mandan aunque vengan en filtros', async () => {
+    const { apiCert, useInteranual } = await import('./certificaciones');
+    const spy = vi.spyOn(apiCert, 'get').mockResolvedValue({
+      data: { anio_actual: 2026, anio_anterior: 2025, meses: [] },
+    });
+
+    const { result } = renderHook(
+      () =>
+        useInteranual({
+          contratos: ['K5'],
+          tipo: 'OPEX',
+          desde: '2026-01',
+          hasta: '2026-08',
+        }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    const [url, config] = spy.mock.calls[0];
+    expect(url).toBe('/analytics/interanual');
+    const params = config?.params as URLSearchParams;
+    expect(params.toString()).toBe('contratos=K5&tipo=OPEX');
+    expect(params.has('desde')).toBe(false);
+    expect(params.has('hasta')).toBe(false);
+  });
+
   it('useTopItems: sin filtros, no manda query params vacíos', async () => {
     const { apiCert, useTopItems } = await import('./certificaciones');
     const spy = vi.spyOn(apiCert, 'get').mockResolvedValue({ data: [] });
@@ -155,5 +181,30 @@ describe('hooks de /analytics/* (Task 7): serialización de filtros', () => {
     await waitFor(() => expect(result.current.data).toBeDefined());
 
     expect(result.current.data).toHaveLength(2);
+  });
+
+  // Único endpoint de /analytics/* restringido a gerente/admin — el nivel
+  // 'carga' del claim `cert` no tiene acceso (403). `habilitado=false` no
+  // debe disparar la request.
+  it('useEstadoCargasCompleto: con habilitado=false no dispara la request', async () => {
+    const { apiCert, useEstadoCargasCompleto } = await import('./certificaciones');
+    const spy = vi.spyOn(apiCert, 'get').mockResolvedValue({ data: [] });
+
+    const { result } = renderHook(() => useEstadoCargasCompleto(false), { wrapper });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.data).toBeUndefined();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('useEstadoCargas: con habilitado=false no dispara la request aunque haya período', async () => {
+    const { apiCert, useEstadoCargas } = await import('./certificaciones');
+    const spy = vi.spyOn(apiCert, 'get').mockResolvedValue({ data: [] });
+
+    const { result } = renderHook(() => useEstadoCargas('2026-08', false), { wrapper });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.data).toBeUndefined();
+    expect(spy).not.toHaveBeenCalled();
   });
 });
