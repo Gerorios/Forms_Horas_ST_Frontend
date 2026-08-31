@@ -1,14 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { navForRole } from './nav';
 import { canAccess } from '@/lib/auth/guards';
-import type { Rol } from '@/types/domain';
+import type { Rol, Perfil } from '@/types/domain';
 
 function perfil(
   rol: Rol,
   tiposNovedadHabilitados: { tipoNovedad: { id: number; nombre: string } }[] = [],
   puedeCargarKmPorTantos = false,
+  cert: Perfil['cert'] = null,
 ) {
-  return { rol: { nombre: rol }, tiposNovedadHabilitados, puedeCargarKmPorTantos };
+  return { rol: { nombre: rol }, tiposNovedadHabilitados, puedeCargarKmPorTantos, cert };
 }
 
 describe('navForRole', () => {
@@ -105,6 +106,20 @@ describe('navForRole', () => {
 
   it('Admin ve Ausencias (además de HyS, por las acciones de Reabrir/Exportar)', () => {
     expect(navForRole(perfil('Admin')).map((i) => i.href)).toContain('/ausencias');
+  });
+
+  it('Admin sin claim cert NO ve Certificaciones', () => {
+    expect(navForRole(perfil('Admin')).map((i) => i.href)).not.toContain('/certificaciones');
+  });
+
+  it('Un rol sin acceso a nada de Horas (Operario) SÍ ve Certificaciones si tiene el claim cert', () => {
+    const conCert = perfil('Operario', [], false, { nivel: 'lectura', ks: [], inc: false });
+    expect(navForRole(conCert).map((i) => i.href)).toContain('/certificaciones');
+  });
+
+  it('Admin con claim cert ve Certificaciones', () => {
+    const conCert = perfil('Admin', [], false, { nivel: 'admin', ks: [], inc: true });
+    expect(navForRole(conCert).map((i) => i.href)).toContain('/certificaciones');
   });
 });
 
