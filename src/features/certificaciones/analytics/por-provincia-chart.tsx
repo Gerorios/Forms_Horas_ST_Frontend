@@ -26,6 +26,46 @@ function TooltipProvincia({
   );
 }
 
+const RADIAN = Math.PI / 180;
+
+/** % dibujado DENTRO del anillo (blanco sobre el color del gajo): las
+ * etiquetas exteriores de recharts se recortaban contra el borde del
+ * contenedor y heredaban el color del gajo (poco contraste). Gajos < 5%
+ * no llevan etiqueta — el tooltip y la leyenda los cubren. */
+function renderPctEnAnillo({
+  cx,
+  cy,
+  midAngle,
+  innerRadius,
+  outerRadius,
+  percent,
+}: {
+  cx?: number;
+  cy?: number;
+  midAngle?: number;
+  innerRadius?: number;
+  outerRadius?: number;
+  percent?: number;
+}) {
+  if ((percent ?? 0) < 0.05) return null;
+  const r = ((innerRadius ?? 0) + (outerRadius ?? 0)) / 2;
+  const x = (cx ?? 0) + r * Math.cos(-(midAngle ?? 0) * RADIAN);
+  const y = (cy ?? 0) + r * Math.sin(-(midAngle ?? 0) * RADIAN);
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#ffffff"
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={12}
+      fontWeight={600}
+    >
+      {fmtPct((percent ?? 0) * 100)}
+    </text>
+  );
+}
+
 /** Distribución del monto certificado por provincia — torta tipo donut: con
  * hasta 4 categorías (el máximo esperado en este análisis) el % directo por
  * gajo se lee más rápido que barras horizontales. Colores fijos por orden
@@ -62,7 +102,7 @@ export function PorProvinciaChart({ datos }: { datos: PorProvinciaPunto[] }) {
               paddingAngle={2}
               isAnimationActive={false}
               labelLine={false}
-              label={({ percent }: { percent?: number }) => fmtPct((percent ?? 0) * 100)}
+              label={renderPctEnAnillo}
             >
               {conMonto.map((d, i) => (
                 <Cell key={d.provincia} fill={colorContrato(i)} />
