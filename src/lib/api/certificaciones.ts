@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
 // Módulo Certificaciones (Etapa 2 ERP): todo pega contra el backend NestJS
-// de Horas (`api`, `./client`) — el antiguo backend FastAPI del Portal de
-// Certificaciones ya no existe.
+// de Horas (`api`, `./client`). El Portal de Certificaciones sigue activo en
+// etapa 2; lo que finalizó es la dependencia del módulo Horas hacia él.
 const getCert = async <T>(url: string) => (await api.get<T>(url)).data;
 
 // ---- Filtros comunes de /certificaciones/analytics/* ----
@@ -153,10 +153,10 @@ export function useProvinciasAnalytics() {
  * TanStack Query (agrega `'todas'` a la key para no pisar el resultado ya
  * cacheado por `useEstadoCargas`).
  *
- * Igual que `useEstadoCargas`: el endpoint exige gerente/admin (único de
- * `/certificaciones/analytics/*` con esa restricción extra) — `habilitado`
- * (default `true`) deja gatear la query para el nivel `carga` del claim
- * `cert`. */
+ * El backend NestJS atiende a nivel `carga` del claim `cert`, pero devuelve
+ * datos recortados a sus contratos autorizados — `habilitado` (default
+ * `true`) permite desactivar la query cuando el usuario no tiene el nivel
+ * necesario, evitando una respuesta vacía. */
 export function useEstadoCargasCompleto(habilitado = true) {
   return useQuery({
     queryKey: ['certificaciones', 'estado-cargas', 'todas'],
@@ -204,12 +204,10 @@ export interface EstadoCargaContrato {
  * acepta filtro) — el filtro por período seleccionado se hace client-side
  * acá, mismo criterio que `useResumenCert`.
  *
- * `/certificaciones/analytics/estado-cargas` exige rol gerente/admin — es el
- * ÚNICO endpoint del módulo con esa restricción extra (el resto de
- * `/certificaciones/analytics/*` acepta admin/gerente/jefe). El nivel `carga`
- * del claim `cert` del front-end no tiene acceso; `habilitado` (default
- * `true`) deja que quien llama al hook lo desactive para ese caso sin
- * disparar un 403 innecesario. */
+ * El endpoint atiende a nivel `carga` del claim `cert`, pero devuelve datos
+ * recortados únicamente a los contratos autorizados del usuario; `habilitado`
+ * (default `true`) permite desactivar la query cuando el usuario no tiene el
+ * nivel necesario, evitando una respuesta vacía. */
 export function useEstadoCargas(periodo: string, habilitado = true) {
   return useQuery({
     queryKey: ['certificaciones', 'estado-cargas'],
