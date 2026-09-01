@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import { getToken } from './token';
 
@@ -298,5 +298,40 @@ export function useIncidenciaSerie(anio: number, mes: number, habilitado: boolea
         .then((r) => r.data),
     enabled: habilitado,
     retry: false, // 403 si el usuario no corresponde (ver perfil.cert.inc)
+  });
+}
+
+// ---- Accesos al módulo (Admin) — contra el backend NestJS de Horas, no apiCert ----
+export type NivelAccesoCert = 'admin' | 'carga' | 'lectura';
+
+export interface AccesoCert {
+  cuil: string;
+  nivel: NivelAccesoCert;
+  verIncidencia: boolean;
+  nombre: string;
+  contratos: { id: number; codigo: string }[];
+}
+
+export function useAccesosCert() {
+  return useQuery({
+    queryKey: ['certificaciones', 'accesos'],
+    queryFn: () => api.get<AccesoCert[]>('/certificaciones/accesos').then((r) => r.data),
+  });
+}
+
+export function useGuardarAccesoCert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cuil, ...dto }: { cuil: string; nivel: NivelAccesoCert; verIncidencia: boolean; contratoIds: number[] }) =>
+      api.put(`/certificaciones/accesos/${cuil}`, dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['certificaciones', 'accesos'] }),
+  });
+}
+
+export function useEliminarAccesoCert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cuil: string) => api.delete(`/certificaciones/accesos/${cuil}`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['certificaciones', 'accesos'] }),
   });
 }
