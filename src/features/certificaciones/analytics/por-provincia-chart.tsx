@@ -1,6 +1,6 @@
 'use client';
 
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { Cell, Pie, PieChart, Tooltip } from 'recharts';
 import type { PorProvinciaPunto } from '@/lib/api/certificaciones';
 import { colorContrato, fmtMoneda, fmtPct } from './colores';
 
@@ -28,11 +28,12 @@ function TooltipProvincia({
 
 const RADIAN = Math.PI / 180;
 
-/** % dibujado DENTRO del anillo (blanco sobre el color del gajo): las
- * etiquetas exteriores de recharts se recortaban contra el borde del
- * contenedor y heredaban el color del gajo (poco contraste). Gajos < 5%
- * no llevan etiqueta — el tooltip y la leyenda los cubren. */
-function renderPctEnAnillo({
+/** % afuera del gajo, en tinta sobre el fondo de la card: dentro del anillo
+ * los gajos angostos desbordaban el texto blanco hacia el fondo claro
+ * (ilegible), y el label default de recharts hereda el color del gajo.
+ * El chart tiene tamaño FIJO con margen reservado para estas etiquetas,
+ * así nunca se recortan. Gajos < 3% no llevan etiqueta (tooltip/leyenda). */
+function renderPctAfuera({
   cx,
   cy,
   midAngle,
@@ -47,16 +48,17 @@ function renderPctEnAnillo({
   outerRadius?: number;
   percent?: number;
 }) {
-  if ((percent ?? 0) < 0.05) return null;
-  const r = ((innerRadius ?? 0) + (outerRadius ?? 0)) / 2;
-  const x = (cx ?? 0) + r * Math.cos(-(midAngle ?? 0) * RADIAN);
+  if ((percent ?? 0) < 0.03) return null;
+  const r = (outerRadius ?? 0) + 14;
+  const cos = Math.cos(-(midAngle ?? 0) * RADIAN);
+  const x = (cx ?? 0) + r * cos;
   const y = (cy ?? 0) + r * Math.sin(-(midAngle ?? 0) * RADIAN);
   return (
     <text
       x={x}
       y={y}
-      fill="#ffffff"
-      textAnchor="middle"
+      fill="var(--color-ink)"
+      textAnchor={cos > 0.25 ? 'start' : cos < -0.25 ? 'end' : 'middle'}
       dominantBaseline="central"
       fontSize={12}
       fontWeight={600}
@@ -87,30 +89,31 @@ export function PorProvinciaChart({ datos }: { datos: PorProvinciaPunto[] }) {
       role="img"
       aria-label="Distribución del certificado por provincia"
     >
-      {/* La dona vive sola en su contenedor: así el overlay del total queda
-          centrado de verdad (la leyenda de recharts le robaba ancho al área
-          del chart y el centro visual quedaba corrido). */}
-      <div className="relative min-w-0 flex-1" style={{ height: 280 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={conMonto}
-              dataKey="monto_total"
-              nameKey="provincia"
-              innerRadius="55%"
-              outerRadius="80%"
-              paddingAngle={2}
-              isAnimationActive={false}
-              labelLine={false}
-              label={renderPctEnAnillo}
-            >
-              {conMonto.map((d, i) => (
-                <Cell key={d.provincia} fill={colorContrato(i)} />
-              ))}
-            </Pie>
-            <Tooltip content={<TooltipProvincia total={total} />} />
-          </PieChart>
-        </ResponsiveContainer>
+      {/* Tamaño FIJO (sin ResponsiveContainer): con flex-1 el contenedor se
+          medía mal en el primer render y la dona quedaba corrida/recortada.
+          300×280 con radios en px deja ~45px de margen reservado para las
+          etiquetas de % afuera; el overlay del total centra exacto. */}
+      <div className="relative mx-auto shrink-0" style={{ width: 300, height: 280 }}>
+        <PieChart width={300} height={280}>
+          <Pie
+            data={conMonto}
+            dataKey="monto_total"
+            nameKey="provincia"
+            cx="50%"
+            cy="50%"
+            innerRadius={62}
+            outerRadius={92}
+            paddingAngle={2}
+            isAnimationActive={false}
+            labelLine={false}
+            label={renderPctAfuera}
+          >
+            {conMonto.map((d, i) => (
+              <Cell key={d.provincia} fill={colorContrato(i)} />
+            ))}
+          </Pie>
+          <Tooltip content={<TooltipProvincia total={total} />} />
+        </PieChart>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
           <p className="text-xs text-slate">Total</p>
           <p className="text-sm font-semibold tabular-nums text-ink">{fmtMoneda(total)}</p>
