@@ -32,6 +32,10 @@ export interface Perfil {
   tiposNovedadHabilitados: { tipoNovedad: { id: number; nombre: string } }[];
   /** Habilita la pantalla "Km por tantos" (solo aplica a JefeContrato; ver ADR-014). */
   puedeCargarKmPorTantos: boolean;
+  /** Claim del módulo Certificaciones (portal FastAPI, ver Task 3): null si el
+   * usuario no tiene acceso. `ks` son los códigos de contrato habilitados;
+   * `inc` habilita ver la incidencia MO aunque el nivel sea 'carga'. */
+  cert: { nivel: 'admin' | 'carga' | 'lectura'; ks: string[]; inc: boolean } | null;
 }
 
 export interface LoginResponse {

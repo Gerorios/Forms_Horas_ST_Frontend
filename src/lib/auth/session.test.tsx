@@ -13,6 +13,7 @@ const PERFIL_FAKE = {
   contratosHabilitados: [],
   tiposNovedadHabilitados: [],
   puedeCargarKmPorTantos: false,
+  cert: null,
 };
 
 function Probe() {

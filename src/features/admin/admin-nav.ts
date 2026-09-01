@@ -8,4 +8,5 @@ export const ADMIN_NAV = [
   { label: 'Categorías UOCRA', href: '/admin/categorias-uocra' },
   { label: 'Estaciones de servicio', href: '/admin/estaciones-servicio' },
   { label: 'Tipos de combustible', href: '/admin/tipos-combustible' },
+  { label: 'Accesos a Certificaciones', href: '/admin/accesos-certificaciones' },
 ];

@@ -29,6 +29,8 @@ export const NAV_ICONS: Record<string, ReactElement> = {
   '/liquidacion': svg(<><rect x="4.5" y="3" width="11" height="14" rx="1.5" /><path d="M7 6.5h6" /><path d="M7.5 10.5h.01M10 10.5h.01M12.5 10.5h.01M7.5 13.5h.01M10 13.5h.01M12.5 13.5h.01" strokeWidth="2" /></>),
   // Km por tantos: velocímetro/odómetro
   '/km-por-tantos': svg(<><circle cx="10" cy="10" r="7" /><path d="M10 10 13 7" /><path d="M6.5 13.5h.01M13.5 13.5h.01M5 8.5h.01M15 8.5h.01" strokeWidth="2" /></>),
+  // Certificaciones: certificado con cinta
+  '/certificaciones': svg(<><rect x="3.5" y="3" width="13" height="9.5" rx="1.5" /><path d="M6 6.5h7M6 9h4.5" /><path d="M8 12.5v4l2-1.3 2 1.3v-4" /></>),
 };
 
 export function NavIcon({ href }: { href: string }): ReactElement | null {

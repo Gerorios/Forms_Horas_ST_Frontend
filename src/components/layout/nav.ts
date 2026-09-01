@@ -22,12 +22,16 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Admin', href: '/admin', roles: ['Admin'] },
   { label: 'Liquidación', href: '/liquidacion', roles: ['Liquidador', 'Admin'] },
   { label: 'Km por tantos', href: '/km-por-tantos', roles: ['JefeContrato', 'Admin'] },
+  { label: 'Certificaciones', href: '/certificaciones', roles: ['Admin'] },
 ];
 
 export function navForRole(
-  perfil: Pick<Perfil, 'rol' | 'tiposNovedadHabilitados' | 'puedeCargarKmPorTantos'>,
+  perfil: Pick<Perfil, 'rol' | 'tiposNovedadHabilitados' | 'puedeCargarKmPorTantos' | 'cert'>,
 ): NavItem[] {
   return NAV_ITEMS.filter((item) => {
+    // Certificaciones no depende del rol de Horas: cualquier usuario con
+    // claim `cert` (portal FastAPI, ver Task 3) la ve, sea o no Admin.
+    if (item.href === '/certificaciones') return perfil.cert != null;
     if (!item.roles.includes(perfil.rol.nombre)) return false;
     // JefeCuadrilla sin ningún tipo de novedad habilitado no ve la opción
     // (ver ADR-007) — Supervisor sigue viéndola siempre, sin restricción.
