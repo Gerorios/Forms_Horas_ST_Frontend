@@ -266,7 +266,9 @@ describe('ControlGeneralPage', () => {
   // recharts fuera del bundle inicial, ver auditoría de performance
   // 2026-08-25. Como consecuencia, tardan un tick en aparecer: hay que
   // esperarlos (findBy*), no asumir que están en el primer render.
-  it('el gráfico histórico recibe los datos del hook (dos series con leyenda)', async () => {
+  // Timeout propio: con la suite completa corriendo en paralelo, montar
+  // Recharts puede superar los 5s por defecto (falso rojo, corrida 2026-09-01).
+  it('el gráfico histórico recibe los datos del hook (dos series con leyenda)', { timeout: 15000 }, async () => {
     const { container } = render(<ControlGeneralPage />);
     expect(await screen.findByText('1ra quincena', {}, { timeout: 15000 })).toBeInTheDocument();
     expect(screen.getByText('2da quincena')).toBeInTheDocument();

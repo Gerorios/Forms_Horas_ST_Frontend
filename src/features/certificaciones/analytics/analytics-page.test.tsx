@@ -168,7 +168,9 @@ describe('AnalyticsPage', () => {
     expect(screen.getByText(/\$\s?300\.000/)).toBeInTheDocument();
   });
 
-  it('la torta por provincia renderiza un donut con aria-label y % por provincia', async () => {
+  // Timeout propio: con la suite completa corriendo en paralelo, montar
+  // Recharts puede superar los 5s por defecto (falso rojo, corrida 2026-09-01).
+  it('la torta por provincia renderiza un donut con aria-label y % por provincia', { timeout: 15000 }, async () => {
     render(<AnalyticsPage />);
     const torta = await screen.findByRole(
       'img',
