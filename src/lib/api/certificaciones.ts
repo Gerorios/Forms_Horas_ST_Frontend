@@ -1,27 +1,12 @@
-import axios from 'axios';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import { getToken } from './token';
 
-// Cliente aparte del `api` de Horas (NestJS): el portal de Certificaciones es
-// un backend FastAPI propio (mismo token Bearer, distinto host/baseURL).
-export const apiCert = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_CERT_API_URL ?? 'http://localhost:8000',
-});
+// Módulo Certificaciones (Etapa 2 ERP): todo pega contra el backend NestJS
+// de Horas (`api`, `./client`) — el antiguo backend FastAPI del Portal de
+// Certificaciones ya no existe.
+const getCert = async <T>(url: string) => (await api.get<T>(url)).data;
 
-apiCert.interceptors.request.use((config) => {
-  const token = getToken();
-  if (token) {
-    config.headers = config.headers ?? {};
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-const getCert = async <T>(url: string, params?: Record<string, unknown>) =>
-  (await apiCert.get<T>(url, params ? { params } : undefined)).data;
-
-// ---- Filtros comunes de /analytics/* (Task 7) ----
+// ---- Filtros comunes de /certificaciones/analytics/* ----
 export interface FiltrosAnalytics {
   contratos?: string[];
   provincias?: string[];
@@ -30,11 +15,11 @@ export interface FiltrosAnalytics {
   hasta?: string;
 }
 
-/** El backend usa FastAPI `Query(default=[])` para `contratos`/`provincias`
- * (List[str]): espera claves repetidas SIN corchetes (`contratos=A&contratos=B`).
- * El serializer de arrays por defecto de axios emite `contratos[]=A&...`, que
- * FastAPI no bindea — por eso se arma el `URLSearchParams` a mano acá en vez
- * de pasar el objeto `filtros` directo como `params`. */
+/** El backend espera `contratos`/`provincias` como claves repetidas SIN
+ * corchetes (`contratos=A&contratos=B`). El serializer de arrays por defecto
+ * de axios emite `contratos[]=A&...`, que no bindea igual — por eso se arma
+ * el `URLSearchParams` a mano acá en vez de pasar el objeto `filtros` directo
+ * como `params`. */
 function paramsAnalytics(filtros: FiltrosAnalytics): URLSearchParams {
   const usp = new URLSearchParams();
   for (const c of filtros.contratos ?? []) usp.append('contratos', c);
@@ -46,12 +31,9 @@ function paramsAnalytics(filtros: FiltrosAnalytics): URLSearchParams {
 }
 
 const getCertAnalytics = async <T>(url: string, filtros: FiltrosAnalytics) =>
-  (await apiCert.get<T>(url, { params: paramsAnalytics(filtros) })).data;
+  (await api.get<T>(url, { params: paramsAnalytics(filtros) })).data;
 
-// ---- GET /analytics/evolucion-mensual (FastAPI) ----
-// NOTA (Task 7): el brief describía el shape como { periodo, monto, pgn } —
-// analytics.py (fuente de verdad) devuelve { periodo, monto_total, pgn_total }.
-// Se sigue el código real.
+// ---- GET /certificaciones/analytics/evolucion-mensual ----
 export interface EvolucionMensualPunto {
   periodo: string;
   monto_total: number;
@@ -61,11 +43,11 @@ export interface EvolucionMensualPunto {
 export function useEvolucionMensual(filtros: FiltrosAnalytics) {
   return useQuery({
     queryKey: ['certificaciones', 'analytics', 'evolucion-mensual', filtros],
-    queryFn: () => getCertAnalytics<EvolucionMensualPunto[]>('/analytics/evolucion-mensual', filtros),
+    queryFn: () => getCertAnalytics<EvolucionMensualPunto[]>('/certificaciones/analytics/evolucion-mensual', filtros),
   });
 }
 
-// ---- GET /analytics/por-contrato-mes (FastAPI) ----
+// ---- GET /certificaciones/analytics/por-contrato-mes ----
 export interface PorContratoMesPunto {
   periodo: string;
   contrato: string;
@@ -76,11 +58,11 @@ export interface PorContratoMesPunto {
 export function usePorContratoMes(filtros: FiltrosAnalytics) {
   return useQuery({
     queryKey: ['certificaciones', 'analytics', 'por-contrato-mes', filtros],
-    queryFn: () => getCertAnalytics<PorContratoMesPunto[]>('/analytics/por-contrato-mes', filtros),
+    queryFn: () => getCertAnalytics<PorContratoMesPunto[]>('/certificaciones/analytics/por-contrato-mes', filtros),
   });
 }
 
-// ---- GET /analytics/por-provincia (FastAPI) ----
+// ---- GET /certificaciones/analytics/por-provincia ----
 export interface PorProvinciaPunto {
   provincia: string;
   monto_total: number;
@@ -91,14 +73,11 @@ export interface PorProvinciaPunto {
 export function usePorProvincia(filtros: FiltrosAnalytics) {
   return useQuery({
     queryKey: ['certificaciones', 'analytics', 'por-provincia', filtros],
-    queryFn: () => getCertAnalytics<PorProvinciaPunto[]>('/analytics/por-provincia', filtros),
+    queryFn: () => getCertAnalytics<PorProvinciaPunto[]>('/certificaciones/analytics/por-provincia', filtros),
   });
 }
 
-// ---- GET /analytics/top-items (FastAPI) ----
-// NOTA (Task 7): el brief describía { item_codigo, tarea, monto, cantidad } —
-// analytics.py no tiene un campo `cantidad`; devuelve además `contrato` y
-// `pgn_total`. Se sigue el código real.
+// ---- GET /certificaciones/analytics/top-items ----
 export interface TopItemPunto {
   item_codigo: string;
   tarea: string;
@@ -110,16 +89,14 @@ export interface TopItemPunto {
 export function useTopItems(filtros: FiltrosAnalytics) {
   return useQuery({
     queryKey: ['certificaciones', 'analytics', 'top-items', filtros],
-    queryFn: () => getCertAnalytics<TopItemPunto[]>('/analytics/top-items', filtros),
+    queryFn: () => getCertAnalytics<TopItemPunto[]>('/certificaciones/analytics/top-items', filtros),
   });
 }
 
-// ---- GET /analytics/interanual (FastAPI) ----
-// NOTA (Task 7): el brief describía un array plano [{ mes, actual, anterior,
-// variacion }] — analytics.py devuelve un objeto { anio_actual, anio_anterior,
-// meses: [...] } con monto Y pgn por separado (el endpoint tampoco acepta
-// `desde`/`hasta`: siempre compara año actual vs anterior). Se sigue el
-// código real.
+// ---- GET /certificaciones/analytics/interanual ----
+// El endpoint devuelve un objeto { anio_actual, anio_anterior, meses: [...] }
+// con monto Y pgn por separado (tampoco acepta `desde`/`hasta`: siempre
+// compara año actual vs anterior).
 export interface InteranualMes {
   mes: number;
   monto_actual: number | null;
@@ -148,46 +125,47 @@ export function useInteranual(filtros: FiltrosAnalytics) {
   };
   return useQuery({
     queryKey: ['certificaciones', 'analytics', 'interanual', filtrosSinFecha],
-    queryFn: () => getCertAnalytics<InteranualResponse>('/analytics/interanual', filtrosSinFecha),
+    queryFn: () => getCertAnalytics<InteranualResponse>('/certificaciones/analytics/interanual', filtrosSinFecha),
   });
 }
 
-// ---- GET /analytics/contratos y /analytics/provincias (FastAPI) — listas
+// ---- GET /certificaciones/analytics/contratos y /certificaciones/analytics/provincias — listas
 // para poblar los MultiFiltro de la barra de filtros de Analytics ----
 export function useContratosAnalytics() {
   return useQuery({
     queryKey: ['certificaciones', 'analytics', 'contratos-disponibles'],
-    queryFn: () => getCert<string[]>('/analytics/contratos'),
+    queryFn: () => getCert<string[]>('/certificaciones/analytics/contratos'),
   });
 }
 
 export function useProvinciasAnalytics() {
   return useQuery({
     queryKey: ['certificaciones', 'analytics', 'provincias-disponibles'],
-    queryFn: () => getCert<string[]>('/analytics/provincias'),
+    queryFn: () => getCert<string[]>('/certificaciones/analytics/provincias'),
   });
 }
 
-/** Histórico completo de `/analytics/estado-cargas` (sin filtro de período),
- * para la matriz operativa contrato×período — mismo endpoint y mismo
- * queryKey base que `useEstadoCargas` (Task 6, que filtra a un período con
- * `select`); acá se necesita TODO el histórico para armar la matriz, así
- * que va sin `select` y con su propia entrada de caché en TanStack Query
- * (agrega `'todas'` a la key para no pisar el resultado ya cacheado por
- * `useEstadoCargas`).
+/** Histórico completo de `/certificaciones/analytics/estado-cargas` (sin
+ * filtro de período), para la matriz operativa contrato×período — mismo
+ * endpoint y mismo queryKey base que `useEstadoCargas` (que filtra a un
+ * período con `select`); acá se necesita TODO el histórico para armar la
+ * matriz, así que va sin `select` y con su propia entrada de caché en
+ * TanStack Query (agrega `'todas'` a la key para no pisar el resultado ya
+ * cacheado por `useEstadoCargas`).
  *
  * Igual que `useEstadoCargas`: el endpoint exige gerente/admin (único de
- * `/analytics/*` con esa restricción extra) — `habilitado` (default `true`)
- * deja gatear la query para el nivel `carga` del claim `cert`. */
+ * `/certificaciones/analytics/*` con esa restricción extra) — `habilitado`
+ * (default `true`) deja gatear la query para el nivel `carga` del claim
+ * `cert`. */
 export function useEstadoCargasCompleto(habilitado = true) {
   return useQuery({
     queryKey: ['certificaciones', 'estado-cargas', 'todas'],
-    queryFn: () => getCert<EstadoCargaContrato[]>('/analytics/estado-cargas'),
+    queryFn: () => getCert<EstadoCargaContrato[]>('/certificaciones/analytics/estado-cargas'),
     enabled: habilitado,
   });
 }
 
-// ---- GET /certificaciones/resumen (FastAPI) ----
+// ---- GET /certificaciones/resumen ----
 export interface FilaResumenCert {
   periodo: string;
   contrato: string;
@@ -209,10 +187,9 @@ export function useResumenCert(periodo: string) {
   });
 }
 
-// ---- GET /analytics/estado-cargas (FastAPI) ----
-// NOTA (Task 7): `filas_cargadas` y `estado` también son `null` cuando el
-// contrato no cargó ese período (analytics.py devuelve `None` en ese caso) —
-// se corrige el tipo, antes marcado como no-nulo (Task 6).
+// ---- GET /certificaciones/analytics/estado-cargas ----
+// `filas_cargadas` y `estado` son `null` cuando el contrato no cargó ese
+// período.
 export interface EstadoCargaContrato {
   contrato: string;
   periodo: string;
@@ -227,22 +204,22 @@ export interface EstadoCargaContrato {
  * acepta filtro) — el filtro por período seleccionado se hace client-side
  * acá, mismo criterio que `useResumenCert`.
  *
- * `/analytics/estado-cargas` exige rol gerente/admin (`require_gerente_or_admin`
- * en analytics.py) — es el ÚNICO endpoint del módulo con esa restricción extra
- * (el resto de `/analytics/*` acepta admin/gerente/jefe). El nivel `carga` del
- * claim `cert` del front-end no tiene acceso; `habilitado` (default `true`)
- * deja que quien llama al hook lo desactive para ese caso sin disparar un 403
- * innecesario. */
+ * `/certificaciones/analytics/estado-cargas` exige rol gerente/admin — es el
+ * ÚNICO endpoint del módulo con esa restricción extra (el resto de
+ * `/certificaciones/analytics/*` acepta admin/gerente/jefe). El nivel `carga`
+ * del claim `cert` del front-end no tiene acceso; `habilitado` (default
+ * `true`) deja que quien llama al hook lo desactive para ese caso sin
+ * disparar un 403 innecesario. */
 export function useEstadoCargas(periodo: string, habilitado = true) {
   return useQuery({
     queryKey: ['certificaciones', 'estado-cargas'],
-    queryFn: () => getCert<EstadoCargaContrato[]>('/analytics/estado-cargas'),
+    queryFn: () => getCert<EstadoCargaContrato[]>('/certificaciones/analytics/estado-cargas'),
     select: (filas) => filas.filter((f) => f.periodo === periodo),
     enabled: periodo !== '' && habilitado,
   });
 }
 
-// ---- GET /analytics/presupuesto (FastAPI) — lista, una fila por contrato;
+// ---- GET /certificaciones/analytics/presupuesto — lista, una fila por contrato;
 // 403 para nivel 'carga' ----
 export interface PresupuestoContrato {
   contrato: string;
@@ -257,12 +234,12 @@ export interface PresupuestoContrato {
 export function usePresupuesto() {
   return useQuery({
     queryKey: ['certificaciones', 'presupuesto'],
-    queryFn: () => getCert<PresupuestoContrato[]>('/analytics/presupuesto'),
+    queryFn: () => getCert<PresupuestoContrato[]>('/certificaciones/analytics/presupuesto'),
     retry: false, // 403 no corresponde reintentar (nivel 'carga' sin el permiso)
   });
 }
 
-// ---- GET /certificaciones/incidencia-mo (backend de Horas, axios `api`) ----
+// ---- GET /certificaciones/incidencia-mo ----
 export interface IncidenciaMoResponse {
   contratos: { codigo: string; montoMo: number }[];
   sinAsignar: number | null;
@@ -277,9 +254,9 @@ export function useIncidenciaMo(anio: number, mes: number, enabled = true) {
   });
 }
 
-// ---- GET /certificaciones/incidencia-mo/serie (backend de Horas, axios `api`) ----
+// ---- GET /certificaciones/incidencia-mo/serie ----
 // Serie de 12 meses (orden ascendente) para el gráfico de evolución de la
-// incidencia de MO del Resumen (Task 3) — mismo criterio de acceso que
+// incidencia de MO del Resumen — mismo criterio de acceso que
 // `useIncidenciaMo` (403 si `perfil.cert.inc` no corresponde para el nivel
 // `carga`, ver `muestraIncidencia` en la página).
 export interface IncidenciaMesSerie {
@@ -301,7 +278,7 @@ export function useIncidenciaSerie(anio: number, mes: number, habilitado: boolea
   });
 }
 
-// ---- Accesos al módulo (Admin) — contra el backend NestJS de Horas, no apiCert ----
+// ---- Accesos al módulo (Admin) ----
 export type NivelAccesoCert = 'admin' | 'carga' | 'lectura';
 
 export interface AccesoCert {
