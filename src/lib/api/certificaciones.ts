@@ -276,3 +276,27 @@ export function useIncidenciaMo(anio: number, mes: number, enabled = true) {
     retry: false, // 403 si el usuario no corresponde (ver perfil.cert.inc)
   });
 }
+
+// ---- GET /certificaciones/incidencia-mo/serie (backend de Horas, axios `api`) ----
+// Serie de 12 meses (orden ascendente) para el gráfico de evolución de la
+// incidencia de MO del Resumen (Task 3) — mismo criterio de acceso que
+// `useIncidenciaMo` (403 si `perfil.cert.inc` no corresponde para el nivel
+// `carga`, ver `muestraIncidencia` en la página).
+export interface IncidenciaMesSerie {
+  anio: number;
+  mes: number;
+  contratos: { codigo: string; montoMo: number }[];
+  sinAsignar: number | null;
+}
+
+export function useIncidenciaSerie(anio: number, mes: number, habilitado: boolean) {
+  return useQuery({
+    queryKey: ['certificaciones', 'incidencia-mo', 'serie', anio, mes],
+    queryFn: () =>
+      api
+        .get<IncidenciaMesSerie[]>('/certificaciones/incidencia-mo/serie', { params: { anio, mes, meses: 12 } })
+        .then((r) => r.data),
+    enabled: habilitado,
+    retry: false, // 403 si el usuario no corresponde (ver perfil.cert.inc)
+  });
+}
