@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cloneElement, type ReactElement } from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type {
   FilaResumenCert,
   EstadoCargaContrato,
@@ -8,6 +8,7 @@ import type {
   PorContratoMesPunto,
   IncidenciaMesSerie,
 } from '@/lib/api/certificaciones';
+import { colorContrato } from '@/features/certificaciones/analytics/colores';
 
 // jsdom no mide layout: ResponsiveContainer quedaría en 0×0 (mismo patrón
 // que analytics-page.test.tsx / analisis-page.test.tsx).
@@ -144,6 +145,49 @@ describe('CertificacionesPage — Resumen', () => {
     render(<CertificacionesPage />);
     expect(screen.queryByRole('table', { name: /incidencia de mano de obra por contrato/i })).not.toBeInTheDocument();
     expect(useIncidenciaSerie.mock.calls.at(-1)?.[2]).toBe(false);
+  });
+
+  it('el color del chip K en la tabla coincide con el que usaría el chart para el mismo K, aun con la API en orden no alfabético', () => {
+    // La API devuelve K9 antes que K6/K5 (orden de inserción, no alfabético)
+    // tanto en el resumen como en la serie de incidencia.
+    useResumenCert.mockImplementation((periodo: string) =>
+      periodo === '2026-08'
+        ? ok([
+            { periodo: '2026-08', contrato: 'K9', tipo: 'Materiales', lineas: 2, monto_total: 300_000 },
+            { periodo: '2026-08', contrato: 'K5', tipo: 'Materiales', lineas: 5, monto_total: 700_000 },
+            { periodo: '2026-08', contrato: 'K6', tipo: 'Mano de obra', lineas: 3, monto_total: 500_000 },
+          ])
+        : ok([]),
+    );
+    useIncidenciaSerie.mockReturnValue(
+      ok([
+        {
+          anio: 2026,
+          mes: 8,
+          contratos: [
+            { codigo: 'K9', montoMo: 90_000 },
+            { codigo: 'K6', montoMo: 150_000 },
+            { codigo: 'K5', montoMo: 210_000 },
+          ],
+          sinAsignar: null,
+        },
+      ]),
+    );
+
+    render(<CertificacionesPage />);
+
+    const tabla = screen.getByRole('table', { name: /incidencia de mano de obra por contrato/i });
+    const filas = within(tabla).getAllByRole('row').slice(1); // sin la fila de encabezado
+    const codigos = filas.map((f) => within(f).getAllByRole('cell')[0].textContent?.trim());
+    // Mismo orden alfabético que `ordenarCodigosK` usa para las líneas del chart.
+    expect(codigos).toEqual(['K5', 'K6', 'K9']);
+
+    // K6 es el índice 1 en ese orden alfabético — mismo índice que usaría
+    // `evolucion-incidencia.tsx` para su línea, así que debe ser el mismo color.
+    // El primer <span> es el contenedor flex (K6 + swatch); el swatch en sí
+    // es el <span style> anidado.
+    const swatchK6 = within(filas[1]).getAllByRole('cell')[0].querySelector('span[style]');
+    expect(swatchK6).toHaveStyle({ background: colorContrato(1) });
   });
 
   it('nivel "carga": el gate de estado-cargas fue eliminado — la query se dispara igual y muestra los KPIs', () => {

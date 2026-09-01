@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { PuntoSerie } from './serie-incidencia';
+import { ordenarCodigosK, type PuntoSerie } from './serie-incidencia';
 import { colorContrato } from '@/features/certificaciones/analytics/colores';
 import { UMBRAL_INCIDENCIA_PCT } from '@/features/certificaciones/config';
 
@@ -56,7 +56,7 @@ function TooltipIncidencia({
 export function EvolucionIncidencia({ puntos }: { puntos: PuntoSerie[] }) {
   if (puntos.length === 0) return <p className="text-sm text-slate">Sin datos de incidencia para este período.</p>;
 
-  const codigosK = [...new Set(puntos.flatMap((p) => Object.keys(p.porK)))].sort();
+  const codigosK = ordenarCodigosK([...new Set(puntos.flatMap((p) => Object.keys(p.porK)))]);
   const filas = puntos.map((p) => ({ etiqueta: p.etiqueta, global: p.global, ...p.porK }));
 
   return (

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { construirSerie } from './serie-incidencia';
+import { construirSerie, ordenarCodigosK } from './serie-incidencia';
 
 const mo = [{ anio: 2026, mes: 7, contratos: [{ codigo: 'K6', montoMo: 30 }], sinAsignar: null },
             { anio: 2026, mes: 8, contratos: [{ codigo: 'K6', montoMo: 12 }, { codigo: 'K9', montoMo: 9 }], sinAsignar: null }];
@@ -18,5 +18,17 @@ describe('construirSerie', () => {
     const s = construirSerie([], mo);
     expect(s[1].porK.K6).toBeNull();
     expect(s[1].global).toBeNull();
+  });
+});
+
+describe('ordenarCodigosK', () => {
+  it('ordena alfabéticamente sin importar el orden de llegada de la API', () => {
+    expect(ordenarCodigosK(['K9', 'K6', 'K5'])).toEqual(['K5', 'K6', 'K9']);
+  });
+
+  it('no muta el array recibido', () => {
+    const original = ['K9', 'K6'];
+    ordenarCodigosK(original);
+    expect(original).toEqual(['K9', 'K6']);
   });
 });

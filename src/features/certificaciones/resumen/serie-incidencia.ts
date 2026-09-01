@@ -38,6 +38,15 @@ function pct(mo: number, certificado: number): number | null {
   return certificado === 0 ? null : Math.round((mo / certificado) * 1000) / 10;
 }
 
+/** Orden alfabético de códigos K — único punto de verdad para el orden usado
+ * al asignar `colorContrato(i)` tanto en el chart (`evolucion-incidencia.tsx`)
+ * como en la tabla compacta (`page.tsx`). Sin este helper compartido, cada
+ * lado podía ordenar distinto (ej. orden de inserción de la API) y el mismo
+ * K terminaba con un color en la tabla y otro en la línea del gráfico. */
+export function ordenarCodigosK(codigos: string[]): string[] {
+  return [...codigos].sort((a, b) => a.localeCompare(b));
+}
+
 /** Cruza la serie de MO imputada (Task 1, `/certificaciones/incidencia-mo/serie`)
  * con el monto certificado por contrato/mes (`usePorContratoMes`), mes a mes,
  * en el orden ascendente que ya trae `moSerie` — la MO es la que define los

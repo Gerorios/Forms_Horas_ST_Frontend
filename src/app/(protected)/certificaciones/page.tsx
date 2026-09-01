@@ -14,7 +14,7 @@ import {
   useIncidenciaSerie,
 } from '@/lib/api/certificaciones';
 import { calcularIncidencia, semaforo, type Semaforo } from '@/features/certificaciones/resumen/incidencia';
-import { construirSerie } from '@/features/certificaciones/resumen/serie-incidencia';
+import { construirSerie, ordenarCodigosK } from '@/features/certificaciones/resumen/serie-incidencia';
 import { colorContrato, fmtMoneda, fmtPct } from '@/features/certificaciones/analytics/colores';
 
 // Recharts (~100kb+) no hace falta en el bundle inicial de la página — se
@@ -135,10 +135,16 @@ export default function CertificacionesPage() {
     return acc;
   }, [ultimoPuntoRaw]);
 
-  const filasIncidencia = useMemo(
-    () => calcularIncidencia(certificadoPorK, moPorK),
-    [certificadoPorK, moPorK],
-  );
+  // `ordenarCodigosK` es el mismo helper que usa `evolucion-incidencia.tsx`
+  // para ordenar las líneas del chart — así el índice usado para
+  // `colorContrato(i)` es idéntico acá y ahí: el swatch de un K en la tabla
+  // coincide con el color de su línea, sin depender del orden en que la API
+  // devuelva los contratos.
+  const filasIncidencia = useMemo(() => {
+    const filas = calcularIncidencia(certificadoPorK, moPorK);
+    const porCodigo = new Map(filas.map((f) => [f.codigo, f]));
+    return ordenarCodigosK(filas.map((f) => f.codigo)).map((codigo) => porCodigo.get(codigo)!);
+  }, [certificadoPorK, moPorK]);
 
   const certPorMes = useMemo(
     () => (porContratoMes ?? []).map((p) => ({ periodo: p.periodo, contrato: p.contrato, monto: p.monto_total })),
