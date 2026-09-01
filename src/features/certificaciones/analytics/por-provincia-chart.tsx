@@ -1,66 +1,84 @@
 'use client';
 
-import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import type { PorProvinciaPunto } from '@/lib/api/certificaciones';
-import { COLOR_MONTO, fmtMoneda } from './colores';
+import { colorContrato, fmtMoneda, fmtPct } from './colores';
 
 function TooltipProvincia({
   active,
   payload,
+  total,
 }: {
   active?: boolean;
   payload?: { payload?: PorProvinciaPunto }[];
+  total: number;
 }) {
   const p = payload?.[0]?.payload;
   if (!active || !p) return null;
+  const pct = total > 0 ? (p.monto_total / total) * 100 : 0;
   return (
     <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-md">
       <p className="font-medium text-ink">{p.provincia}</p>
       <p className="tabular-nums text-slate">
-        {fmtMoneda(p.monto_total)} · {p.lineas} {p.lineas === 1 ? 'línea' : 'líneas'}
+        {fmtMoneda(p.monto_total)} · {fmtPct(pct)}
       </p>
     </div>
   );
 }
 
-/** Monto certificado por provincia — barras horizontales ordenadas de mayor
- * a menor (mismo patrón que `ContratosChart` de liquidación/análisis): más
- * fácil de leer que un mapa o torta cuando hay más de 4-5 categorías. */
+/** Distribución del monto certificado por provincia — torta tipo donut: con
+ * hasta 4 categorías (el máximo esperado en este análisis) el % directo por
+ * gajo se lee más rápido que barras horizontales. Colores fijos por orden
+ * alfabético de provincia (mismo mecanismo `colorContrato` que el resto de
+ * Analytics — apilado por contrato, etc.); provincias con monto 0 se omiten;
+ * el total del período va en el centro de la dona. */
 export function PorProvinciaChart({ datos }: { datos: PorProvinciaPunto[] }) {
-  const ordenados = [...datos].sort((a, b) => b.monto_total - a.monto_total);
-  const max = Math.max(...ordenados.map((d) => d.monto_total), 0);
-  if (ordenados.length === 0 || max === 0)
+  const conMonto = [...datos]
+    .filter((d) => d.monto_total > 0)
+    .sort((a, b) => a.provincia.localeCompare(b.provincia, 'es'));
+  const total = conMonto.reduce((s, d) => s + d.monto_total, 0);
+
+  if (conMonto.length === 0 || total === 0)
     return <p className="text-sm text-slate">Sin datos para el período filtrado.</p>;
 
   return (
     <div
-      className="w-full"
-      style={{ height: ordenados.length * 32 + 16 }}
+      className="relative w-full"
+      style={{ height: 280 }}
       role="img"
-      aria-label="Monto certificado por provincia"
+      aria-label="Distribución del certificado por provincia"
     >
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={ordenados} layout="vertical" margin={{ top: 0, right: 96, bottom: 0, left: 0 }}>
-          <XAxis type="number" hide domain={[0, max]} />
-          <YAxis
-            type="category"
-            dataKey="provincia"
-            width={110}
-            tickLine={false}
-            axisLine={false}
-            tick={{ fill: 'var(--color-ink)', fontSize: 11 }}
+        <PieChart>
+          <Pie
+            data={conMonto}
+            dataKey="monto_total"
+            nameKey="provincia"
+            innerRadius="55%"
+            outerRadius="80%"
+            paddingAngle={2}
+            isAnimationActive={false}
+            labelLine={false}
+            label={({ percent }: { percent?: number }) => fmtPct((percent ?? 0) * 100)}
+          >
+            {conMonto.map((d, i) => (
+              <Cell key={d.provincia} fill={colorContrato(i)} />
+            ))}
+          </Pie>
+          <Tooltip content={<TooltipProvincia total={total} />} />
+          <Legend
+            verticalAlign="middle"
+            align="right"
+            layout="vertical"
+            iconType="circle"
+            wrapperStyle={{ fontSize: 12 }}
           />
-          <Tooltip content={<TooltipProvincia />} cursor={{ fill: 'var(--color-sand)' }} />
-          <Bar dataKey="monto_total" fill={COLOR_MONTO} radius={[0, 3, 3, 0]} maxBarSize={16}>
-            <LabelList
-              dataKey="monto_total"
-              position="right"
-              style={{ fill: 'var(--color-ink)', fontSize: 11 }}
-              formatter={(v) => fmtMoneda(Number(v))}
-            />
-          </Bar>
-        </BarChart>
+        </PieChart>
       </ResponsiveContainer>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+        <p className="text-xs text-slate">Total</p>
+        <p className="text-sm font-semibold tabular-nums text-ink">{fmtMoneda(total)}</p>
+      </div>
     </div>
   );
 }

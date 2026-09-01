@@ -152,6 +152,35 @@ describe('AnalyticsPage', () => {
     expect(screen.getByText('Excavación')).toBeInTheDocument();
   });
 
+  it('la tabla de top ítems muestra el código como chip, la tarea con title y el monto formateado', async () => {
+    render(<AnalyticsPage />);
+    await screen.findByRole('table', { name: /top ítems/i });
+
+    const chip = screen.getByText('IT-1');
+    expect(chip.tagName).toBe('SPAN');
+
+    const tarea = screen.getByText('Excavación');
+    expect(tarea).toHaveAttribute('title', 'Excavación');
+
+    // `fmtMoneda` intercala un nbsp entre "$" y el monto — se matchea con
+    // regex para no depender de qué carácter de espacio normaliza jsdom.
+    expect(screen.getByText(/\$\s?900\.000/)).toBeInTheDocument();
+    expect(screen.getByText(/\$\s?300\.000/)).toBeInTheDocument();
+  });
+
+  it('la torta por provincia renderiza un donut con aria-label y % por provincia', async () => {
+    render(<AnalyticsPage />);
+    const torta = await screen.findByRole(
+      'img',
+      { name: 'Distribución del certificado por provincia' },
+      { timeout: 3000 },
+    );
+    expect(torta).toBeInTheDocument();
+    // Salta: 1.500.000 / 2.200.000 = 68,2 %; Jujuy: 700.000 / 2.200.000 = 31,8 %
+    expect(screen.getByText(/68,2\s?%/)).toBeInTheDocument();
+    expect(screen.getByText(/31,8\s?%/)).toBeInTheDocument();
+  });
+
   it('sin datos de evolución mensual muestra el vacío accesible dentro de la sección', async () => {
     useEvolucionMensual.mockReturnValue(ok([]));
     render(<AnalyticsPage />);
