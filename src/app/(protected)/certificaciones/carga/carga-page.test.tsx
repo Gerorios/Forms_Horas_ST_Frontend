@@ -178,7 +178,7 @@ describe('CargaCertificacionesPage', () => {
     );
   });
 
-  it('badge de reasignación: contrato_fuente=maestro y difiere del archivo muestra "archivo: K8 → K12"', async () => {
+  it('badge de reasignación: indicador visible en la fila principal, detalle completo al expandir', async () => {
     preview.mockResolvedValue(
       previewBase({
         filas: [
@@ -196,7 +196,35 @@ describe('CargaCertificacionesPage', () => {
     await subirArchivo();
     await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
 
-    expect(await screen.findByText('archivo: K8 → K12')).toBeInTheDocument();
+    // Indicador visible sin expandir (chip chico con tooltip), sin scroll horizontal.
+    const indicador = await screen.findByTitle('Reasignado por el maestro: archivo K8 → K12');
+    expect(indicador).toBeInTheDocument();
+    expect(screen.queryByText(/archivo: K8 → K12/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /más/i }));
+    expect(await screen.findByText(/archivo: K8 → K12/)).toBeInTheDocument();
+  });
+
+  it('tolera coma decimal es-AR: "5,5" en cantidad se registra normalizado como "5.5" y la fila queda válida', async () => {
+    preview.mockResolvedValue(previewBase({ filas: [filaBase({ rowId: 'r1', cantidades: '3', total_mes: '10' })] }));
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    const cantidadInput = await screen.findByLabelText('Cantidad r1');
+    await userEvent.clear(cantidadInput);
+    await userEvent.type(cantidadInput, '5,5');
+
+    expect(screen.getByText('A cargar: 1')).toBeInTheDocument();
+
+    confirmar.mockResolvedValue({ mensaje: 'ok', insertadas: 1, omitidas: 0, errores: [] });
+    await userEvent.click(screen.getByRole('button', { name: /confirmar carga/i }));
+    await waitFor(() =>
+      expect(confirmar).toHaveBeenCalledWith({
+        previewId: 'preview-1',
+        ediciones: [{ rowId: 'r1', cantidades: '5.5' }],
+      }),
+    );
   });
 
   it('aviso de descuadre no bloqueante cuando el total a cargar difiere del total declarado', async () => {

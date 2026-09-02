@@ -67,6 +67,14 @@ describe('revalidarFila', () => {
     expect(r.tieneError).toBe(false);
   });
 
+  it('tolera coma decimal es-AR en cantidades y total_mes (ronda de fix 1)', () => {
+    const r = revalidarFila(
+      { ...FILA_OK, cantidades: '5,5', total_mes: '10,25' },
+      { itemExiste: true, provinciasValidas: PROVINCIAS },
+    );
+    expect(r).toEqual({ tieneError: false, detalle: null });
+  });
+
   it('acumula varias faltas unidas por "; "', () => {
     const r = revalidarFila(
       { item_codigo: 'X', contrato: '', provincia: '', cantidades: null, total_mes: null },

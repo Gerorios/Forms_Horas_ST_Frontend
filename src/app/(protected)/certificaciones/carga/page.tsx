@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useSession } from '@/lib/auth/session';
@@ -43,9 +43,17 @@ function mensajeError(e: unknown, fallback: string): string {
 
 function fmtMoney(v: string | number | null): string {
   if (v === null || v === '') return '—';
-  const n = Number(v);
+  const n = Number(String(v).replace(',', '.'));
   if (Number.isNaN(n)) return String(v);
   return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Coma→punto para que un usuario es-AR pueda tipear "5,5" en cantidad/total
+ * — se normaliza ACÁ, al registrar la edición, no solo en la revalidación
+ * (ronda de fix 1 del code review: `revalidar.ts` también tolera coma, pero
+ * la edición que viaja al backend debe quedar ya en formato punto). */
+function normalizarDecimal(v: string): string {
+  return v.trim().replace(',', '.');
 }
 
 /** Fila efectiva luego de aplicar la edición local acumulada (o la fila tal
@@ -95,6 +103,7 @@ export default function CargaCertificacionesPage() {
   const [ediciones, setEdiciones] = useState<Map<string, EdicionFilaCarga>>(new Map());
   const [pagina, setPagina] = useState(1);
   const [resultado, setResultado] = useState<RespuestaConfirmarCarga | null>(null);
+  const [expandidas, setExpandidas] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
   if (!puedeCargar) return null;
@@ -146,10 +155,11 @@ export default function CargaCertificacionesPage() {
   }
 
   function setEdicionCampo(rowId: string, campo: 'provincia' | 'cantidades' | 'total_mes', valor: string) {
+    const v = campo === 'cantidades' || campo === 'total_mes' ? normalizarDecimal(valor) : valor;
     setEdiciones((prev) => {
       const next = new Map(prev);
       const actual = next.get(rowId) ?? { rowId };
-      next.set(rowId, { ...actual, [campo]: valor });
+      next.set(rowId, { ...actual, [campo]: v });
       return next;
     });
   }
@@ -159,6 +169,15 @@ export default function CargaCertificacionesPage() {
       const next = new Map(prev);
       const actual = next.get(rowId) ?? { rowId };
       next.set(rowId, { ...actual, excluida });
+      return next;
+    });
+  }
+
+  function toggleExpandida(rowId: string) {
+    setExpandidas((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
       return next;
     });
   }
@@ -344,114 +363,162 @@ export default function CargaCertificacionesPage() {
             </p>
           )}
 
-          <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+          {/* Sin overflow-x-auto: columnas principales + fila expandible
+              (patrón de la casa, ver `cierre-detalle-tabla.tsx`) — el detalle
+              secundario (hoja, $unitario, región, reasignación completa,
+              detalle de error largo) vive en la fila que abre el chevron. */}
+          <div className="rounded-xl border border-line bg-surface">
             <table className="w-full text-sm" aria-label="Filas de la carga">
               <thead>
                 <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
                   <th className="px-3 py-2.5 font-medium">Cargar</th>
-                  <th className="px-3 py-2.5 font-medium">Hoja</th>
                   <th className="px-3 py-2.5 font-medium">Ítem</th>
-                  <th className="px-3 py-2.5 font-medium">Tarea</th>
                   <th className="px-3 py-2.5 font-medium">Contrato</th>
                   <th className="px-3 py-2.5 font-medium">Provincia</th>
                   <th className="px-3 py-2.5 text-right font-medium">Cant.</th>
-                  <th className="px-3 py-2.5 text-right font-medium">$Unit</th>
                   <th className="px-3 py-2.5 text-right font-medium">$Total</th>
                   <th className="px-3 py-2.5 font-medium">Estado</th>
+                  <th className="px-3 py-2.5 font-medium" />
                 </tr>
               </thead>
               <tbody>
                 {enPagina.map(({ original, vista, tieneError, detalle }) => {
                   const reasignado = vista.contrato_fuente === 'maestro' && original.contrato_archivo !== vista.contrato;
+                  const expandida = expandidas.has(original.rowId);
                   return (
-                    <tr key={original.rowId} className="border-b border-line align-top text-ink last:border-0">
-                      <td className="px-3 py-2.5">
-                        <input
-                          type="checkbox"
-                          aria-label={`Cargar fila ${original.fila_excel}`}
-                          checked={!vista.excluida}
-                          onChange={(e) => setExcluida(original.rowId, !e.target.checked)}
-                        />
-                      </td>
-                      <td className="px-3 py-2.5">{original.hoja_origen}</td>
-                      <td className="px-3 py-2.5">{original.item_codigo}</td>
-                      <td className="max-w-[200px] truncate px-3 py-2.5" title={original.tarea ?? ''}>
-                        {original.tarea}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <select
-                          aria-label={`Contrato ${original.item_codigo}`}
-                          value={vista.contrato}
-                          onChange={(e) => setContratoCascada(original.item_codigo, e.target.value)}
-                          className={inputCls}
-                        >
-                          <option value="">—</option>
-                          {(contratosDisponibles ?? []).map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-                        {reasignado && (
-                          <span
-                            className="mt-1 block text-[11px] text-slate"
-                            title="El maestro reasignó este ítem al contrato correcto."
+                    <Fragment key={original.rowId}>
+                      <tr className="border-b border-line align-top text-ink last:border-0">
+                        <td className="px-3 py-2.5">
+                          <input
+                            type="checkbox"
+                            aria-label={`Cargar fila ${original.fila_excel}`}
+                            checked={!vista.excluida}
+                            onChange={(e) => setExcluida(original.rowId, !e.target.checked)}
+                          />
+                        </td>
+                        <td className="max-w-[180px] px-3 py-2.5" title={original.tarea ?? ''}>
+                          <p className="font-medium">{original.item_codigo}</p>
+                          <p className="truncate text-xs text-slate">{original.tarea}</p>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-1">
+                            <select
+                              aria-label={`Contrato ${original.item_codigo}`}
+                              value={vista.contrato}
+                              onChange={(e) => setContratoCascada(original.item_codigo, e.target.value)}
+                              className={`${inputCls} w-20`}
+                            >
+                              <option value="">—</option>
+                              {(contratosDisponibles ?? []).map((c) => (
+                                <option key={c} value={c}>
+                                  {c}
+                                </option>
+                              ))}
+                            </select>
+                            {reasignado && (
+                              <span
+                                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-warn/10 text-[10px] text-warn"
+                                title={`Reasignado por el maestro: archivo ${original.contrato_archivo} → ${vista.contrato}`}
+                              >
+                                ↺
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <select
+                            aria-label={`Provincia ${original.rowId}`}
+                            value={vista.provincia}
+                            onChange={(e) => setEdicionCampo(original.rowId, 'provincia', e.target.value)}
+                            className={`${inputCls} w-28`}
                           >
-                            archivo: {original.contrato_archivo} → {vista.contrato}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <select
-                          aria-label={`Provincia ${original.rowId}`}
-                          value={vista.provincia}
-                          onChange={(e) => setEdicionCampo(original.rowId, 'provincia', e.target.value)}
-                          className={inputCls}
-                        >
-                          <option value="">—</option>
-                          {provinciasValidas.map((p) => (
-                            <option key={p} value={p}>
-                              {p}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <input
-                          aria-label={`Cantidad ${original.rowId}`}
-                          value={vista.cantidades ?? ''}
-                          inputMode="decimal"
-                          onChange={(e) => setEdicionCampo(original.rowId, 'cantidades', e.target.value)}
-                          className={`${inputCls} w-24 text-right`}
-                        />
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-slate">{fmtMoney(original.precio_unitario)}</td>
-                      <td className="px-3 py-2.5 text-right">
-                        <input
-                          aria-label={`Total ${original.rowId}`}
-                          value={vista.total_mes ?? ''}
-                          inputMode="decimal"
-                          onChange={(e) => setEdicionCampo(original.rowId, 'total_mes', e.target.value)}
-                          className={`${inputCls} w-28 text-right`}
-                        />
-                      </td>
-                      <td className="px-3 py-2.5">
-                        {vista.excluida ? (
-                          <span className={BADGE_EXCLUIDA}>Excluida</span>
-                        ) : tieneError ? (
-                          <span className={BADGE_WARN} title={detalle ?? ''}>
-                            ⚠ {detalle}
-                          </span>
-                        ) : (
-                          <span className={BADGE_OK}>OK</span>
-                        )}
-                      </td>
-                    </tr>
+                            <option value="">—</option>
+                            {provinciasValidas.map((p) => (
+                              <option key={p} value={p}>
+                                {p}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <input
+                            aria-label={`Cantidad ${original.rowId}`}
+                            value={vista.cantidades ?? ''}
+                            inputMode="decimal"
+                            onChange={(e) => setEdicionCampo(original.rowId, 'cantidades', e.target.value)}
+                            className={`${inputCls} w-16 text-right`}
+                          />
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <input
+                            aria-label={`Total ${original.rowId}`}
+                            value={vista.total_mes ?? ''}
+                            inputMode="decimal"
+                            onChange={(e) => setEdicionCampo(original.rowId, 'total_mes', e.target.value)}
+                            className={`${inputCls} w-24 text-right`}
+                          />
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {vista.excluida ? (
+                            <span className={BADGE_EXCLUIDA}>Excluida</span>
+                          ) : tieneError ? (
+                            <span className={BADGE_WARN} title={detalle ?? ''}>
+                              ⚠
+                            </span>
+                          ) : (
+                            <span className={BADGE_OK}>OK</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-xs text-slate">
+                          <button type="button" onClick={() => toggleExpandida(original.rowId)}>
+                            {expandida ? 'Cerrar ▴' : 'Más ▾'}
+                          </button>
+                        </td>
+                      </tr>
+                      {expandida && (
+                        <tr className="border-b border-line last:border-0">
+                          <td colSpan={8} className="bg-sand/30 px-3 py-3">
+                            <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-slate">Hoja</dt>
+                                <dd className="text-sm text-ink">{original.hoja_origen}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-slate">$ Unitario</dt>
+                                <dd className="text-sm tabular-nums text-ink">{fmtMoney(original.precio_unitario)}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-slate">Región</dt>
+                                <dd className="text-sm text-ink">{original.region || '—'}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-slate">Fila del archivo</dt>
+                                <dd className="text-sm text-ink">{original.fila_excel}</dd>
+                              </div>
+                              {reasignado && (
+                                <div className="col-span-2 sm:col-span-4">
+                                  <dt className="text-xs uppercase tracking-wide text-slate">Reasignación de contrato</dt>
+                                  <dd className="text-sm text-ink">
+                                    archivo: {original.contrato_archivo} → {vista.contrato} (resuelto por el maestro)
+                                  </dd>
+                                </div>
+                              )}
+                              {tieneError && detalle && (
+                                <div className="col-span-2 sm:col-span-4">
+                                  <dt className="text-xs uppercase tracking-wide text-slate">Detalle del error</dt>
+                                  <dd className="text-sm text-warn">{detalle}</dd>
+                                </div>
+                              )}
+                            </dl>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
                 {enPagina.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="px-3 py-3 text-sm text-slate">
+                    <td colSpan={8} className="px-3 py-3 text-sm text-slate">
                       Sin filas para las hojas seleccionadas.
                     </td>
                   </tr>

@@ -13,9 +13,13 @@
  * confirmar.
  */
 
+/** Tolera coma decimal es-AR ("5,5") además del punto — un usuario puede
+ * tipear la edición de cantidad/total con coma; se normaliza acá antes de
+ * `Number()` (fix ronda 1 del code review) además de en el handler de la
+ * página, que ya guarda la edición normalizada a punto. */
 function num(v: string | null | undefined): number | null {
   if (v === null || v === undefined || v === '') return null;
-  const n = Number(v);
+  const n = Number(String(v).replace(',', '.'));
   return Number.isNaN(n) ? null : n;
 }
 
