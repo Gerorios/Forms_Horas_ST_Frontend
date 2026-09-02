@@ -378,3 +378,188 @@ export function useEliminarItemCert() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['certificaciones', 'items'] }),
   });
 }
+
+// ---- Wizard de carga (Etapa 4) — POST /certificaciones/carga/preview y
+// /certificaciones/carga/confirmar. Numéricos como STRING o null (igual que
+// el backend/portal); ver docs/superpowers/specs/2026-09-02-inventario-
+// carga-portal.md §1-§2 y el brief de la task 6. ----
+
+/** Una fila del preview. `rowId` identifica la fila en la sesión
+ * server-side (`previewId`) para las ediciones del confirmar. */
+export interface FilaPreview {
+  rowId: string;
+  hoja_origen: string;
+  archivo_origen: string;
+  item_codigo: string;
+  nombre_contrato: string | null;
+  tarea: string | null;
+  contrato: string;
+  unidad_medida: string | null;
+  ptos_gasnor: string | null;
+  tipo: string | null;
+  contratista: string | null;
+  provincia: string;
+  region: string;
+  cantidades: string | null;
+  precio_unitario: string | null;
+  total_mes: string | null;
+  observaciones: string | null;
+  fecha: string;
+  nro_np: string | null;
+  tiene_error: boolean;
+  fila_excel: number;
+  item_en_maestro: boolean;
+  error_detalle: string | null;
+  contrato_archivo: string;
+  contrato_fuente: 'editado' | 'maestro' | 'archivo';
+  contrato_del_maestro: string | null;
+  excluida: boolean;
+}
+
+export interface ErrorParseoCarga {
+  hoja: string;
+  fila: number;
+  campo: string;
+  mensaje: string;
+}
+
+export interface ResumenPreviewCarga {
+  total: number;
+  con_error: number;
+  total_mes: number;
+  total_declarado: number | null;
+}
+
+export interface RespuestaPreviewCarga {
+  previewId: string;
+  archivo: string;
+  hojas: string[];
+  periodo: string;
+  resumen: ResumenPreviewCarga;
+  filas: FilaPreview[];
+  errores: ErrorParseoCarga[];
+}
+
+/** Multipart: FormData con `archivo`, `periodo_anio`, `periodo_mes` — sin
+ * Content-Type manual, axios lo arma solo a partir del FormData. */
+export function usePreviewCarga() {
+  return useMutation({
+    mutationFn: (form: FormData) =>
+      api.post<RespuestaPreviewCarga>('/certificaciones/carga/preview', form).then((r) => r.data),
+  });
+}
+
+/** Solo estos 5 campos son editables — whitelist real del backend (fix B8
+ * del portal, ver `EdicionFilaDto`). El front manda TODAS las ediciones
+ * acumuladas por rowId al confirmar, no solo las de la página visible. */
+export interface EdicionFilaCarga {
+  rowId: string;
+  contrato?: string;
+  provincia?: string;
+  cantidades?: string;
+  total_mes?: string;
+  excluida?: boolean;
+}
+
+export interface ErrorConfirmarCarga {
+  hoja: string;
+  fila: number;
+  item_codigo: string;
+  mensaje: string;
+}
+
+export interface RespuestaConfirmarCarga {
+  mensaje: string;
+  insertadas: number;
+  omitidas: number;
+  errores: ErrorConfirmarCarga[];
+}
+
+/** Confirmar una carga o deshacerla cambia los mismos montos cacheados en
+ * varias pantallas del módulo — no solo el historial. Lista compartida para
+ * no duplicarla entre `useConfirmarCarga` y `useDeshacerCarga`:
+ * - `['certificaciones', 'carga', 'historial']` — `useHistorialCargas`.
+ * - `['certificaciones', 'resumen']` — `useResumenCert`.
+ * - `['certificaciones', 'analytics']` (prefijo) — cubre `useEvolucionMensual`,
+ *   `usePorContratoMes`, `usePorProvincia`, `useTopItems` e `useInteranual`,
+ *   todas bajo ese prefijo (`['certificaciones','analytics',...]`).
+ * - `['certificaciones', 'estado-cargas']` — `useEstadoCargas` y
+ *   `useEstadoCargasCompleto` (pegan al mismo endpoint que analytics pero su
+ *   queryKey NO vive bajo el prefijo `analytics`, hay que invalidarla aparte).
+ * - `['certificaciones', 'presupuesto']` — `usePresupuesto` (`consumido`/`pct`
+ *   por contrato); tampoco vive bajo el prefijo `analytics` aunque pega a
+ *   `/certificaciones/analytics/presupuesto`.
+ * - `['certificaciones', 'incidencia-mo']` (prefijo) — cubre `useIncidenciaMo`
+ *   e `useIncidenciaSerie`. */
+const QUERY_KEYS_AFECTADAS_POR_CARGA: readonly (readonly string[])[] = [
+  ['certificaciones', 'carga', 'historial'],
+  ['certificaciones', 'resumen'],
+  ['certificaciones', 'analytics'],
+  ['certificaciones', 'estado-cargas'],
+  ['certificaciones', 'presupuesto'],
+  ['certificaciones', 'incidencia-mo'],
+];
+
+export function useConfirmarCarga() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: { previewId: string; ediciones: EdicionFilaCarga[] }) =>
+      api.post<RespuestaConfirmarCarga>('/certificaciones/carga/confirmar', dto).then((r) => r.data),
+    onSuccess: () => {
+      for (const queryKey of QUERY_KEYS_AFECTADAS_POR_CARGA) {
+        qc.invalidateQueries({ queryKey });
+      }
+    },
+  });
+}
+
+// ---- Historial de cargas (Task 7 etapa 4) — GET /certificaciones/carga/historial
+// y DELETE /certificaciones/carga/:logId ----
+
+/** Una carga registrada. `contrato` y `periodo` vienen NULL en filas legadas
+ * del portal (`sth_cert_cargas_log.contrato` es `varchar(50) NULL`) — la
+ * página debe tolerarlo. `filas_error` puede ser 0 aunque `estado` sea 'ok';
+ * 'parcial' implica `filas_error > 0`. */
+export interface HistorialCargaCert {
+  id: number;
+  usuario_nombre: string;
+  archivo_nombre: string;
+  contrato: string | null;
+  periodo: string | null;
+  filas_cargadas: number;
+  filas_error: number;
+  estado: 'ok' | 'parcial';
+  cargado_en: string;
+}
+
+/** admin/lectura ven las últimas 100 cargas de todo el módulo; carga ve
+ * únicamente las propias (50) — mismo recorte que hace el backend, acá solo
+ * se pide la lista tal cual llega. */
+export function useHistorialCargas() {
+  return useQuery({
+    queryKey: ['certificaciones', 'carga', 'historial'],
+    queryFn: () => getCert<HistorialCargaCert[]>('/certificaciones/carga/historial'),
+  });
+}
+
+export interface RespuestaDeshacerCarga {
+  mensaje: string;
+  filasBorradas: number;
+}
+
+/** Deshacer una carga borra las filas de `fact_certificaciones` que insertó
+ * (solo nivel admin, 403 al resto — la página re-gatea el botón). Invalida
+ * `QUERY_KEYS_AFECTADAS_POR_CARGA` (ver ese comentario para el detalle de
+ * cada key) — deshacer cambia montos ya mostrados en varias pantallas. */
+export function useDeshacerCarga() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (logId: number) =>
+      api.delete<RespuestaDeshacerCarga>(`/certificaciones/carga/${logId}`).then((r) => r.data),
+    onSuccess: () => {
+      for (const queryKey of QUERY_KEYS_AFECTADAS_POR_CARGA) {
+        qc.invalidateQueries({ queryKey });
+      }
+    },
+  });
+}

@@ -178,3 +178,82 @@ describe('hooks de /certificaciones/analytics/*: serialización de filtros', () 
     expect(spy).not.toHaveBeenCalled();
   });
 });
+
+// useDeshacerCarga: verifica el ALCANCE del invalidate tras deshacer una
+// carga — deshacer cambia montos ya cacheados en varias pantallas del módulo
+// (resumen, analytics, estado-cargas, presupuesto, incidencia-mo), no solo el
+// historial. Ronda de fix 1 del code review: `usePresupuesto` usa
+// `['certificaciones','presupuesto']`, que NO vive bajo el prefijo
+// `['certificaciones','analytics']` (a diferencia de lo que decía el comentario
+// original) — este test fija con un QueryClient real que esa key puntual
+// también se invalida.
+describe('useDeshacerCarga: alcance del invalidate', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.resetModules();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('invalida historial, resumen, analytics, estado-cargas, presupuesto e incidencia-mo', async () => {
+    const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+    const { api } = await import('./client');
+    const { useDeshacerCarga } = await import('./certificaciones');
+    vi.spyOn(api, 'delete').mockResolvedValue({ data: { mensaje: 'Carga deshecha', filasBorradas: 3 } });
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    function localWrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+    }
+
+    const { result } = renderHook(() => useDeshacerCarga(), { wrapper: localWrapper });
+    result.current.mutate(7);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keysInvalidados = invalidateSpy.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'carga', 'historial']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'resumen']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'analytics']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'estado-cargas']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'presupuesto']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'incidencia-mo']));
+  });
+});
+
+// useConfirmarCarga: una carga cambia los mismos números que un deshacer
+// (montos que suben en vez de bajar), así que debe invalidar el MISMO set de
+// 6 queries que `useDeshacerCarga` — fix 3 de la ronda final de review.
+describe('useConfirmarCarga: alcance del invalidate', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.resetModules();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('invalida historial, resumen, analytics, estado-cargas, presupuesto e incidencia-mo', async () => {
+    const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+    const { api } = await import('./client');
+    const { useConfirmarCarga } = await import('./certificaciones');
+    vi.spyOn(api, 'post').mockResolvedValue({
+      data: { mensaje: 'ok', insertadas: 1, omitidas: 0, errores: [] },
+    });
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    function localWrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+    }
+
+    const { result } = renderHook(() => useConfirmarCarga(), { wrapper: localWrapper });
+    result.current.mutate({ previewId: 'preview-1', ediciones: [] });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keysInvalidados = invalidateSpy.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'carga', 'historial']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'resumen']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'analytics']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'estado-cargas']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'presupuesto']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'incidencia-mo']));
+  });
+});
