@@ -219,3 +219,41 @@ describe('useDeshacerCarga: alcance del invalidate', () => {
     expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'incidencia-mo']));
   });
 });
+
+// useConfirmarCarga: una carga cambia los mismos números que un deshacer
+// (montos que suben en vez de bajar), así que debe invalidar el MISMO set de
+// 6 queries que `useDeshacerCarga` — fix 3 de la ronda final de review.
+describe('useConfirmarCarga: alcance del invalidate', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.resetModules();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('invalida historial, resumen, analytics, estado-cargas, presupuesto e incidencia-mo', async () => {
+    const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+    const { api } = await import('./client');
+    const { useConfirmarCarga } = await import('./certificaciones');
+    vi.spyOn(api, 'post').mockResolvedValue({
+      data: { mensaje: 'ok', insertadas: 1, omitidas: 0, errores: [] },
+    });
+
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
+    function localWrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+    }
+
+    const { result } = renderHook(() => useConfirmarCarga(), { wrapper: localWrapper });
+    result.current.mutate({ previewId: 'preview-1', ediciones: [] });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keysInvalidados = invalidateSpy.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'carga', 'historial']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'resumen']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'analytics']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'estado-cargas']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'presupuesto']));
+    expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'incidencia-mo']));
+  });
+});

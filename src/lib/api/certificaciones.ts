@@ -475,25 +475,57 @@ export interface RespuestaConfirmarCarga {
   errores: ErrorConfirmarCarga[];
 }
 
+/** Confirmar una carga o deshacerla cambia los mismos montos cacheados en
+ * varias pantallas del módulo — no solo el historial. Lista compartida para
+ * no duplicarla entre `useConfirmarCarga` y `useDeshacerCarga`:
+ * - `['certificaciones', 'carga', 'historial']` — `useHistorialCargas`.
+ * - `['certificaciones', 'resumen']` — `useResumenCert`.
+ * - `['certificaciones', 'analytics']` (prefijo) — cubre `useEvolucionMensual`,
+ *   `usePorContratoMes`, `usePorProvincia`, `useTopItems` e `useInteranual`,
+ *   todas bajo ese prefijo (`['certificaciones','analytics',...]`).
+ * - `['certificaciones', 'estado-cargas']` — `useEstadoCargas` y
+ *   `useEstadoCargasCompleto` (pegan al mismo endpoint que analytics pero su
+ *   queryKey NO vive bajo el prefijo `analytics`, hay que invalidarla aparte).
+ * - `['certificaciones', 'presupuesto']` — `usePresupuesto` (`consumido`/`pct`
+ *   por contrato); tampoco vive bajo el prefijo `analytics` aunque pega a
+ *   `/certificaciones/analytics/presupuesto`.
+ * - `['certificaciones', 'incidencia-mo']` (prefijo) — cubre `useIncidenciaMo`
+ *   e `useIncidenciaSerie`. */
+const QUERY_KEYS_AFECTADAS_POR_CARGA: readonly (readonly string[])[] = [
+  ['certificaciones', 'carga', 'historial'],
+  ['certificaciones', 'resumen'],
+  ['certificaciones', 'analytics'],
+  ['certificaciones', 'estado-cargas'],
+  ['certificaciones', 'presupuesto'],
+  ['certificaciones', 'incidencia-mo'],
+];
+
 export function useConfirmarCarga() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (dto: { previewId: string; ediciones: EdicionFilaCarga[] }) =>
       api.post<RespuestaConfirmarCarga>('/certificaciones/carga/confirmar', dto).then((r) => r.data),
+    onSuccess: () => {
+      for (const queryKey of QUERY_KEYS_AFECTADAS_POR_CARGA) {
+        qc.invalidateQueries({ queryKey });
+      }
+    },
   });
 }
 
 // ---- Historial de cargas (Task 7 etapa 4) — GET /certificaciones/carga/historial
 // y DELETE /certificaciones/carga/:logId ----
 
-/** Una carga registrada. `contrato` viene como CSV de códigos K (p. ej.
- * "K6,K11") — la página lo separa en chips. `filas_error` puede ser 0 aunque
- * `estado` sea 'ok'; 'parcial' implica `filas_error > 0`. */
+/** Una carga registrada. `contrato` y `periodo` vienen NULL en filas legadas
+ * del portal (`sth_cert_cargas_log.contrato` es `varchar(50) NULL`) — la
+ * página debe tolerarlo. `filas_error` puede ser 0 aunque `estado` sea 'ok';
+ * 'parcial' implica `filas_error > 0`. */
 export interface HistorialCargaCert {
   id: number;
   usuario_nombre: string;
   archivo_nombre: string;
-  contrato: string;
-  periodo: string;
+  contrato: string | null;
+  periodo: string | null;
   filas_cargadas: number;
   filas_error: number;
   estado: 'ok' | 'parcial';
@@ -516,34 +548,18 @@ export interface RespuestaDeshacerCarga {
 }
 
 /** Deshacer una carga borra las filas de `fact_certificaciones` que insertó
- * (solo nivel admin, 403 al resto — la página re-gatea el botón). Invalida el
- * historial y, además, todo lo que ese borrado puede alterar — deshacer
- * cambia montos ya mostrados en varias pantallas, así que se invalida:
- * - `['certificaciones', 'carga', 'historial']` — esta misma lista.
- * - `['certificaciones', 'resumen']` — `useResumenCert`.
- * - `['certificaciones', 'analytics']` (prefijo) — cubre `useEvolucionMensual`,
- *   `usePorContratoMes`, `usePorProvincia`, `useTopItems` e `useInteranual`,
- *   todas bajo ese prefijo (`['certificaciones','analytics',...]`).
- * - `['certificaciones', 'estado-cargas']` — `useEstadoCargas` y
- *   `useEstadoCargasCompleto` (pegan al mismo endpoint que analytics pero su
- *   queryKey NO vive bajo el prefijo `analytics`, hay que invalidarla aparte).
- * - `['certificaciones', 'presupuesto']` — `usePresupuesto` (`consumido`/`pct`
- *   por contrato); tampoco vive bajo el prefijo `analytics` aunque pega a
- *   `/certificaciones/analytics/presupuesto`.
- * - `['certificaciones', 'incidencia-mo']` (prefijo) — cubre `useIncidenciaMo`
- *   e `useIncidenciaSerie`. */
+ * (solo nivel admin, 403 al resto — la página re-gatea el botón). Invalida
+ * `QUERY_KEYS_AFECTADAS_POR_CARGA` (ver ese comentario para el detalle de
+ * cada key) — deshacer cambia montos ya mostrados en varias pantallas. */
 export function useDeshacerCarga() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (logId: number) =>
       api.delete<RespuestaDeshacerCarga>(`/certificaciones/carga/${logId}`).then((r) => r.data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['certificaciones', 'carga', 'historial'] });
-      qc.invalidateQueries({ queryKey: ['certificaciones', 'resumen'] });
-      qc.invalidateQueries({ queryKey: ['certificaciones', 'analytics'] });
-      qc.invalidateQueries({ queryKey: ['certificaciones', 'estado-cargas'] });
-      qc.invalidateQueries({ queryKey: ['certificaciones', 'presupuesto'] });
-      qc.invalidateQueries({ queryKey: ['certificaciones', 'incidencia-mo'] });
+      for (const queryKey of QUERY_KEYS_AFECTADAS_POR_CARGA) {
+        qc.invalidateQueries({ queryKey });
+      }
     },
   });
 }

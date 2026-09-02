@@ -227,6 +227,76 @@ describe('CargaCertificacionesPage', () => {
     );
   });
 
+  it('deseleccionar una hoja en el paso 2 manda sus filas como excluida:true al confirmar (server-authoritative)', async () => {
+    preview.mockResolvedValue(
+      previewBase({
+        hojas: ['CERTIF K1', 'CERTIF K2'],
+        filas: [
+          filaBase({ rowId: 'rA', hoja_origen: 'CERTIF K1', contrato: 'K1', contrato_archivo: 'K1' }),
+          filaBase({ rowId: 'rB', hoja_origen: 'CERTIF K2', contrato: 'K2', contrato_archivo: 'K2' }),
+        ],
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+
+    // Admin: ambas hojas vienen preseleccionadas — deselecciono la B.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'CERTIF K2' })).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: 'CERTIF K2' }));
+    await userEvent.click(screen.getByRole('button', { name: /ver filas/i }));
+
+    // La vista del paso 3 solo muestra la fila de la hoja seleccionada.
+    await waitFor(() => expect(screen.getByLabelText('Cantidad rA')).toBeInTheDocument());
+    expect(screen.queryByLabelText('Cantidad rB')).not.toBeInTheDocument();
+
+    confirmar.mockResolvedValue({ mensaje: 'ok', insertadas: 1, omitidas: 0, errores: [] });
+    await userEvent.click(screen.getByRole('button', { name: /confirmar carga/i }));
+
+    await waitFor(() =>
+      expect(confirmar).toHaveBeenCalledWith({
+        previewId: 'preview-1',
+        ediciones: [{ rowId: 'rB', excluida: true }],
+      }),
+    );
+  });
+
+  it('deseleccionar una hoja preserva otras ediciones acumuladas de sus filas, forzando excluida:true encima', async () => {
+    preview.mockResolvedValue(
+      previewBase({
+        hojas: ['CERTIF K1', 'CERTIF K2'],
+        filas: [
+          filaBase({ rowId: 'rA', hoja_origen: 'CERTIF K1', contrato: 'K1', contrato_archivo: 'K1' }),
+          filaBase({ rowId: 'rB', hoja_origen: 'CERTIF K2', contrato: 'K2', contrato_archivo: 'K2' }),
+        ],
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'CERTIF K2' })).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: /ver filas/i }));
+
+    // Edito la cantidad de rB mientras su hoja todavía está seleccionada.
+    const cantidadInput = await screen.findByLabelText('Cantidad rB');
+    await userEvent.clear(cantidadInput);
+    await userEvent.type(cantidadInput, '9');
+
+    // Vuelvo al paso 2 y deselecciono la hoja de rB.
+    await userEvent.click(screen.getByRole('button', { name: /atrás/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'CERTIF K2' }));
+    await userEvent.click(screen.getByRole('button', { name: /ver filas/i }));
+
+    confirmar.mockResolvedValue({ mensaje: 'ok', insertadas: 1, omitidas: 0, errores: [] });
+    await userEvent.click(screen.getByRole('button', { name: /confirmar carga/i }));
+
+    await waitFor(() =>
+      expect(confirmar).toHaveBeenCalledWith({
+        previewId: 'preview-1',
+        ediciones: [{ rowId: 'rB', cantidades: '9', excluida: true }],
+      }),
+    );
+  });
+
   it('aviso de descuadre no bloqueante cuando el total a cargar difiere del total declarado', async () => {
     preview.mockResolvedValue(
       previewBase({

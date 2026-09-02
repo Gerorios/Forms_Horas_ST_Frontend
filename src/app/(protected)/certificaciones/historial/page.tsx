@@ -117,14 +117,14 @@ export default function HistorialCargasPage() {
                   </td>
                   <td className="px-3 py-2.5">
                     <div className="flex flex-wrap gap-1">
-                      {contratosDe(c.contrato).map((k) => (
+                      {contratosDe(c.contrato ?? '').map((k) => (
                         <span key={k} className={CONTRATO_CHIP}>
                           {k}
                         </span>
                       ))}
                     </div>
                   </td>
-                  <td className="px-3 py-2.5">{c.periodo}</td>
+                  <td className="px-3 py-2.5">{c.periodo ?? '—'}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">
                     {c.filas_cargadas}
                     {c.filas_error > 0 && <span className="ml-1 text-xs text-warn">{c.filas_error} err</span>}

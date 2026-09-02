@@ -221,12 +221,30 @@ export default function CargaCertificacionesPage() {
   const paginaSegura = Math.min(pagina, totalPaginas);
   const enPagina = filasCalculadas.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA);
 
+  /** El backend es server-authoritative: inserta TODAS las filas de la sesión
+   * que no lleguen con `excluida: true`, sin importar la selección de hojas
+   * del paso 2 (esa selección solo filtra la VISTA del paso 3). Por eso acá,
+   * al armar el payload, forzamos `excluida: true` para toda fila cuya hoja
+   * quedó deseleccionada — por encima de cualquier edición acumulada de esa
+   * fila, sin pisar el resto de sus campos editados. */
+  function edicionesParaConfirmar(): EdicionFilaCarga[] {
+    if (!preview) return [];
+    const finales = new Map(ediciones);
+    for (const f of preview.filas) {
+      if (!hojasSel.has(f.hoja_origen)) {
+        const actual = finales.get(f.rowId) ?? { rowId: f.rowId };
+        finales.set(f.rowId, { ...actual, excluida: true });
+      }
+    }
+    return Array.from(finales.values());
+  }
+
   async function confirmar() {
     if (!preview) return;
     try {
       const data = await confirmarMut.mutateAsync({
         previewId: preview.previewId,
-        ediciones: Array.from(ediciones.values()),
+        ediciones: edicionesParaConfirmar(),
       });
       setResultado(data);
       setStep(4);

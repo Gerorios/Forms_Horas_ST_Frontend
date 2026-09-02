@@ -117,6 +117,28 @@ describe('HistorialCargasPage', () => {
     await waitFor(() => expect(deshacerError).toHaveBeenCalledWith(1));
   });
 
+  it('una fila con contrato y periodo null (carga legada del portal) renderiza sin explotar', () => {
+    useHistorialCargas.mockReturnValue({
+      data: [
+        {
+          id: 3,
+          usuario_nombre: 'Legado Portal',
+          archivo_nombre: 'legado.xlsx',
+          contrato: null,
+          periodo: null,
+          filas_cargadas: 5,
+          filas_error: 0,
+          estado: 'ok',
+          cargado_en: '2026-01-01 00:00',
+        },
+      ],
+      isLoading: false,
+    });
+    render(<HistorialCargasPage />);
+    const fila = screen.getByText('Legado Portal').closest('tr')!;
+    expect(within(fila).getByText('—')).toBeInTheDocument();
+  });
+
   it('sin cargas registradas muestra el mensaje vacío', () => {
     useHistorialCargas.mockReturnValue({ data: [], isLoading: false });
     render(<HistorialCargasPage />);
