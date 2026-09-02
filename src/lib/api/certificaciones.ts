@@ -481,3 +481,59 @@ export function useConfirmarCarga() {
       api.post<RespuestaConfirmarCarga>('/certificaciones/carga/confirmar', dto).then((r) => r.data),
   });
 }
+
+// ---- Historial de cargas (Task 7 etapa 4) — GET /certificaciones/carga/historial
+// y DELETE /certificaciones/carga/:logId ----
+
+/** Una carga registrada. `contrato` viene como CSV de códigos K (p. ej.
+ * "K6,K11") — la página lo separa en chips. `filas_error` puede ser 0 aunque
+ * `estado` sea 'ok'; 'parcial' implica `filas_error > 0`. */
+export interface HistorialCargaCert {
+  id: number;
+  usuario_nombre: string;
+  archivo_nombre: string;
+  contrato: string;
+  periodo: string;
+  filas_cargadas: number;
+  filas_error: number;
+  estado: 'ok' | 'parcial';
+  cargado_en: string;
+}
+
+/** admin/lectura ven las últimas 100 cargas de todo el módulo; carga ve
+ * únicamente las propias (50) — mismo recorte que hace el backend, acá solo
+ * se pide la lista tal cual llega. */
+export function useHistorialCargas() {
+  return useQuery({
+    queryKey: ['certificaciones', 'carga', 'historial'],
+    queryFn: () => getCert<HistorialCargaCert[]>('/certificaciones/carga/historial'),
+  });
+}
+
+export interface RespuestaDeshacerCarga {
+  mensaje: string;
+  filasBorradas: number;
+}
+
+/** Deshacer una carga borra las filas de `fact_certificaciones` que insertó
+ * (solo nivel admin, 403 al resto — la página re-gatea el botón). Invalida el
+ * historial y, además, todo lo que ese borrado puede alterar: el resumen y
+ * las queries de analytics del módulo (evolución mensual, por contrato/mes,
+ * por provincia, top ítems, interanual, estado de cargas, presupuesto e
+ * incidencia de MO) — deshacer cambia montos ya mostrados en esas pantallas,
+ * así que se invalidan por prefijo `['certificaciones', 'analytics']` más las
+ * claves sueltas que no viven bajo ese prefijo. */
+export function useDeshacerCarga() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (logId: number) =>
+      api.delete<RespuestaDeshacerCarga>(`/certificaciones/carga/${logId}`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['certificaciones', 'carga', 'historial'] });
+      qc.invalidateQueries({ queryKey: ['certificaciones', 'resumen'] });
+      qc.invalidateQueries({ queryKey: ['certificaciones', 'analytics'] });
+      qc.invalidateQueries({ queryKey: ['certificaciones', 'estado-cargas'] });
+      qc.invalidateQueries({ queryKey: ['certificaciones', 'incidencia-mo'] });
+    },
+  });
+}

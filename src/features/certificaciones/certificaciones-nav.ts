@@ -16,4 +16,8 @@ export const CERTIFICACIONES_NAV = [
   { label: 'Analytics', href: '/certificaciones/analytics' },
   { label: 'Cargar', href: '/certificaciones/carga', nivelesPermitidos: ['admin', 'carga'] as NivelNav[] },
   { label: 'Ítems', href: '/certificaciones/items', soloAdmin: true },
+  // "Historial" (Task 7 etapa 4) es visible para TODOS los niveles del
+  // módulo: sin `soloAdmin` ni `nivelesPermitidos`. El botón "Deshacer" de la
+  // tabla sí se gatea a nivel admin, adentro de la página.
+  { label: 'Historial', href: '/certificaciones/historial' },
 ];
