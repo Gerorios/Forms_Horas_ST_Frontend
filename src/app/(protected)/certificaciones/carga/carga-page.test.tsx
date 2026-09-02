@@ -326,6 +326,22 @@ describe('CargaCertificacionesPage', () => {
     expect(screen.getByTestId('metrica-con-problema')).toHaveTextContent('Con problema: 0');
   });
 
+  it('total declarado 0 en el archivo: sin aviso de descuadre ni métrica de declarado', async () => {
+    preview.mockResolvedValue(
+      previewBase({
+        resumen: { total: 1, con_error: 0, total_mes: 300, total_declarado: 0 },
+        filas: [filaBase({ rowId: 'r1', total_mes: '300' })],
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    expect(await screen.findByTestId('metrica-monto')).toHaveTextContent('Total a cargar: $ 300,00');
+    expect(screen.queryByTestId('metrica-declarado')).not.toBeInTheDocument();
+    expect(screen.queryByText(/no coincide con el total declarado/i)).not.toBeInTheDocument();
+  });
+
   it('aviso de descuadre no bloqueante cuando el total a cargar difiere del total declarado', async () => {
     preview.mockResolvedValue(
       previewBase({

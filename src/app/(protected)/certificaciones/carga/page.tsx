@@ -214,7 +214,10 @@ export default function CargaCertificacionesPage() {
   const montoACargar = filasCalculadas
     .filter((r) => !r.vista.excluida && !r.tieneError)
     .reduce((acc, r) => acc + (Number(r.vista.total_mes) || 0), 0);
-  const totalDeclarado = preview?.resumen.total_declarado ?? null;
+  // Un TOTAL MES en 0 en el archivo (fórmula sin calcular, hoja sin total) no es un
+  // total declarado: el portal tampoco avisaba descuadre en ese caso.
+  const totalDeclaradoCrudo = preview?.resumen.total_declarado ?? null;
+  const totalDeclarado = totalDeclaradoCrudo ? totalDeclaradoCrudo : null;
   const descuadre = totalDeclarado !== null && Math.abs(montoACargar - totalDeclarado) > 0.01;
 
   const totalPaginas = Math.max(1, Math.ceil(filasCalculadas.length / POR_PAGINA));
