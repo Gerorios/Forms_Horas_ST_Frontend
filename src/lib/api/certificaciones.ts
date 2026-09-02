@@ -378,3 +378,106 @@ export function useEliminarItemCert() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['certificaciones', 'items'] }),
   });
 }
+
+// ---- Wizard de carga (Etapa 4) — POST /certificaciones/carga/preview y
+// /certificaciones/carga/confirmar. Numéricos como STRING o null (igual que
+// el backend/portal); ver docs/superpowers/specs/2026-09-02-inventario-
+// carga-portal.md §1-§2 y el brief de la task 6. ----
+
+/** Una fila del preview. `rowId` identifica la fila en la sesión
+ * server-side (`previewId`) para las ediciones del confirmar. */
+export interface FilaPreview {
+  rowId: string;
+  hoja_origen: string;
+  archivo_origen: string;
+  item_codigo: string;
+  nombre_contrato: string | null;
+  tarea: string | null;
+  contrato: string;
+  unidad_medida: string | null;
+  ptos_gasnor: string | null;
+  tipo: string | null;
+  contratista: string | null;
+  provincia: string;
+  region: string;
+  cantidades: string | null;
+  precio_unitario: string | null;
+  total_mes: string | null;
+  observaciones: string | null;
+  fecha: string;
+  nro_np: string | null;
+  tiene_error: boolean;
+  fila_excel: number;
+  item_en_maestro: boolean;
+  error_detalle: string | null;
+  contrato_archivo: string;
+  contrato_fuente: 'editado' | 'maestro' | 'archivo';
+  contrato_del_maestro: string | null;
+  excluida: boolean;
+}
+
+export interface ErrorParseoCarga {
+  hoja: string;
+  fila: number;
+  campo: string;
+  mensaje: string;
+}
+
+export interface ResumenPreviewCarga {
+  total: number;
+  con_error: number;
+  total_mes: number;
+  total_declarado: number | null;
+}
+
+export interface RespuestaPreviewCarga {
+  previewId: string;
+  archivo: string;
+  hojas: string[];
+  periodo: string;
+  resumen: ResumenPreviewCarga;
+  filas: FilaPreview[];
+  errores: ErrorParseoCarga[];
+}
+
+/** Multipart: FormData con `archivo`, `periodo_anio`, `periodo_mes` — sin
+ * Content-Type manual, axios lo arma solo a partir del FormData. */
+export function usePreviewCarga() {
+  return useMutation({
+    mutationFn: (form: FormData) =>
+      api.post<RespuestaPreviewCarga>('/certificaciones/carga/preview', form).then((r) => r.data),
+  });
+}
+
+/** Solo estos 5 campos son editables — whitelist real del backend (fix B8
+ * del portal, ver `EdicionFilaDto`). El front manda TODAS las ediciones
+ * acumuladas por rowId al confirmar, no solo las de la página visible. */
+export interface EdicionFilaCarga {
+  rowId: string;
+  contrato?: string;
+  provincia?: string;
+  cantidades?: string;
+  total_mes?: string;
+  excluida?: boolean;
+}
+
+export interface ErrorConfirmarCarga {
+  hoja: string;
+  fila: number;
+  item_codigo: string;
+  mensaje: string;
+}
+
+export interface RespuestaConfirmarCarga {
+  mensaje: string;
+  insertadas: number;
+  omitidas: number;
+  errores: ErrorConfirmarCarga[];
+}
+
+export function useConfirmarCarga() {
+  return useMutation({
+    mutationFn: (dto: { previewId: string; ediciones: EdicionFilaCarga[] }) =>
+      api.post<RespuestaConfirmarCarga>('/certificaciones/carga/confirmar', dto).then((r) => r.data),
+  });
+}
