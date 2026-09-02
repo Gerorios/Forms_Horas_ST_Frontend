@@ -372,6 +372,14 @@ export default function CargaCertificacionesPage() {
             <span className="text-ink" data-testid="metrica-total">
               {`Total: ${totalFilas}`}
             </span>
+            <span className="ml-auto font-semibold text-ink" data-testid="metrica-monto">
+              {`Total a cargar: $ ${fmtMoney(montoACargar)}`}
+            </span>
+            {totalDeclarado !== null && (
+              <span className="text-slate" data-testid="metrica-declarado">
+                {`Declarado en el archivo: $ ${fmtMoney(totalDeclarado)}`}
+              </span>
+            )}
           </div>
 
           {descuadre && (
@@ -402,6 +410,15 @@ export default function CargaCertificacionesPage() {
               <tbody>
                 {enPagina.map(({ original, vista, tieneError, detalle }) => {
                   const reasignado = vista.contrato_fuente === 'maestro' && original.contrato_archivo !== vista.contrato;
+                  // El archivo trae la provincia en Title Case ("Santiago Del Estero") y el
+                  // maestro puede escribirla distinto: el match es case-insensitive (igual
+                  // que la revalidación y que el portal), así el select queda preseleccionado
+                  // con el valor canónico del maestro. Si no matchea, se muestra tal cual
+                  // vino, marcada, para que el usuario la corrija.
+                  const provArchivo = (vista.provincia ?? '').trim();
+                  const provCanon =
+                    provinciasValidas.find((p) => p.toUpperCase() === provArchivo.toUpperCase()) ?? provArchivo;
+                  const provInvalida = provArchivo !== '' && !provinciasValidas.includes(provCanon);
                   const expandida = expandidas.has(original.rowId);
                   return (
                     <Fragment key={original.rowId}>
@@ -446,11 +463,12 @@ export default function CargaCertificacionesPage() {
                         <td className="px-3 py-2.5">
                           <select
                             aria-label={`Provincia ${original.rowId}`}
-                            value={vista.provincia}
+                            value={provCanon}
                             onChange={(e) => setEdicionCampo(original.rowId, 'provincia', e.target.value)}
-                            className={`${inputCls} w-28`}
+                            className={`${inputCls} w-28${provInvalida ? ' border-danger text-danger' : ''}`}
                           >
                             <option value="">—</option>
+                            {provInvalida && <option value={provCanon}>{provCanon}</option>}
                             {provinciasValidas.map((p) => (
                               <option key={p} value={p}>
                                 {p}

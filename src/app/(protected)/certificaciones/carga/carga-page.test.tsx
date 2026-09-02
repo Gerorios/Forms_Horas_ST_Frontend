@@ -297,6 +297,35 @@ describe('CargaCertificacionesPage', () => {
     );
   });
 
+  it('muestra el monto total a cargar y el total declarado del archivo en el paso 3', async () => {
+    preview.mockResolvedValue(
+      previewBase({
+        resumen: { total: 2, con_error: 0, total_mes: 1500.5, total_declarado: 1500.5 },
+        filas: [filaBase({ rowId: 'r1', total_mes: '1000' }), filaBase({ rowId: 'r2', total_mes: '500.5' })],
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    expect(await screen.findByTestId('metrica-monto')).toHaveTextContent('Total a cargar: $ 1.500,50');
+    expect(screen.getByTestId('metrica-declarado')).toHaveTextContent('Declarado en el archivo: $ 1.500,50');
+  });
+
+  it('preselecciona la provincia del archivo aunque el maestro la escriba con otras mayúsculas', async () => {
+    useProvinciasAnalytics.mockReturnValue({ data: ['SALTA', 'SANTIAGO DEL ESTERO'] });
+    preview.mockResolvedValue(
+      previewBase({ filas: [filaBase({ rowId: 'r1', provincia: 'Santiago Del Estero' })] }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    const select = (await screen.findByLabelText('Provincia r1')) as HTMLSelectElement;
+    expect(select.value).toBe('SANTIAGO DEL ESTERO');
+    expect(screen.getByTestId('metrica-con-problema')).toHaveTextContent('Con problema: 0');
+  });
+
   it('aviso de descuadre no bloqueante cuando el total a cargar difiere del total declarado', async () => {
     preview.mockResolvedValue(
       previewBase({
