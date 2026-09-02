@@ -310,3 +310,71 @@ export function useEliminarAccesoCert() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['certificaciones', 'accesos'] }),
   });
 }
+
+// ---- Maestro de ítems (Admin) — GET/POST/PATCH/DELETE /certificaciones/items ----
+export interface ItemCert {
+  id_item: number;
+  item_codigo: string;
+  codigo_k: string;
+  grupo: string | null;
+  subgrupo: string | null;
+  tarea: string;
+  frecuencia: string | null;
+  contratista: string | null;
+  ptos_gasnor: number | null;
+  unidad_medida: string | null;
+  tipo: string | null;
+  contrato_nombre: string | null;
+}
+
+/** `placeholderData` conserva la última lista mientras se tipea en el
+ * buscador (debounced 300ms en la página) o se cambia el filtro de
+ * contrato, para evitar el parpadeo de una grilla vacía entre requests. */
+export function useItemsCert(filtros: { codigoK?: string; buscar?: string }, habilitado = true) {
+  const params = new URLSearchParams();
+  if (filtros.codigoK) params.append('codigo_k', filtros.codigoK);
+  if (filtros.buscar) params.append('buscar', filtros.buscar);
+  return useQuery({
+    queryKey: ['certificaciones', 'items', filtros],
+    queryFn: () => api.get<ItemCert[]>('/certificaciones/items', { params }).then((r) => r.data),
+    enabled: habilitado,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export interface CamposItemCert {
+  grupo?: string | null;
+  subgrupo?: string | null;
+  frecuencia?: string | null;
+  contratista?: string | null;
+  ptos_gasnor?: number | null;
+  unidad_medida?: string | null;
+  tipo?: 'OPEX' | 'CAPEX' | null;
+  contrato_nombre?: string | null;
+}
+
+export function useCrearItemCert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: { item_codigo: string; codigo_k: string; tarea: string } & CamposItemCert) =>
+      api.post('/certificaciones/items', dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['certificaciones', 'items'] }),
+  });
+}
+
+export function useEditarItemCert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ idItem, ...dto }: { idItem: number; codigo_k?: string; tarea?: string } & CamposItemCert) =>
+      api.patch(`/certificaciones/items/${idItem}`, dto).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['certificaciones', 'items'] }),
+  });
+}
+
+export function useEliminarItemCert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (idItem: number) => api.delete(`/certificaciones/items/${idItem}`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['certificaciones', 'items'] }),
+  });
+}
