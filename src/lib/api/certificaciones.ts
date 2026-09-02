@@ -517,12 +517,21 @@ export interface RespuestaDeshacerCarga {
 
 /** Deshacer una carga borra las filas de `fact_certificaciones` que insertó
  * (solo nivel admin, 403 al resto — la página re-gatea el botón). Invalida el
- * historial y, además, todo lo que ese borrado puede alterar: el resumen y
- * las queries de analytics del módulo (evolución mensual, por contrato/mes,
- * por provincia, top ítems, interanual, estado de cargas, presupuesto e
- * incidencia de MO) — deshacer cambia montos ya mostrados en esas pantallas,
- * así que se invalidan por prefijo `['certificaciones', 'analytics']` más las
- * claves sueltas que no viven bajo ese prefijo. */
+ * historial y, además, todo lo que ese borrado puede alterar — deshacer
+ * cambia montos ya mostrados en varias pantallas, así que se invalida:
+ * - `['certificaciones', 'carga', 'historial']` — esta misma lista.
+ * - `['certificaciones', 'resumen']` — `useResumenCert`.
+ * - `['certificaciones', 'analytics']` (prefijo) — cubre `useEvolucionMensual`,
+ *   `usePorContratoMes`, `usePorProvincia`, `useTopItems` e `useInteranual`,
+ *   todas bajo ese prefijo (`['certificaciones','analytics',...]`).
+ * - `['certificaciones', 'estado-cargas']` — `useEstadoCargas` y
+ *   `useEstadoCargasCompleto` (pegan al mismo endpoint que analytics pero su
+ *   queryKey NO vive bajo el prefijo `analytics`, hay que invalidarla aparte).
+ * - `['certificaciones', 'presupuesto']` — `usePresupuesto` (`consumido`/`pct`
+ *   por contrato); tampoco vive bajo el prefijo `analytics` aunque pega a
+ *   `/certificaciones/analytics/presupuesto`.
+ * - `['certificaciones', 'incidencia-mo']` (prefijo) — cubre `useIncidenciaMo`
+ *   e `useIncidenciaSerie`. */
 export function useDeshacerCarga() {
   const qc = useQueryClient();
   return useMutation({
@@ -533,6 +542,7 @@ export function useDeshacerCarga() {
       qc.invalidateQueries({ queryKey: ['certificaciones', 'resumen'] });
       qc.invalidateQueries({ queryKey: ['certificaciones', 'analytics'] });
       qc.invalidateQueries({ queryKey: ['certificaciones', 'estado-cargas'] });
+      qc.invalidateQueries({ queryKey: ['certificaciones', 'presupuesto'] });
       qc.invalidateQueries({ queryKey: ['certificaciones', 'incidencia-mo'] });
     },
   });
