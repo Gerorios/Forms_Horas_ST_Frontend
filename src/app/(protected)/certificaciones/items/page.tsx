@@ -27,6 +27,11 @@ const TIPO_CHIP: Record<string, string> = {
 const inputCls =
   'rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 disabled:opacity-60';
 
+// Paginación client-side sobre la lista ya filtrada por el server — mismo
+// patrón que `liquidacion/perfiles/page.tsx` (POR_PAGINA, paginaSegura,
+// reset a página 1 al cambiar filtros).
+const POR_PAGINA = 50;
+
 function mensajeError(e: unknown, fallback: string): string {
   return String((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? fallback);
 }
@@ -343,6 +348,18 @@ export default function ItemsCertPage() {
   const [itemEditando, setItemEditando] = useState<ItemCert | null>(null);
   const [itemAEliminar, setItemAEliminar] = useState<ItemCert | null>(null);
 
+  const [pagina, setPagina] = useState(1);
+  const filas = items ?? [];
+  const totalPaginas = Math.max(1, Math.ceil(filas.length / POR_PAGINA));
+  const paginaSegura = Math.min(pagina, totalPaginas);
+  const enPagina = filas.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA);
+
+  // Reset a página 1 al cambiar el filtro de contrato o el buscador (ya
+  // debounced) — evita quedar "varado" en una página vacía tras filtrar.
+  useEffect(() => {
+    setPagina(1);
+  }, [contratoFiltro, buscarDebounced]);
+
   if (!esAdmin) return null;
 
   function abrirAlta() {
@@ -377,8 +394,6 @@ export default function ItemsCertPage() {
     });
     promesa.then(() => setItemAEliminar(null)).catch(() => {});
   }
-
-  const filas = items ?? [];
 
   return (
     <section className="space-y-5">
@@ -435,7 +450,7 @@ export default function ItemsCertPage() {
               </tr>
             </thead>
             <tbody>
-              {filas.map((it) => (
+              {enPagina.map((it) => (
                 <tr key={it.id_item} className="border-b border-line text-ink last:border-0">
                   <td className="px-3 py-2.5 font-medium">{it.item_codigo}</td>
                   <td className="px-3 py-2.5">
@@ -463,7 +478,7 @@ export default function ItemsCertPage() {
                   </td>
                 </tr>
               ))}
-              {filas.length === 0 && (
+              {enPagina.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-3 py-3 text-sm text-slate">
                     Sin ítems para los filtros aplicados.
@@ -472,6 +487,32 @@ export default function ItemsCertPage() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!isLoading && (
+        <div className="flex items-center justify-between text-sm text-slate">
+          <span>
+            Página {paginaSegura} de {totalPaginas} — {filas.length} ítem{filas.length === 1 ? '' : 's'}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={paginaSegura <= 1}
+              onClick={() => setPagina((p) => Math.max(1, p - 1))}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={paginaSegura >= totalPaginas}
+              onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+            >
+              Siguiente
+            </Button>
+          </div>
         </div>
       )}
 

@@ -162,4 +162,37 @@ describe('ItemsCertPage', () => {
     const { container } = render(<ItemsCertPage />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('pagina la tabla a 50 por página: 60 ítems muestran 2 páginas', async () => {
+    const muchosItems: ItemCert[] = Array.from({ length: 60 }, (_, i) => ({
+      id_item: i + 1,
+      item_codigo: `ITEM-${String(i + 1).padStart(2, '0')}`,
+      codigo_k: 'K6',
+      grupo: null,
+      subgrupo: null,
+      tarea: `Tarea ${i + 1}`,
+      frecuencia: null,
+      contratista: null,
+      ptos_gasnor: null,
+      unidad_medida: null,
+      tipo: null,
+      contrato_nombre: null,
+    }));
+    useItemsCert.mockReturnValue({ data: muchosItems, isLoading: false });
+
+    render(<ItemsCertPage />);
+    const tabla = screen.getByRole('table', { name: /ítems del maestro/i });
+    // header + 50 filas de datos
+    expect(within(tabla).getAllByRole('row')).toHaveLength(51);
+    expect(screen.getByText('Página 1 de 2 — 60 ítems')).toBeInTheDocument();
+    expect(screen.getByText('ITEM-01')).toBeInTheDocument();
+    expect(screen.queryByText('ITEM-51')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /siguiente/i }));
+
+    expect(within(tabla).getAllByRole('row')).toHaveLength(11);
+    expect(screen.getByText('Página 2 de 2 — 60 ítems')).toBeInTheDocument();
+    expect(screen.getByText('ITEM-60')).toBeInTheDocument();
+    expect(screen.queryByText('ITEM-01')).not.toBeInTheDocument();
+  });
 });
