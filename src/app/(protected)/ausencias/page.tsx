@@ -49,7 +49,10 @@ const ACCION: Record<
 };
 
 /** Confirmación con descargo — mismo patrón que DesaprobarDialog, salvo que
- * acá el descargo es opcional para AMBAS acciones (justificar o no). */
+ * acá el descargo es opcional para AMBAS acciones (justificar o no). Al
+ * justificar, además exige el toggle de presentismo (ADR-022): sin default,
+ * el botón queda deshabilitado hasta que HyS elige explícitamente. No
+ * justificar no lo pregunta — esa siempre pierde presentismo, sin excepción. */
 function ResolverDialog({
   estadoHys,
   onConfirm,
@@ -57,16 +60,40 @@ function ResolverDialog({
   confirmando,
 }: {
   estadoHys: 'aprobada' | 'desaprobada';
-  onConfirm: (descargoHys: string) => void;
+  onConfirm: (descargoHys: string, pierdePresentismoHys?: boolean) => void;
   onCancel: () => void;
   confirmando: boolean;
 }) {
   const [descargo, setDescargo] = useState('');
+  const [pierdePresentismo, setPierdePresentismo] = useState<boolean | null>(null);
   const info = ACCION[estadoHys];
+  const requierePresentismo = estadoHys === 'aprobada';
+  const puedeConfirmar = !requierePresentismo || pierdePresentismo !== null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
       <div className="w-full max-w-sm space-y-3 rounded-xl border border-line bg-surface p-6 shadow-lg">
         <h3 className="font-display font-semibold text-ink">{info.titulo}</h3>
+        {requierePresentismo && (
+          <div className="flex flex-col gap-1 text-sm text-ink">
+            <span>¿Esta ausencia hace perder el presentismo?</span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={pierdePresentismo === true ? 'primary' : 'secondary'}
+                onClick={() => setPierdePresentismo(true)}
+              >
+                Sí, pierde presentismo
+              </Button>
+              <Button
+                type="button"
+                variant={pierdePresentismo === false ? 'primary' : 'secondary'}
+                onClick={() => setPierdePresentismo(false)}
+              >
+                No pierde presentismo
+              </Button>
+            </div>
+          </div>
+        )}
         <label className="flex flex-col gap-1 text-sm text-ink">
           Descargo (opcional)
           <textarea
@@ -81,7 +108,11 @@ function ResolverDialog({
           <Button variant="ghost" onClick={onCancel}>
             Cancelar
           </Button>
-          <Button variant="primary" disabled={confirmando} onClick={() => onConfirm(descargo.trim())}>
+          <Button
+            variant="primary"
+            disabled={confirmando || !puedeConfirmar}
+            onClick={() => onConfirm(descargo.trim(), pierdePresentismo ?? undefined)}
+          >
             {info.boton}
           </Button>
         </div>
@@ -185,11 +216,16 @@ export default function AusenciasPage() {
     [data],
   );
 
-  function confirmarResolucion(descargoHys: string) {
+  function confirmarResolucion(descargoHys: string, pierdePresentismoHys?: boolean) {
     if (!dialogo) return;
     const { id, estadoHys } = dialogo;
     const info = ACCION[estadoHys];
-    const promesa = resolver.mutateAsync({ id, estadoHys, descargoHys: descargoHys || undefined });
+    const promesa = resolver.mutateAsync({
+      id,
+      estadoHys,
+      descargoHys: descargoHys || undefined,
+      pierdePresentismoHys,
+    });
     toast.promise(promesa, {
       loading: info.cargando,
       success: info.exito,

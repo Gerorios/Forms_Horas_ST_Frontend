@@ -19,6 +19,7 @@ function nov(overrides: Partial<Novedad> = {}): Novedad {
     fechaFin: null,
     justificacionTexto: 'gripe',
     descargoHys: null,
+    pierdePresentismoHys: null,
     adjuntoUrl: null,
     estadoHys: 'pendiente',
     operario: { cuil: '20111111111', apellido_nombre: 'PEREZ JUAN', legajo: 1001 },
@@ -116,25 +117,64 @@ describe('AusenciasPage', () => {
     );
   });
 
-  it('justificar abre el diálogo de descargo (opcional) y llama a resolver-hys con estado aprobada', async () => {
+  it('justificar exige elegir si pierde presentismo antes de habilitar la confirmación (ADR-022)', async () => {
     render(<AusenciasPage />);
     await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
     await userEvent.click(screen.getByRole('button', { name: 'Justificar' }));
     expect(screen.getByLabelText('Descargo')).toBeInTheDocument();
+    // Sin elegir Sí/No todavía, el botón de confirmar queda deshabilitado.
+    expect(screen.getByRole('button', { name: 'Justificar' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Justificar' }));
+    expect(resolver).not.toHaveBeenCalled();
+  });
+
+  it('justificar + "Sí, pierde presentismo" llama a resolver-hys con pierdePresentismoHys true', async () => {
+    render(<AusenciasPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Justificar' }));
     await userEvent.type(screen.getByLabelText('Descargo'), 'presentó certificado');
+    await userEvent.click(screen.getByRole('button', { name: 'Sí, pierde presentismo' }));
     await userEvent.click(screen.getByRole('button', { name: 'Justificar' }));
     await waitFor(() =>
-      expect(resolver).toHaveBeenCalledWith({ id: 1, estadoHys: 'aprobada', descargoHys: 'presentó certificado' }),
+      expect(resolver).toHaveBeenCalledWith({
+        id: 1,
+        estadoHys: 'aprobada',
+        descargoHys: 'presentó certificado',
+        pierdePresentismoHys: true,
+      }),
     );
   });
 
-  it('no justificar sin cargar descargo lo manda como undefined (es opcional para ambas acciones)', async () => {
+  it('justificar + "No pierde presentismo" llama a resolver-hys con pierdePresentismoHys false (ej. licencia especial)', async () => {
+    render(<AusenciasPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Justificar' }));
+    await userEvent.type(screen.getByLabelText('Descargo'), 'licencia especial por paternidad');
+    await userEvent.click(screen.getByRole('button', { name: 'No pierde presentismo' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Justificar' }));
+    await waitFor(() =>
+      expect(resolver).toHaveBeenCalledWith({
+        id: 1,
+        estadoHys: 'aprobada',
+        descargoHys: 'licencia especial por paternidad',
+        pierdePresentismoHys: false,
+      }),
+    );
+  });
+
+  it('no justificar no pregunta por presentismo y llama a resolver-hys sin pierdePresentismoHys (siempre lo pierde)', async () => {
     render(<AusenciasPage />);
     await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
     await userEvent.click(screen.getByRole('button', { name: 'No justificar' }));
+    expect(screen.queryByText('¿Esta ausencia hace perder el presentismo?')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'No justificar' }));
     await waitFor(() =>
-      expect(resolver).toHaveBeenCalledWith({ id: 1, estadoHys: 'desaprobada', descargoHys: undefined }),
+      expect(resolver).toHaveBeenCalledWith({
+        id: 1,
+        estadoHys: 'desaprobada',
+        descargoHys: undefined,
+        pierdePresentismoHys: undefined,
+      }),
     );
   });
 
