@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import { TableSkeleton } from '@/components/skeleton';
 import { TabCount } from '@/components/tab-count';
 import { Button } from '@/components/button';
+import { Paginador, paginar } from '@/components/paginador';
 import { BarraFiltros } from '@/components/ui/barra-filtros';
 import { QuincenaCampos } from '@/features/mis-registros/quincena-select';
 import { EditarNovedadDialog } from '@/features/novedades/editar-novedad-dialog';
@@ -23,6 +24,8 @@ import {
 import { useSession } from '@/lib/auth/session';
 import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
 import type { EstadoHys, Novedad, ResumenAusenciaOperario } from '@/types/domain';
+
+const POR_PAGINA = 20;
 
 const TABS: { value: EstadoHys; label: string; tono: 'warn' | 'approved' | 'danger' }[] = [
   { value: 'pendiente', label: 'Pendientes', tono: 'warn' },
@@ -191,6 +194,15 @@ export default function AusenciasPage() {
   const [anulando, setAnulando] = useState<Novedad | null>(null);
   const [detalle, setDetalle] = useState<Novedad | null>(null);
   const [verAnuladas, setVerAnuladas] = useState(false);
+  // Paginación en el cliente (pedido 2026-09-03: la lista de HyS se hacía
+  // larga): 20 por página, una página por pestaña; vuelve a 1 al cambiar de
+  // pestaña o de quincena. Los contadores de las pestañas siguen viendo todo.
+  const [pagina, setPagina] = useState(1);
+  const [paginaAnuladas, setPaginaAnuladas] = useState(1);
+  useEffect(() => {
+    setPagina(1);
+    setPaginaAnuladas(1);
+  }, [estado, periodo]);
 
   // Esta pantalla es solo para novedades de tipo "Ausencia" (el resto de los
   // tipos de novedad se gestionan desde /novedades). Las anuladas no entran
@@ -201,6 +213,7 @@ export default function AusenciasPage() {
     [data],
   );
   const filtradas = useMemo(() => ausencias.filter((n) => n.estadoHys === estado), [ausencias, estado]);
+  const { enPagina, paginaSegura, totalPaginas } = paginar(filtradas, pagina, POR_PAGINA);
 
   // Contador por pestaña (badge junto al nombre): de un vistazo, cuántas
   // ausencias hay en cada estado sin tener que entrar a cada pestaña.
@@ -215,6 +228,7 @@ export default function AusenciasPage() {
     () => (data ?? []).filter((n) => n.tipoNovedad.nombre === 'Ausencia' && n.estado === 'anulada'),
     [data],
   );
+  const anuladasPag = paginar(ausenciasAnuladas, paginaAnuladas, POR_PAGINA);
 
   function confirmarResolucion(descargoHys: string, pierdePresentismoHys?: boolean) {
     if (!dialogo) return;
@@ -357,7 +371,7 @@ export default function AusenciasPage() {
               </tr>
             </thead>
             <tbody>
-              {filtradas.map((n) => (
+              {enPagina.map((n) => (
                 <tr
                   key={n.id}
                   role="button"
@@ -399,6 +413,14 @@ export default function AusenciasPage() {
               ))}
             </tbody>
           </table>
+          <Paginador
+            pagina={paginaSegura}
+            totalPaginas={totalPaginas}
+            total={filtradas.length}
+            singular="ausencia"
+            plural="ausencias"
+            onChange={setPagina}
+          />
         </div>
       )}
 
@@ -411,7 +433,7 @@ export default function AusenciasPage() {
             </p>
           ) : (
             <div className="rounded-xl border border-line bg-surface opacity-70 divide-y divide-line">
-              {ausenciasAnuladas.map((n) => (
+              {anuladasPag.enPagina.map((n) => (
                 <div key={n.id} className="flex flex-wrap items-center gap-3 p-3 text-sm">
                   <span className="font-medium text-ink">{n.operario.apellido_nombre}</span>
                   <span className="tabular-nums text-slate">
@@ -422,6 +444,14 @@ export default function AusenciasPage() {
                   {n.motivoAnulacion && <span className="text-slate">Motivo: {n.motivoAnulacion}</span>}
                 </div>
               ))}
+              <Paginador
+                pagina={anuladasPag.paginaSegura}
+                totalPaginas={anuladasPag.totalPaginas}
+                total={ausenciasAnuladas.length}
+                singular="anulada"
+                plural="anuladas"
+                onChange={setPaginaAnuladas}
+              />
             </div>
           )}
         </div>

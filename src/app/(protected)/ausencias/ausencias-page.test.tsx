@@ -73,6 +73,51 @@ describe('AusenciasPage', () => {
     useResumenAusenciasMock.mockReturnValue({ data: [], isLoading: false });
   });
 
+  describe('paginación (20 por página, pedido 2026-09-03)', () => {
+    const muchas = (n: number) =>
+      Array.from({ length: n }, (_, i) =>
+        nov({ id: 100 + i, operario: { cuil: `2000000${String(i).padStart(4, '0')}`, apellido_nombre: `OPERARIO ${String(i).padStart(2, '0')}`, legajo: i } }),
+      );
+
+    it('con 25 pendientes muestra 20 filas y el pie "Página 1 de 2 · 25 ausencias"; Siguiente muestra las 5 restantes', { timeout: 15000 }, async () => {
+      useNovedadesMock.mockReturnValue({ data: muchas(25), isLoading: false });
+      render(<AusenciasPage />);
+      expect(screen.getByText('OPERARIO 00')).toBeInTheDocument();
+      expect(screen.getByText('OPERARIO 19')).toBeInTheDocument();
+      expect(screen.queryByText('OPERARIO 20')).not.toBeInTheDocument();
+      expect(screen.getByText('Página 1 de 2 · 25 ausencias')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Anterior' })).toBeDisabled();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+      expect(screen.getByText('OPERARIO 20')).toBeInTheDocument();
+      expect(screen.getByText('OPERARIO 24')).toBeInTheDocument();
+      expect(screen.queryByText('OPERARIO 00')).not.toBeInTheDocument();
+      expect(screen.getByText('Página 2 de 2 · 25 ausencias')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+    });
+
+    it('con 20 o menos no muestra el pie de paginación', () => {
+      useNovedadesMock.mockReturnValue({ data: muchas(20), isLoading: false });
+      render(<AusenciasPage />);
+      expect(screen.queryByText(/^Página /)).not.toBeInTheDocument();
+    });
+
+    it('cambiar de pestaña vuelve a la página 1', { timeout: 15000 }, async () => {
+      useNovedadesMock.mockReturnValue({
+        data: [...muchas(25), ...muchas(3).map((n) => ({ ...n, id: n.id + 500, estadoHys: 'aprobada' as const }))],
+        isLoading: false,
+      });
+      render(<AusenciasPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+      expect(screen.getByText('Página 2 de 2 · 25 ausencias')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: /^Justificadas/ }));
+      // 3 justificadas: una sola página, sin pie; al volver a Pendientes arranca en 1.
+      expect(screen.queryByText(/^Página /)).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: /^Pendientes/ }));
+      expect(screen.getByText('Página 1 de 2 · 25 ausencias')).toBeInTheDocument();
+    });
+  });
+
   it('filtra a solo novedades de tipo Ausencia (client-side)', () => {
     useNovedadesMock.mockReturnValue({
       data: [
