@@ -152,6 +152,15 @@ function IconoAviso({ size = 20 }: { size?: number }) {
   );
 }
 
+function IconoCandado() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  );
+}
+
 function IconoTilde() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -314,7 +323,17 @@ export default function CargaCertificacionesPage() {
     }
   }
 
+  /** Paridad con el portal: un usuario de nivel `carga` solo puede elegir
+   * hojas de sus contratos (match por token K, fix B9). Las demás quedan
+   * BLOQUEADAS en el paso 2 (chip deshabilitado con candado) en vez de
+   * dejarlo llegar al 403 del confirmar. Admin ve todo habilitado. */
+  function hojaPermitida(h: string): boolean {
+    if (nivel === 'admin') return true;
+    return hojaCoincideConKs(h, perfil?.cert?.ks ?? []);
+  }
+
   function toggleHoja(h: string) {
+    if (!hojaPermitida(h)) return;
     setHojasSel((prev) => {
       const next = new Set(prev);
       if (next.has(h)) next.delete(h);
@@ -452,6 +471,7 @@ export default function CargaCertificacionesPage() {
   }
 
   const periodoTexto = `${MESES[mes - 1].toLowerCase()} ${anio}`;
+  const hojasBloqueadas = preview ? preview.hojas.filter((h) => !hojaPermitida(h)).length : 0;
 
   return (
     <section className="space-y-5">
@@ -563,22 +583,34 @@ export default function CargaCertificacionesPage() {
           <div className="flex flex-wrap gap-2">
             {preview.hojas.map((h) => {
               const activo = hojasSel.has(h);
+              const permitida = hojaPermitida(h);
               return (
                 <button
                   key={h}
                   type="button"
                   onClick={() => toggleHoja(h)}
                   aria-pressed={activo}
+                  disabled={!permitida}
+                  title={permitida ? undefined : 'No es un contrato a tu cargo'}
                   className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ring-1 ring-inset transition ${
-                    activo ? 'bg-brand/10 text-brand-deep ring-brand/30' : 'bg-surface text-slate ring-line hover:text-ink'
+                    !permitida
+                      ? 'cursor-not-allowed bg-surface text-slate/60 ring-line'
+                      : activo
+                        ? 'bg-brand/10 text-brand-deep ring-brand/30'
+                        : 'bg-surface text-slate ring-line hover:text-ink'
                   }`}
                 >
-                  {activo && <IconoTilde />}
+                  {!permitida ? <IconoCandado /> : activo && <IconoTilde />}
                   {h}
                 </button>
               );
             })}
           </div>
+          {hojasBloqueadas > 0 && (
+            <p className="text-[13px] text-slate" data-testid="aviso-hojas-bloqueadas">
+              {hojasBloqueadas} {plural(hojasBloqueadas, 'hoja bloqueada: no es un contrato', 'hojas bloqueadas: no son contratos')} a tu cargo.
+            </p>
+          )}
           <div className="flex items-center justify-between">
             <Button variant="ghost" onClick={() => setStep(1)}>
               Atrás

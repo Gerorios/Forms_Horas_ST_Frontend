@@ -162,6 +162,36 @@ describe('CargaCertificacionesPage', () => {
     await waitFor(() => expect(screen.getByText(/1 fila insertada/i)).toBeInTheDocument());
   });
 
+  it('nivel carga: las hojas de contratos ajenos quedan bloqueadas (deshabilitadas, con aviso), como en el portal', async () => {
+    useSession.mockReturnValue({ perfil: { cert: { nivel: 'carga', ks: ['K6', 'K2', 'K12'], inc: false } } });
+    preview.mockResolvedValue(
+      previewBase({
+        hojas: ['CERTIFICO K6', 'CERTIFICO K5', 'CERTIFICO K12'],
+        filas: [filaBase({ rowId: 'r1', hoja_origen: 'CERTIFICO K6', contrato: 'K6', contrato_archivo: 'K6' })],
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+
+    const chipK5 = await screen.findByRole('button', { name: 'CERTIFICO K5' });
+    expect(chipK5).toBeDisabled();
+    expect(chipK5).toHaveAttribute('title', 'No es un contrato a tu cargo');
+    expect(screen.getByRole('button', { name: 'CERTIFICO K6' })).not.toBeDisabled();
+    expect(screen.getByTestId('aviso-hojas-bloqueadas')).toHaveTextContent('1 hoja bloqueada');
+
+    // Clic sobre la bloqueada no la selecciona.
+    await userEvent.click(chipK5);
+    expect(chipK5).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('admin ve todas las hojas habilitadas, sin aviso de bloqueo', async () => {
+    preview.mockResolvedValue(previewBase({ hojas: ['CERTIFICO K6', 'CERTIFICO K5'] }));
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    expect(await screen.findByRole('button', { name: 'CERTIFICO K5' })).not.toBeDisabled();
+    expect(screen.queryByTestId('aviso-hojas-bloqueadas')).not.toBeInTheDocument();
+  });
+
   it('excluir una fila la manda como excluida:true y no cuenta como "a cargar"', async () => {
     preview.mockResolvedValue(previewBase({ filas: [filaBase({ rowId: 'r1' })] }));
     render(<CargaCertificacionesPage />);
