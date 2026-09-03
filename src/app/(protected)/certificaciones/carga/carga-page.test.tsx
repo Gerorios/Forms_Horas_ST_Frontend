@@ -89,6 +89,13 @@ beforeEach(() => {
   push.mockClear();
 });
 
+/** Rediseño: "Revisar y cargar" abre el modal de resumen; la carga real se
+ * dispara con "Cargar N fila(s)" adentro del modal. */
+async function confirmarDesdeModal() {
+  await userEvent.click(screen.getByRole('button', { name: /revisar y cargar/i }));
+  await userEvent.click(await screen.findByRole('button', { name: /^cargar \d+ filas?$/i }));
+}
+
 async function subirArchivo(nombre = 'archivo.xlsx') {
   const file = new File(['contenido'], nombre, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const input = screen.getByLabelText('Archivo');
@@ -144,7 +151,7 @@ describe('CargaCertificacionesPage', () => {
     await userEvent.type(cantidadInput, '5');
 
     confirmar.mockResolvedValue({ mensaje: 'ok', insertadas: 1, omitidas: 0, errores: [] } as RespuestaConfirmarCarga);
-    await userEvent.click(screen.getByRole('button', { name: /confirmar carga/i }));
+    await confirmarDesdeModal();
 
     await waitFor(() =>
       expect(confirmar).toHaveBeenCalledWith({
@@ -161,21 +168,16 @@ describe('CargaCertificacionesPage', () => {
     await subirArchivo();
     await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
 
-    await waitFor(() => expect(screen.getByText('A cargar: 1')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('metrica-a-cargar')).toHaveTextContent(/^1$/));
     const checkbox = screen.getByLabelText('Cargar fila 5');
     await userEvent.click(checkbox);
 
-    expect(screen.getByText('Excluidas: 1')).toBeInTheDocument();
-    expect(screen.getByText('A cargar: 0')).toBeInTheDocument();
+    expect(screen.getByTestId('metrica-excluidas')).toHaveTextContent(/^1$/);
+    expect(screen.getByTestId('metrica-a-cargar')).toHaveTextContent(/^0$/);
 
-    confirmar.mockResolvedValue({ mensaje: 'ok', insertadas: 0, omitidas: 0, errores: [] });
-    await userEvent.click(screen.getByRole('button', { name: /confirmar carga/i }));
-    await waitFor(() =>
-      expect(confirmar).toHaveBeenCalledWith({
-        previewId: 'preview-1',
-        ediciones: [{ rowId: 'r1', excluida: true }],
-      }),
-    );
+    // Sin filas a cargar no se puede seguir (paridad con el portal).
+    expect(screen.getByRole('button', { name: /revisar y cargar/i })).toBeDisabled();
+    expect(confirmar).not.toHaveBeenCalled();
   });
 
   it('badge de reasignación: indicador visible en la fila principal, detalle completo al expandir', async () => {
@@ -201,7 +203,7 @@ describe('CargaCertificacionesPage', () => {
     expect(indicador).toBeInTheDocument();
     expect(screen.queryByText(/archivo: K8 → K12/)).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: /más/i }));
+    await userEvent.click(screen.getByRole('button', { name: /detalle/i }));
     expect(await screen.findByText(/archivo: K8 → K12/)).toBeInTheDocument();
   });
 
@@ -215,10 +217,10 @@ describe('CargaCertificacionesPage', () => {
     await userEvent.clear(cantidadInput);
     await userEvent.type(cantidadInput, '5,5');
 
-    expect(screen.getByText('A cargar: 1')).toBeInTheDocument();
+    expect(screen.getByTestId('metrica-a-cargar')).toHaveTextContent(/^1$/);
 
     confirmar.mockResolvedValue({ mensaje: 'ok', insertadas: 1, omitidas: 0, errores: [] });
-    await userEvent.click(screen.getByRole('button', { name: /confirmar carga/i }));
+    await confirmarDesdeModal();
     await waitFor(() =>
       expect(confirmar).toHaveBeenCalledWith({
         previewId: 'preview-1',
@@ -250,7 +252,7 @@ describe('CargaCertificacionesPage', () => {
     expect(screen.queryByLabelText('Cantidad rB')).not.toBeInTheDocument();
 
     confirmar.mockResolvedValue({ mensaje: 'ok', insertadas: 1, omitidas: 0, errores: [] });
-    await userEvent.click(screen.getByRole('button', { name: /confirmar carga/i }));
+    await confirmarDesdeModal();
 
     await waitFor(() =>
       expect(confirmar).toHaveBeenCalledWith({
@@ -287,7 +289,7 @@ describe('CargaCertificacionesPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /ver filas/i }));
 
     confirmar.mockResolvedValue({ mensaje: 'ok', insertadas: 1, omitidas: 0, errores: [] });
-    await userEvent.click(screen.getByRole('button', { name: /confirmar carga/i }));
+    await confirmarDesdeModal();
 
     await waitFor(() =>
       expect(confirmar).toHaveBeenCalledWith({
@@ -308,8 +310,8 @@ describe('CargaCertificacionesPage', () => {
     await subirArchivo();
     await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
 
-    expect(await screen.findByTestId('metrica-monto')).toHaveTextContent('Total a cargar: $ 1.500,50');
-    expect(screen.getByTestId('metrica-declarado')).toHaveTextContent('Declarado en el archivo: $ 1.500,50');
+    expect(await screen.findByTestId('metrica-monto')).toHaveTextContent('$ 1.500,50');
+    expect(screen.getByTestId('metrica-monto').parentElement).toHaveTextContent('el archivo declara $ 1.500,50');
   });
 
   it('preselecciona la provincia del archivo aunque el maestro la escriba con otras mayúsculas', async () => {
@@ -323,7 +325,7 @@ describe('CargaCertificacionesPage', () => {
 
     const select = (await screen.findByLabelText('Provincia r1')) as HTMLSelectElement;
     expect(select.value).toBe('SANTIAGO DEL ESTERO');
-    expect(screen.getByTestId('metrica-con-problema')).toHaveTextContent('Con problema: 0');
+    expect(screen.getByTestId('metrica-con-problema')).toHaveTextContent(/^0$/);
   });
 
   it('total declarado 0 en el archivo: sin aviso de descuadre ni métrica de declarado', async () => {
@@ -337,9 +339,41 @@ describe('CargaCertificacionesPage', () => {
     await subirArchivo();
     await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
 
-    expect(await screen.findByTestId('metrica-monto')).toHaveTextContent('Total a cargar: $ 300,00');
-    expect(screen.queryByTestId('metrica-declarado')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('metrica-monto')).toHaveTextContent('$ 300,00');
+    expect(screen.getByTestId('metrica-monto').parentElement).toHaveTextContent('el archivo no declara un total');
     expect(screen.queryByText(/no coincide con el total declarado/i)).not.toBeInTheDocument();
+  });
+
+  it('modal de confirmación: muestra archivo, contratos, filas y total; "Volver a revisar" cierra sin cargar', async () => {
+    preview.mockResolvedValue(
+      previewBase({
+        archivo: 'CERTIFICADO K12.xlsx',
+        filas: [filaBase({ rowId: 'r1', total_mes: '1000' }), filaBase({ rowId: 'r2', total_mes: '500.5', fila_excel: 6 })],
+        resumen: { total: 2, con_error: 0, total_mes: 1500.5, total_declarado: 1500.5 },
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    await userEvent.click(screen.getByRole('button', { name: /revisar y cargar/i }));
+    const dialog = await screen.findByRole('dialog', { name: /confirmar la carga/i });
+    expect(dialog).toHaveTextContent('CERTIFICADO K12.xlsx');
+    expect(dialog).toHaveTextContent('K12');
+    expect(dialog).toHaveTextContent('$ 1.500,50');
+    expect(screen.getByRole('button', { name: 'Cargar 2 filas' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /volver a revisar/i }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(confirmar).not.toHaveBeenCalled();
+  });
+
+  it('paso 1: muestra el stepper y la guía de pasos', () => {
+    render(<CargaCertificacionesPage />);
+    const stepper = screen.getByRole('list', { name: /pasos de la carga/i });
+    expect(stepper).toHaveTextContent('Archivo y período');
+    expect(stepper).toHaveTextContent('Cargado');
+    expect(screen.getByText(/subís el certificado de naturgy/i)).toBeInTheDocument();
   });
 
   it('aviso de descuadre no bloqueante cuando el total a cargar difiere del total declarado', async () => {
@@ -355,6 +389,6 @@ describe('CargaCertificacionesPage', () => {
 
     expect(await screen.findByText(/no coincide con el total declarado/i)).toBeInTheDocument();
     // No bloqueante: el botón de confirmar sigue habilitado.
-    expect(screen.getByRole('button', { name: /confirmar carga/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /revisar y cargar/i })).not.toBeDisabled();
   });
 });
