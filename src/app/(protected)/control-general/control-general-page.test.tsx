@@ -14,6 +14,7 @@ const RESUMEN: ResumenOperario[] = [
     cuil: '20222222222',
     apellido_nombre: 'GOMEZ ANA',
     totalHoras: 40,
+    horasMisContratos: 40,
     pendiente: 0,
     aprobado: 5,
     desaprobado: 0,
@@ -27,6 +28,7 @@ const RESUMEN: ResumenOperario[] = [
     cuil: '20111111111',
     apellido_nombre: 'PEREZ JUAN',
     totalHoras: 95,
+    horasMisContratos: 60,
     pendiente: 1,
     aprobado: 9,
     desaprobado: 0,
@@ -40,6 +42,7 @@ const RESUMEN: ResumenOperario[] = [
     cuil: '20444444444',
     apellido_nombre: 'ACEVEDO CRISTIAN',
     totalHoras: 18,
+    horasMisContratos: 18,
     pendiente: 0,
     aprobado: 2,
     desaprobado: 0,
@@ -236,11 +239,17 @@ describe('ControlGeneralPage', () => {
     expect(screen.getByText('Sin carga')).toBeInTheDocument();
   });
 
-  it('muestra el tile "Horas de la quincena" con la suma de totalHoras', () => {
+  it('muestra el tile "Horas de la quincena" con la suma de totalHoras (horas completas)', () => {
     render(<ControlGeneralPage />);
     expect(screen.getByText('Horas de la quincena')).toBeInTheDocument();
     // 40 + 95 + 18 = 153
     expect(screen.getByText('153')).toBeInTheDocument();
+  });
+
+  it('debajo del total aclara cuántas horas son de otros contratos (decisión 2026-09-03)', () => {
+    render(<ControlGeneralPage />);
+    // PEREZ: 95 completas, 60 en mis contratos → 35 ajenas
+    expect(screen.getByText('incluye 35 hs en otros contratos')).toBeInTheDocument();
   });
 
   it('ya no existe la tabla de resumen por operario (decisión 2026-08-10)', () => {
