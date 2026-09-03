@@ -5,7 +5,15 @@ import type { Quincena } from '@/lib/quincena';
 export interface ResumenOperario {
   cuil: string;
   apellido_nombre: string;
+  /** HORAS COMPLETAS (decisión 2026-09-03): todas las horas del operario en la
+   * quincena, en cualquier contrato (míos y ajenos), pendientes + aprobadas.
+   * Mis contratos deciden quién entra, no cuántas horas se cuentan — misma
+   * regla que el Detalle diario. */
   totalHoras: number;
+  /** Porción de `totalHoras` cargada en MIS contratos (todos, no solo los
+   * filtrados). `totalHoras - horasMisContratos` = horas en otros contratos,
+   * que se muestran de forma discreta junto al total. */
+  horasMisContratos: number;
   pendiente: number;
   aprobado: number;
   desaprobado: number;

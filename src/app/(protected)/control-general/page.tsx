@@ -110,6 +110,7 @@ function StatTile({
   tono,
   icon,
   onClick,
+  sub,
 }: {
   label: string;
   value: number;
@@ -117,6 +118,8 @@ function StatTile({
   tono?: 'warn' | 'danger';
   icon: ReactNode;
   onClick?: () => void;
+  /** Línea chica debajo del número (p. ej. "incluye 12 hs en otros contratos"). */
+  sub?: string;
 }) {
   const colorValor =
     tono === 'warn' && value > 0
@@ -133,6 +136,7 @@ function StatTile({
         <p className="text-xs font-medium uppercase tracking-wide text-slate">{label}</p>
       </div>
       <p className={`mt-1.5 text-3xl font-semibold tabular-nums ${colorValor}`}>{value}</p>
+      {sub && <p className="mt-0.5 text-xs tabular-nums text-slate">{sub}</p>}
     </>
   );
   if (onClick)
@@ -441,8 +445,13 @@ export default function ControlGeneralPage() {
   const conHorasExtra = resumenFiltrado.filter((r) => r.superaHorasExtra).length;
   const filasPendientes = resumenFiltrado.reduce((s, r) => s + r.pendiente, 0);
   // Réplica del stat tile "Horas Totales" del Looker: pendientes + aprobadas
-  // (totalHoras ya excluye rechazadas), redondeado a 1 decimal.
+  // (totalHoras ya excluye rechazadas), redondeado a 1 decimal. Desde el
+  // 2026-09-03 totalHoras son las HORAS COMPLETAS de cada operario (todos
+  // los contratos, igual que el Detalle diario); la parte ajena se muestra
+  // discreta debajo para que el jefe sepa de dónde sale el total.
   const horasQuincena = Math.round(resumenFiltrado.reduce((s, r) => s + r.totalHoras, 0) * 10) / 10;
+  const horasOtrosContratos =
+    Math.round(resumenFiltrado.reduce((s, r) => s + (r.totalHoras - r.horasMisContratos), 0) * 10) / 10;
 
   const detalleVisible = (detalle ?? []).slice(0, visiblesDetalle);
 
@@ -474,7 +483,12 @@ export default function ControlGeneralPage() {
       </QuincenaSelect>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatTile label="Horas de la quincena" value={horasQuincena} icon={<ClockIcon />} />
+        <StatTile
+          label="Horas de la quincena"
+          value={horasQuincena}
+          icon={<ClockIcon />}
+          sub={horasOtrosContratos > 0 ? `incluye ${horasOtrosContratos} hs en otros contratos` : undefined}
+        />
         <StatTile label="Operarios con carga" value={resumenFiltrado.length} icon={<UsersIcon />} />
         <StatTile label="Con horas extra (+88hs)" value={conHorasExtra} tono="warn" icon={<TrendIcon />} />
         <StatTile label="Filas pendientes de revisar" value={filasPendientes} tono="warn" icon={<ClipboardIcon />} />

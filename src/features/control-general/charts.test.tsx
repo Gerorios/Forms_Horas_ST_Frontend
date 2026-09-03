@@ -26,10 +26,11 @@ const punto = (mes: number, quincena: 1 | 2, horas: number): PuntoHistorico => (
   horas,
 });
 
-const operario = (cuil: string, nombre: string, totalHoras: number): ResumenOperario => ({
+const operario = (cuil: string, nombre: string, totalHoras: number, horasMisContratos = totalHoras): ResumenOperario => ({
   cuil,
   apellido_nombre: nombre,
   totalHoras,
+  horasMisContratos,
   pendiente: 0,
   aprobado: 0,
   desaprobado: 0,
