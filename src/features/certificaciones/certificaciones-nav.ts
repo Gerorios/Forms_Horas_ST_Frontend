@@ -12,9 +12,12 @@
 export type NivelNav = 'admin' | 'carga' | 'lectura';
 
 export const CERTIFICACIONES_NAV = [
+  // "Cargar" va PRIMERA (rediseño 2026-09-03, pedido del usuario): es la
+  // acción principal del módulo para admin y carga; lectura no la ve y su
+  // primera pestaña visible sigue siendo Resumen.
+  { label: 'Cargar', href: '/certificaciones/carga', nivelesPermitidos: ['admin', 'carga'] as NivelNav[] },
   { label: 'Resumen', href: '/certificaciones' },
   { label: 'Analytics', href: '/certificaciones/analytics' },
-  { label: 'Cargar', href: '/certificaciones/carga', nivelesPermitidos: ['admin', 'carga'] as NivelNav[] },
   { label: 'Ítems', href: '/certificaciones/items', soloAdmin: true },
   // "Historial" (Task 7 etapa 4) es visible para TODOS los niveles del
   // módulo: sin `soloAdmin` ni `nivelesPermitidos`. El botón "Deshacer" de la
