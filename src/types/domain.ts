@@ -139,6 +139,11 @@ export interface Novedad {
   estadoHys: EstadoHys;
   /** Descargo cargado por HyS al resolver (justificar o no justificar). */
   descargoHys: string | null;
+  /** Solo tiene valor cuando estadoHys='aprobada' (justificada): decide si
+   * ESA ausencia puntual pierde presentismo pese a estar justificada (ADR-022
+   * del backend). Null en cualquier otro estadoHys — esos casos siempre
+   * pierden presentismo por regla fija. */
+  pierdePresentismoHys: boolean | null;
   /** Ruta del certificado adjunto en el backend. No renderizar/confiar en el valor
    * en sí — solo usarlo como flag de "hay adjunto" y pedirlo por GET /novedades/:id/adjunto. */
   adjuntoUrl: string | null;

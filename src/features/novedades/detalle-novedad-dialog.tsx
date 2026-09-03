@@ -115,6 +115,15 @@ export function DetalleNovedadDialog({
 
           {novedad.descargoHys && <Fila label="Descargo de HyS" valor={novedad.descargoHys} />}
 
+          {novedad.tipoNovedad.nombre === 'Ausencia' &&
+            novedad.estadoHys === 'aprobada' &&
+            novedad.pierdePresentismoHys != null && (
+              <Fila
+                label="Presentismo"
+                valor={novedad.pierdePresentismoHys ? 'Pierde presentismo' : 'No pierde presentismo'}
+              />
+            )}
+
           <div>
             <p className="text-[11px] font-medium uppercase tracking-wide text-slate">Certificado adjunto</p>
             {novedad.adjuntoUrl ? (

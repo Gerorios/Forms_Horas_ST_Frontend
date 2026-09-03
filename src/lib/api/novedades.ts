@@ -65,11 +65,19 @@ export function useActualizarNovedad() {
 export function useResolverHys() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: number; estadoHys: 'aprobada' | 'desaprobada'; descargoHys?: string }) =>
+    mutationFn: async (input: {
+      id: number;
+      estadoHys: 'aprobada' | 'desaprobada';
+      descargoHys?: string;
+      /** Obligatorio solo cuando estadoHys='aprobada' (ADR-022) — el backend
+       * lo ignora para 'desaprobada', que siempre pierde presentismo. */
+      pierdePresentismoHys?: boolean;
+    }) =>
       (
         await api.patch(`/novedades/${input.id}/resolver-hys`, {
           estadoHys: input.estadoHys,
           descargoHys: input.descargoHys,
+          pierdePresentismoHys: input.pierdePresentismoHys,
         })
       ).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['novedades'] }),
