@@ -136,7 +136,7 @@ describe('CargaCertificacionesPage', () => {
     preview.mockResolvedValue(
       previewBase({
         hojas: ['CERTIF K1', 'CERTIF K12'],
-        filas: [filaBase({ rowId: 'r1', hoja_origen: 'CERTIF K1', contrato: 'K1', contrato_archivo: 'K1' })],
+        filas: [filaBase({ rowId: 'r1', hoja_origen: 'CERTIF K1', contrato: 'K1', contrato_archivo: 'K1', precio_unitario: '60' })],
       }),
     );
 
@@ -245,7 +245,9 @@ describe('CargaCertificacionesPage', () => {
   });
 
   it('tolera coma decimal es-AR: "5,5" en cantidad se registra normalizado como "5.5" y la fila queda válida', async () => {
-    preview.mockResolvedValue(previewBase({ filas: [filaBase({ rowId: 'r1', cantidades: '3', total_mes: '10' })] }));
+    preview.mockResolvedValue(
+      previewBase({ filas: [filaBase({ rowId: 'r1', cantidades: '3', precio_unitario: '2', total_mes: '11' })] }),
+    );
     render(<CargaCertificacionesPage />);
     await subirArchivo();
     await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
@@ -340,7 +342,10 @@ describe('CargaCertificacionesPage', () => {
     preview.mockResolvedValue(
       previewBase({
         resumen: { total: 2, con_error: 0, bloqueadas: 0, total_mes: 1500.5, total_declarado: 1500.5 },
-        filas: [filaBase({ rowId: 'r1', total_mes: '1000' }), filaBase({ rowId: 'r2', total_mes: '500.5' })],
+        filas: [
+          filaBase({ rowId: 'r1', cantidades: '1', precio_unitario: '1000', total_mes: '1000' }),
+          filaBase({ rowId: 'r2', cantidades: '1', precio_unitario: '500.5', total_mes: '500.5' }),
+        ],
       }),
     );
     render(<CargaCertificacionesPage />);
@@ -385,7 +390,10 @@ describe('CargaCertificacionesPage', () => {
     preview.mockResolvedValue(
       previewBase({
         archivo: 'CERTIFICADO K12.xlsx',
-        filas: [filaBase({ rowId: 'r1', total_mes: '1000' }), filaBase({ rowId: 'r2', total_mes: '500.5', fila_excel: 6 })],
+        filas: [
+          filaBase({ rowId: 'r1', cantidades: '1', precio_unitario: '1000', total_mes: '1000' }),
+          filaBase({ rowId: 'r2', cantidades: '1', precio_unitario: '500.5', total_mes: '500.5', fila_excel: 6 }),
+        ],
         resumen: { total: 2, con_error: 0, bloqueadas: 0, total_mes: 1500.5, total_declarado: 1500.5 },
       }),
     );
