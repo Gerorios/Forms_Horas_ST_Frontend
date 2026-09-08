@@ -19,13 +19,39 @@
  * confirme a mano (`opts.confirmada`).
  */
 
-/** Tolera coma decimal es-AR ("5,5") además del punto — un usuario puede
- * tipear la edición de cantidad/total con coma; se normaliza acá antes de
- * `Number()` (fix ronda 1 del code review) además de en el handler de la
- * página, que ya guarda la edición normalizada a punto. */
+/**
+ * Normaliza una cifra tipeada al estilo es-AR a la forma que entiende
+ * `Number()`. Espejo de la regla de montos del backend
+ * (`Backend src/certificaciones/carga/montos.ts`, `parsearMontoTexto`): el
+ * PUNTO es separador de miles y la COMA es decimal.
+ *
+ * La única concesión al teclado es la forma `1234.56` (un solo punto y
+ * ninguna coma): se deja como está, porque es lo que tipea quien copia un
+ * valor del propio sistema (o lo que ya viene del parser, con hasta 7
+ * decimales) y borrarle el punto multiplicaría la cifra por cien. Con coma
+ * presente, o con más de un punto, manda la regla del backend.
+ *
+ * `'15.151,96'` → `'15151.96'`; `'3.840.113'` → `'3840113'`;
+ * `'395,50'` → `'395.50'`; `'60607.84'` → `'60607.84'`; `'4'` → `'4'`.
+ */
+export function normalizarCifraEsAr(v: string): string {
+  const s = v.trim();
+  const puntos = (s.match(/\./g) ?? []).length;
+  if (s.includes(',') || puntos > 1) {
+    return s.replace(/\./g, '').replace(/,/g, '.');
+  }
+  return s;
+}
+
+/** Tolera la cifra tal como la tipea un usuario es-AR ("5,5", "15.151,96")
+ * además de la forma con punto decimal — se normaliza acá antes de
+ * `Number()` (fix ronda 1 del code review) además de en los handlers de la
+ * página y del formulario manual, que ya guardan la edición normalizada. */
 function num(v: string | null | undefined): number | null {
   if (v === null || v === undefined || v === '') return null;
-  const n = Number(String(v).replace(',', '.'));
+  const t = normalizarCifraEsAr(String(v));
+  if (t === '') return null;
+  const n = Number(t);
   return Number.isNaN(n) ? null : n;
 }
 

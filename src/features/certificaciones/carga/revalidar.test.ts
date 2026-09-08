@@ -7,6 +7,7 @@ import {
   canonizarProvincia,
   hojaCoincideConKs,
   validarArchivoCarga,
+  normalizarCifraEsAr,
 } from './revalidar';
 
 const FILA_OK = {
@@ -151,7 +152,39 @@ describe('revalidarFila: provincia ignora tildes/mayúsculas/espacios (ronda de 
   });
 });
 
+/** Espejo de `parsearMontoTexto` del backend (`carga/montos.ts`): punto =
+ * miles, coma = decimal; la única forma que se deja intacta es `1234.56`
+ * (un solo punto y ninguna coma). */
+describe('normalizarCifraEsAr', () => {
+  it('punto de miles + coma decimal: "15.151,96" → "15151.96"', () => {
+    expect(normalizarCifraEsAr('15.151,96')).toBe('15151.96');
+  });
+  it('varios puntos de miles sin coma: "3.840.113" → "3840113"', () => {
+    expect(normalizarCifraEsAr('3.840.113')).toBe('3840113');
+  });
+  it('solo coma decimal: "395,50" → "395.50"', () => {
+    expect(normalizarCifraEsAr('395,50')).toBe('395.50');
+  });
+  it('un solo punto y sin coma se deja como está (el usuario tipeó decimales)', () => {
+    expect(normalizarCifraEsAr('60607.84')).toBe('60607.84');
+    expect(normalizarCifraEsAr('2827089.4219859')).toBe('2827089.4219859');
+  });
+  it('entero pelado y vacío', () => {
+    expect(normalizarCifraEsAr('4')).toBe('4');
+    expect(normalizarCifraEsAr('')).toBe('');
+  });
+  it('recorta espacios de los bordes', () => {
+    expect(normalizarCifraEsAr('  15.151,96  ')).toBe('15151.96');
+  });
+});
+
 describe('cuadraturaFila', () => {
+  it('acepta la cifra como la tipea un usuario es-AR ("15.151,96")', () => {
+    const c = cuadraturaFila({ cantidades: '4', precio_unitario: '15.151,96', total_mes: '60.607,84' });
+    expect(c.cuadra).toBe(true);
+    expect(c.calculado).toBe(60607.84);
+  });
+
   it('3 × 133337.26 = 400011.78 vs impreso 400012: cuadra (dif 0,22 ≤ 1)', () => {
     const c = cuadraturaFila({ cantidades: '3', precio_unitario: '133337.26', total_mes: '400012' });
     expect(c.cuadra).toBe(true);
