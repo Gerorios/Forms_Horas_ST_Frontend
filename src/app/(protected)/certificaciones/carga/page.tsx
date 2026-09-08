@@ -24,6 +24,7 @@ import {
   canonizarProvincia,
   hojaCoincideConKs,
   validarArchivoCarga,
+  normalizarCifraEsAr,
   type Cuadratura,
 } from '@/features/certificaciones/carga/revalidar';
 import { FilaManualForm } from './fila-manual-form';
@@ -105,9 +106,13 @@ function mostrarTotal(v: string | null, editado: boolean): string {
   return dec.length > 2 ? n.toFixed(2) : v;
 }
 
-/** Coma→punto para que un usuario es-AR pueda tipear "5,5" en cantidad/total. */
-function normalizarDecimal(v: string): string {
-  return v.trim().replace(',', '.');
+/** Fecha `YYYY-MM-DD` del período del archivo → `d/m/yyyy` (como la imprime
+ * Naturgy en el encabezado del certificado). Si no matchea, se muestra tal
+ * cual llegó. */
+function fechaCorta(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  return `${Number(m[3])}/${Number(m[2])}/${m[1]}`;
 }
 
 /** Fila efectiva luego de aplicar la edición local acumulada. Igual criterio
@@ -133,6 +138,22 @@ function aplicarEdicion(f: FilaPreview, e: EdicionFilaCarga | undefined) {
  * identifica en la tabla (el backend todavía no la conoce; recién al
  * confirmar aparece como `manual-N`, N = índice 1-based en `manuales`). */
 type FilaManualLocal = FilaManualCarga & { item: ItemMaestroCarga; localId: string };
+
+/** Cuerpo que viaja al backend por cada fila manual: campos ENUMERADOS (el
+ * `item` del maestro y el `localId` son estado del cliente). `observaciones`
+ * y `confirmada` solo van si el usuario los puso. */
+function payloadManual(m: FilaManualLocal): FilaManualCarga {
+  const obs = (m.observaciones ?? '').trim();
+  return {
+    id_item: m.id_item,
+    provincia: m.provincia,
+    cantidades: m.cantidades,
+    precio_unitario: m.precio_unitario,
+    total_mes: m.total_mes,
+    ...(obs !== '' ? { observaciones: obs } : {}),
+    ...(m.confirmada ? { confirmada: true } : {}),
+  };
+}
 
 /** Bloqueo devuelto por el backend en el 422 del confirmar. */
 interface BloqueadaServidor {
@@ -501,7 +522,7 @@ export default function CargaCertificacionesPage() {
   const CAMPOS_DECIMALES: CampoEditable[] = ['cantidades', 'total_mes', 'precio_unitario'];
 
   function setEdicionCampo(rowId: string, campo: CampoEditable, valor: string) {
-    const v = CAMPOS_DECIMALES.includes(campo) ? normalizarDecimal(valor) : valor;
+    const v = CAMPOS_DECIMALES.includes(campo) ? normalizarCifraEsAr(valor) : valor;
     limpiarBloqueoServidor(rowId);
     setEdiciones((prev) => {
       const next = new Map(prev);
@@ -545,7 +566,7 @@ export default function CargaCertificacionesPage() {
 
   function setManualCampo(localId: string, campo: 'cantidades' | 'precio_unitario' | 'total_mes', valor: string) {
     limpiarBloqueoServidor(localId);
-    setManuales((prev) => prev.map((m) => (m.localId === localId ? { ...m, [campo]: normalizarDecimal(valor) } : m)));
+    setManuales((prev) => prev.map((m) => (m.localId === localId ? { ...m, [campo]: normalizarCifraEsAr(valor) } : m)));
   }
 
   function setManualConfirmada(localId: string) {
@@ -656,6 +677,10 @@ export default function CargaCertificacionesPage() {
     ]).values(),
   ).filter(Boolean);
 
+  /** NP (nota de pedido) del certificado: el parser la deja en cada fila, y
+   * es una sola por documento — se toma la primera fila que la traiga. */
+  const npArchivo = preview?.filas.find((f) => (f.nro_np ?? '') !== '')?.nro_np ?? null;
+
   const avisosFuertes = preview?.avisos.filter((a) => a.fuerte) ?? [];
   const avisosSuaves = preview?.avisos.filter((a) => !a.fuerte) ?? [];
 
@@ -671,7 +696,16 @@ export default function CargaCertificacionesPage() {
    * del paso 2 (esa selección solo filtra la VISTA del paso 3). Por eso acá,
    * al armar el payload, forzamos `excluida: true` para toda fila cuya hoja
    * quedó deseleccionada — por encima de cualquier edición acumulada de esa
-   * fila, sin pisar el resto de sus campos editados. */
+   * fila, sin pisar el resto de sus campos editados.
+   *
+   * Además se PODAN las cifras vacías (`''`): el backend valida
+   * cantidad/unitario/total con `/^\d+([.,]\d{1,4})?$/` y un `''` lo
+   * rechazaría con 400. Un `''` solo sobrevive en una fila excluida (si no
+   * lo estuviera, el espejo cliente ya la tendría bloqueada por 'Falta
+   * cantidad'/'Falta total mes' y el botón de confirmar estaría
+   * deshabilitado), y en una fila excluida esa cifra no se inserta: mandar
+   * el valor original es equivalente. Si de la poda queda solo el `rowId`,
+   * la edición entera se descarta (no dice nada). */
   function edicionesParaConfirmar(): EdicionFilaCarga[] {
     if (!preview) return [];
     const finales = new Map(ediciones);
@@ -681,7 +715,16 @@ export default function CargaCertificacionesPage() {
         finales.set(f.rowId, { ...actual, excluida: true });
       }
     }
-    return Array.from(finales.values());
+    const out: EdicionFilaCarga[] = [];
+    for (const e of finales.values()) {
+      const limpia: EdicionFilaCarga = { ...e };
+      for (const campo of CAMPOS_DECIMALES) {
+        if (limpia[campo] === '') delete limpia[campo];
+      }
+      // Solo `rowId`: nada que editar.
+      if (Object.keys(limpia).length > 1) out.push(limpia);
+    }
+    return out;
   }
 
   /** `manual-N` (N = índice 1-based en el array `manuales` que se mandó) →
@@ -699,10 +742,11 @@ export default function CargaCertificacionesPage() {
         previewId: preview.previewId,
         ediciones: edicionesParaConfirmar(),
         // Solo va la clave si hay filas manuales: sin ella el backend recibe
-        // el mismo body que antes de esta pantalla.
-        ...(manuales.length > 0
-          ? { manuales: manuales.map(({ item: _item, localId: _localId, ...m }) => m) }
-          : {}),
+        // el mismo body que antes de esta pantalla. El payload se arma
+        // ENUMERANDO los campos (no con un rest que descarte `item`/`localId`)
+        // para que agregar estado local a `FilaManualLocal` no lo filtre al
+        // backend: lo que viaja es exactamente `FilaManualCarga`.
+        ...(manuales.length > 0 ? { manuales: manuales.map(payloadManual) } : {}),
       });
       setModalAbierto(false);
       setResultado(data);
@@ -721,6 +765,9 @@ export default function CargaCertificacionesPage() {
         setExpandidas((prev) => new Set([...prev, ...locales.map((b) => b.local)]));
         setModalAbierto(false);
         setSoloProblemas(true);
+        // Y se limpia el filtro por hoja: si la bloqueada está en otra hoja,
+        // el filtro la esconderría justo cuando hay que corregirla.
+        setFiltroHoja('');
         setPagina(1);
         toast.error(resp.data?.message ?? 'Hay filas bloqueadas.');
         return;
@@ -907,11 +954,33 @@ export default function CargaCertificacionesPage() {
 
       {step === 3 && preview && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-slate">
-              Archivo <span className="font-medium text-ink">{preview.archivo}</span> · {periodoTexto} · {hojasSel.size}{' '}
-              {plural(hojasSel.size, 'hoja seleccionada', 'hojas seleccionadas')}
-            </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-sm text-slate">
+                Archivo <span className="font-medium text-ink">{preview.archivo}</span> · {periodoTexto} · {hojasSel.size}{' '}
+                {plural(hojasSel.size, 'hoja seleccionada', 'hojas seleccionadas')}
+              </p>
+              {/* Metadatos del encabezado del certificado (mockup 2026-09-07):
+                  el período que dice el archivo y la NP. Cada uno se omite si
+                  el parser no lo encontró. */}
+              {(preview.periodo_archivo !== null || npArchivo !== null) && (
+                <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-slate" data-testid="meta-archivo">
+                  {preview.periodo_archivo !== null && (
+                    <span>
+                      Período del archivo{' '}
+                      <span className="font-medium text-ink">
+                        {fechaCorta(preview.periodo_archivo.desde)} a {fechaCorta(preview.periodo_archivo.hasta)}
+                      </span>
+                    </span>
+                  )}
+                  {npArchivo !== null && (
+                    <span>
+                      NP <span className="font-medium text-ink">{npArchivo}</span>
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
             {contratosACargar.length > 0 && (
               <div className="flex flex-wrap gap-1.5" aria-label="Contratos a cargar">
                 {contratosACargar.map((k) => (
@@ -927,7 +996,15 @@ export default function CargaCertificacionesPage() {
             <StatTile
               label="A cargar"
               value={String(aCargar)}
-              sub={`de ${totalFilas} ${plural(totalFilas, 'fila leída', 'filas leídas')}`}
+              sub={
+                manuales.length > 0
+                  ? `de ${totalFilas} ${plural(totalFilas, 'fila leída', 'filas leídas')} + ${manuales.length} ${plural(
+                      manuales.length,
+                      'manual',
+                      'manuales',
+                    )}`
+                  : `de ${totalFilas} ${plural(totalFilas, 'fila leída', 'filas leídas')}`
+              }
               tone="ok"
               testId="metrica-a-cargar"
             />
