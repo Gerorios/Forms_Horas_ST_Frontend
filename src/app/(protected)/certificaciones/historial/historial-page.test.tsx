@@ -30,6 +30,7 @@ const historial: HistorialCargaCert[] = [
     periodo: '2026-08',
     filas_cargadas: 42,
     filas_error: 0,
+    filas_manuales: 0,
     estado: 'ok',
     cargado_en: '2026-08-31 10:15',
   },
@@ -41,6 +42,7 @@ const historial: HistorialCargaCert[] = [
     periodo: '2026-07',
     filas_cargadas: 10,
     filas_error: 3,
+    filas_manuales: 0,
     estado: 'parcial',
     cargado_en: '2026-07-31 09:00',
   },
@@ -67,6 +69,29 @@ describe('HistorialCargasPage', () => {
     expect(within(fila2).getByText('K3')).toBeInTheDocument();
     expect(within(fila2).getByText('Parcial')).toBeInTheDocument();
     expect(within(fila2).getByText('3 err')).toBeInTheDocument();
+  });
+
+  it('muestra la cantidad de filas manuales cuando hay más de una', () => {
+    useHistorialCargas.mockReturnValue({
+      data: [{ ...historial[0], filas_manuales: 2 }],
+      isLoading: false,
+    });
+    render(<HistorialCargasPage />);
+    expect(screen.getByText('2 manuales')).toBeInTheDocument();
+  });
+
+  it('muestra "1 manual" en singular cuando hay una sola fila manual', () => {
+    useHistorialCargas.mockReturnValue({
+      data: [{ ...historial[0], filas_manuales: 1 }],
+      isLoading: false,
+    });
+    render(<HistorialCargasPage />);
+    expect(screen.getByText('1 manual')).toBeInTheDocument();
+  });
+
+  it('no muestra nada de manuales cuando filas_manuales es 0', () => {
+    render(<HistorialCargasPage />);
+    expect(screen.queryByText(/manual/)).not.toBeInTheDocument();
   });
 
   it('el botón Deshacer solo se muestra para nivel admin', () => {
@@ -128,6 +153,7 @@ describe('HistorialCargasPage', () => {
           periodo: null,
           filas_cargadas: 5,
           filas_error: 0,
+          filas_manuales: 0,
           estado: 'ok',
           cargado_en: '2026-01-01 00:00',
         },

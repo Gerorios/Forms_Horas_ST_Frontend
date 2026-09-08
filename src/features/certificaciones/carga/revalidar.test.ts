@@ -1,11 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { revalidarFila, hojaCoincideConKs, validarArchivoCarga } from './revalidar';
+import {
+  revalidarFila,
+  cuadraturaFila,
+  TOLERANCIA_CUADRATURA,
+  claveProvincia,
+  canonizarProvincia,
+  hojaCoincideConKs,
+  validarArchivoCarga,
+  normalizarCifraEsAr,
+} from './revalidar';
 
 const FILA_OK = {
   item_codigo: 'ITEM-01',
   contrato: 'K6',
   provincia: 'Salta',
   cantidades: '3',
+  precio_unitario: '333.33',
   total_mes: '1000',
 };
 const PROVINCIAS = ['Salta', 'Jujuy', 'Tucumán'];
@@ -13,7 +23,9 @@ const PROVINCIAS = ['Salta', 'Jujuy', 'Tucumán'];
 describe('revalidarFila', () => {
   it('fila completa y válida: sin error', () => {
     const r = revalidarFila(FILA_OK, { itemExiste: true, provinciasValidas: PROVINCIAS });
-    expect(r).toEqual({ tieneError: false, detalle: null });
+    expect(r.tieneError).toBe(false);
+    expect(r.detalle).toBeNull();
+    expect(r.cuadratura.cuadra).toBe(true);
   });
 
   it('ítem no encontrado en el maestro', () => {
@@ -62,28 +74,169 @@ describe('revalidarFila', () => {
     expect(r.detalle).toBe('Falta total mes');
   });
 
-  it('total mes en 0 es válido', () => {
-    const r = revalidarFila({ ...FILA_OK, total_mes: '0' }, { itemExiste: true, provinciasValidas: PROVINCIAS });
+  it('total mes 0 es válido (no cuenta como falta): con unitario 0 también cuadra (0×0=0)', () => {
+    const r = revalidarFila({ ...FILA_OK, total_mes: '0', precio_unitario: '0' }, { itemExiste: true, provinciasValidas: PROVINCIAS });
     expect(r.tieneError).toBe(false);
+  });
+
+  it('falta unitario ahora SÍ bloquea (no se puede cuadrar sin unitario)', () => {
+    const r = revalidarFila({ ...FILA_OK, precio_unitario: null }, { itemExiste: true, provinciasValidas: PROVINCIAS });
+    expect(r.tieneError).toBe(true);
+    expect(r.detalle).toBe('Falta $ unitario (no se puede cuadrar)');
   });
 
   it('tolera coma decimal es-AR en cantidades y total_mes (ronda de fix 1)', () => {
     const r = revalidarFila(
-      { ...FILA_OK, cantidades: '5,5', total_mes: '10,25' },
+      { ...FILA_OK, cantidades: '5,5', precio_unitario: '181.81', total_mes: '1000' },
       { itemExiste: true, provinciasValidas: PROVINCIAS },
     );
-    expect(r).toEqual({ tieneError: false, detalle: null });
+    expect(r.tieneError).toBe(false);
   });
 
-  it('acumula varias faltas unidas por "; "', () => {
+  it('acumula varias faltas unidas por "; " en el orden: item, contrato, provincia, cantidad, total', () => {
     const r = revalidarFila(
-      { item_codigo: 'X', contrato: '', provincia: '', cantidades: null, total_mes: null },
+      { item_codigo: 'X', contrato: '', provincia: '', cantidades: null, precio_unitario: null, total_mes: null },
       { itemExiste: false, provinciasValidas: PROVINCIAS },
     );
     expect(r.tieneError).toBe(true);
     expect(r.detalle).toBe(
       'Ítem X no encontrado en el maestro; Falta contrato K; Falta provincia; Falta cantidad; Falta total mes',
     );
+  });
+});
+
+describe('claveProvincia', () => {
+  it('quita tildes y normaliza a mayúsculas', () => {
+    expect(claveProvincia('Tucumán')).toBe('TUCUMAN');
+  });
+
+  it('recorta espacios al borde y colapsa espacios internos duplicados', () => {
+    expect(claveProvincia('  santiago  del Estero ')).toBe('SANTIAGO DEL ESTERO');
+  });
+
+  it('null/undefined -> cadena vacía', () => {
+    expect(claveProvincia(null)).toBe('');
+    expect(claveProvincia(undefined)).toBe('');
+  });
+});
+
+describe('canonizarProvincia', () => {
+  it("'Tucumán' matchea 'TUCUMAN' del maestro (ignora tilde) y devuelve la grafía del maestro", () => {
+    expect(canonizarProvincia('Tucumán', ['SALTA', 'TUCUMAN'])).toBe('TUCUMAN');
+  });
+
+  it("' santiago  del Estero ' matchea 'SANTIAGO DEL ESTERO' del maestro", () => {
+    expect(canonizarProvincia(' santiago  del Estero ', ['SALTA', 'SANTIAGO DEL ESTERO'])).toBe('SANTIAGO DEL ESTERO');
+  });
+
+  it("'Córdoba' no está en el maestro -> null", () => {
+    expect(canonizarProvincia('Córdoba', ['SALTA', 'TUCUMAN'])).toBeNull();
+  });
+
+  it('cadena vacía -> null', () => {
+    expect(canonizarProvincia('', ['SALTA'])).toBeNull();
+  });
+});
+
+describe('revalidarFila: provincia ignora tildes/mayúsculas/espacios (ronda de fix 2)', () => {
+  const base = { item_codigo: 'ITEM-01', contrato: 'K6', cantidades: '3', precio_unitario: '100', total_mes: '300' };
+
+  it("'Tucumán' (archivo) vs ['SALTA','TUCUMAN'] (maestro sin tilde) -> sin error", () => {
+    const r = revalidarFila({ ...base, provincia: 'Tucumán' }, { itemExiste: true, provinciasValidas: ['SALTA', 'TUCUMAN'] });
+    expect(r.tieneError).toBe(false);
+  });
+
+  it("'Córdoba' no matchea -> texto exacto con el valor CRUDO", () => {
+    const r = revalidarFila({ ...base, provincia: 'Córdoba' }, { itemExiste: true, provinciasValidas: ['SALTA', 'TUCUMAN'] });
+    expect(r.detalle).toBe("Provincia 'Córdoba' inválida");
+  });
+});
+
+/** Espejo de `parsearMontoTexto` del backend (`carga/montos.ts`): punto =
+ * miles, coma = decimal; la única forma que se deja intacta es `1234.56`
+ * (un solo punto y ninguna coma). */
+describe('normalizarCifraEsAr', () => {
+  it('punto de miles + coma decimal: "15.151,96" → "15151.96"', () => {
+    expect(normalizarCifraEsAr('15.151,96')).toBe('15151.96');
+  });
+  it('varios puntos de miles sin coma: "3.840.113" → "3840113"', () => {
+    expect(normalizarCifraEsAr('3.840.113')).toBe('3840113');
+  });
+  it('solo coma decimal: "395,50" → "395.50"', () => {
+    expect(normalizarCifraEsAr('395,50')).toBe('395.50');
+  });
+  it('un solo punto y sin coma se deja como está (el usuario tipeó decimales)', () => {
+    expect(normalizarCifraEsAr('60607.84')).toBe('60607.84');
+    expect(normalizarCifraEsAr('2827089.4219859')).toBe('2827089.4219859');
+  });
+  it('entero pelado y vacío', () => {
+    expect(normalizarCifraEsAr('4')).toBe('4');
+    expect(normalizarCifraEsAr('')).toBe('');
+  });
+  it('recorta espacios de los bordes', () => {
+    expect(normalizarCifraEsAr('  15.151,96  ')).toBe('15151.96');
+  });
+});
+
+describe('cuadraturaFila', () => {
+  it('acepta la cifra como la tipea un usuario es-AR ("15.151,96")', () => {
+    const c = cuadraturaFila({ cantidades: '4', precio_unitario: '15.151,96', total_mes: '60.607,84' });
+    expect(c.cuadra).toBe(true);
+    expect(c.calculado).toBe(60607.84);
+  });
+
+  it('3 × 133337.26 = 400011.78 vs impreso 400012: cuadra (dif 0,22 ≤ 1)', () => {
+    const c = cuadraturaFila({ cantidades: '3', precio_unitario: '133337.26', total_mes: '400012' });
+    expect(c.cuadra).toBe(true);
+    expect(c.diferencia).toBeCloseTo(0.22, 2);
+    expect(c.sugerencia_cantidad).toBeNull();
+  });
+  it('922 × 66989.90 vs impreso 14804768: NO cuadra y sugiere 221', () => {
+    const c = cuadraturaFila({ cantidades: '922', precio_unitario: '66989.90', total_mes: '14804768' });
+    expect(c.cuadra).toBe(false);
+    expect(c.sugerencia_cantidad).toBe('221');
+  });
+  it('sin unitario: no cuadra, sin sugerencia', () => {
+    const c = cuadraturaFila({ cantidades: '3', precio_unitario: null, total_mes: '400012' });
+    expect(c).toEqual({ calculado: null, impreso: 400012, diferencia: null, cuadra: false, sugerencia_cantidad: null });
+  });
+  it('tolerancia exportada = 1', () => expect(TOLERANCIA_CUADRATURA).toBe(1));
+});
+
+describe('revalidarFila con cuadratura', () => {
+  const opts = { itemExiste: true, provinciasValidas: ['Salta'] };
+  const base = { item_codigo: 'ITEM-01', contrato: 'K6', provincia: 'Salta' };
+
+  it('fila que cuadra: sin error', () => {
+    const r = revalidarFila({ ...base, cantidades: '3', precio_unitario: '133337.26', total_mes: '400012' }, opts);
+    expect(r.tieneError).toBe(false);
+    expect(r.cuadratura.cuadra).toBe(true);
+  });
+
+  it('fila que no cuadra: bloqueada con detalle de las tres cifras', () => {
+    const r = revalidarFila({ ...base, cantidades: '922', precio_unitario: '66989.90', total_mes: '14804768' }, opts);
+    expect(r.tieneError).toBe(true);
+    expect(r.detalle).toBe('No cuadra: 922 × 66989.90 = 61764687.80, impreso 14804768 (dif. $ 46959919.80)');
+  });
+
+  it('confirmada levanta SOLO el bloqueo por cuadratura', () => {
+    const r = revalidarFila(
+      { ...base, cantidades: '922', precio_unitario: '66989.90', total_mes: '14804768' },
+      { ...opts, confirmada: true },
+    );
+    expect(r.tieneError).toBe(false);
+
+    const r2 = revalidarFila(
+      { ...base, provincia: '', cantidades: '922', precio_unitario: '66989.90', total_mes: '14804768' },
+      { ...opts, confirmada: true },
+    );
+    expect(r2.tieneError).toBe(true);
+    expect(r2.detalle).toBe('Falta provincia');
+  });
+
+  it('sin unitario: bloqueada con texto exacto', () => {
+    const r = revalidarFila({ ...base, cantidades: '3', precio_unitario: null, total_mes: '100' }, opts);
+    expect(r.detalle).toBe('Falta $ unitario (no se puede cuadrar)');
   });
 });
 

@@ -384,6 +384,29 @@ export function useEliminarItemCert() {
 // el backend/portal); ver docs/superpowers/specs/2026-09-02-inventario-
 // carga-portal.md §1-§2 y el brief de la task 6. ----
 
+/** Cuadratura de una fila (Task 7/11 del backend, mismo espejo client-side
+ * en `revalidar.ts`): |cantidad × unitario − total| ≤ $1. `diferencia` es
+ * `total_mes − calculado` (puede ser negativa); `cuadra=false` si falta
+ * cualquiera de las tres cifras. */
+export interface CuadraturaFila {
+  calculado: number | null;
+  impreso: number | null;
+  diferencia: number | null;
+  cuadra: boolean;
+  sugerencia_cantidad: string | null;
+}
+
+/** Aviso de lectura del parser (no bloquea ninguna fila): `fuerte` = cartel
+ * rojo (período distinto al elegido, sin total declarado); no fuerte =
+ * panel ámbar de "avisos de lectura". */
+export interface AvisoCarga {
+  tipo: 'columna_ignorada' | 'linea_no_leida' | 'sin_total_declarado' | 'periodo_archivo' | 'k_nombre_archivo' | 'np_no_detectado';
+  hoja: string;
+  fila: number;
+  mensaje: string;
+  fuerte: boolean;
+}
+
 /** Una fila del preview. `rowId` identifica la fila en la sesión
  * server-side (`previewId`) para las ediciones del confirmar. */
 export interface FilaPreview {
@@ -414,6 +437,16 @@ export interface FilaPreview {
   contrato_fuente: 'editado' | 'maestro' | 'archivo';
   contrato_del_maestro: string | null;
   excluida: boolean;
+  /** Cuadratura calculada por el backend en el preview; se recalcula en
+   * confirmar. */
+  cuadratura: CuadraturaFila;
+  /** Siempre `false` en el preview inicial; se pisa a `true` al mandar la
+   * edición `confirmada: true` (Task 12), que levanta ÚNICAMENTE el
+   * bloqueo por cuadratura de esta fila. */
+  confirmada: boolean;
+  /** 'archivo' para toda fila salida del parser; 'manual' para las que
+   * agrega el usuario a mano en el paso 3 (ver `FilaManualCarga`). */
+  origen: 'archivo' | 'manual';
 }
 
 export interface ErrorParseoCarga {
@@ -426,6 +459,8 @@ export interface ErrorParseoCarga {
 export interface ResumenPreviewCarga {
   total: number;
   con_error: number;
+  /** Alias de `con_error` (mismo número) — nombre que consume la UI nueva. */
+  bloqueadas: number;
   total_mes: number;
   total_declarado: number | null;
 }
@@ -438,6 +473,10 @@ export interface RespuestaPreviewCarga {
   resumen: ResumenPreviewCarga;
   filas: FilaPreview[];
   errores: ErrorParseoCarga[];
+  avisos: AvisoCarga[];
+  columnas_ignoradas: string[];
+  periodo_archivo: { desde: string; hasta: string } | null;
+  k_nombre_archivo: string | null;
 }
 
 /** Multipart: FormData con `archivo`, `periodo_anio`, `periodo_mes` — sin
@@ -449,9 +488,21 @@ export function usePreviewCarga() {
   });
 }
 
-/** Solo estos 5 campos son editables — whitelist real del backend (fix B8
+/** Solo estos 8 campos son editables — whitelist real del backend (fix B8
  * del portal, ver `EdicionFilaDto`). El front manda TODAS las ediciones
- * acumuladas por rowId al confirmar, no solo las de la página visible. */
+ * acumuladas por rowId al confirmar, no solo las de la página visible.
+ *
+ * CONTRATO CON EL BACKEND (idempotencia del confirmar): cada intento de
+ * `confirmar` parte de los valores ORIGINALES del preview — el server
+ * resetea todas las filas de la sesión antes de aplicar `ediciones`. Por
+ * eso hay que mandar acá SOLO los campos que el usuario efectivamente
+ * editó (el backend valida `cantidades`/`precio_unitario`/`total_mes` con
+ * `/^\d+([.,]\d{1,4})?$/` — hasta 4 decimales; los valores crudos del
+ * parser pueden traer 7 decimales y un reenvío sin editar los rechazaría
+ * con 400) y, a la vez, TODAS las ediciones vigentes en cada intento:
+ * omitir un campo (o una fila entera) significa "valor original", no
+ * "dejá lo del intento anterior" — un reintento después de un 422 no debe
+ * arrastrar estado de la llamada fallida. */
 export interface EdicionFilaCarga {
   rowId: string;
   contrato?: string;
@@ -459,6 +510,22 @@ export interface EdicionFilaCarga {
   cantidades?: string;
   total_mes?: string;
   excluida?: boolean;
+  precio_unitario?: string;
+  item_codigo?: string;
+  confirmada?: boolean;
+}
+
+/** Fila agregada a mano en el paso 3 porque el parser no la reconoció
+ * (origen = 'manual'). Sin `rowId`: no existe en la sesión server-side
+ * hasta que se confirma la carga. */
+export interface FilaManualCarga {
+  id_item: number;
+  provincia: string;
+  cantidades: string;
+  precio_unitario: string;
+  total_mes: string;
+  observaciones?: string;
+  confirmada?: boolean;
 }
 
 export interface ErrorConfirmarCarga {
@@ -472,7 +539,31 @@ export interface RespuestaConfirmarCarga {
   mensaje: string;
   insertadas: number;
   omitidas: number;
+  /** Cuántas de las insertadas son filas manuales (`origen = 'manual'`). */
+  manuales: number;
   errores: ErrorConfirmarCarga[];
+}
+
+/** Un ítem del maestro para armar filas manuales en el paso 3 (Task 9/10):
+ * el usuario elige el ítem por código/tarea y el resto de sus datos
+ * (contrato K, tarea, unidad) sale del maestro, no se tipea a mano. */
+export interface ItemMaestroCarga {
+  id_item: number;
+  item_codigo: string;
+  codigo_k: string;
+  tarea: string;
+  unidad_medida: string | null;
+}
+
+/** `habilitado` (default implícito `true` en el caller) permite desactivar
+ * la query cuando el usuario todavía no llegó al paso 3 o no tiene nivel
+ * de carga — mismo criterio que `useEstadoCargasCompleto`/`useEstadoCargas`. */
+export function useItemsMaestroCarga(habilitado: boolean) {
+  return useQuery({
+    queryKey: ['certificaciones', 'carga', 'items-maestro'],
+    queryFn: () => getCert<ItemMaestroCarga[]>('/certificaciones/carga/items-maestro'),
+    enabled: habilitado,
+  });
 }
 
 /** Confirmar una carga o deshacerla cambia los mismos montos cacheados en
@@ -503,7 +594,7 @@ const QUERY_KEYS_AFECTADAS_POR_CARGA: readonly (readonly string[])[] = [
 export function useConfirmarCarga() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dto: { previewId: string; ediciones: EdicionFilaCarga[] }) =>
+    mutationFn: (dto: { previewId: string; ediciones: EdicionFilaCarga[]; manuales?: FilaManualCarga[] }) =>
       api.post<RespuestaConfirmarCarga>('/certificaciones/carga/confirmar', dto).then((r) => r.data),
     onSuccess: () => {
       for (const queryKey of QUERY_KEYS_AFECTADAS_POR_CARGA) {
@@ -528,6 +619,8 @@ export interface HistorialCargaCert {
   periodo: string | null;
   filas_cargadas: number;
   filas_error: number;
+  /** Cuántas de `filas_cargadas` son filas manuales (Task 18). */
+  filas_manuales: number;
   estado: 'ok' | 'parcial';
   cargado_en: string;
 }

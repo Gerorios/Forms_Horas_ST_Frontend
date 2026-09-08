@@ -257,3 +257,75 @@ describe('useConfirmarCarga: alcance del invalidate', () => {
     expect(keysInvalidados).toContain(JSON.stringify(['certificaciones', 'incidencia-mo']));
   });
 });
+
+// useItemsMaestroCarga (Task 15): lista de ítems del maestro para armar
+// filas manuales en el paso 3 del wizard — pega a /certificaciones/carga/
+// items-maestro y respeta `habilitado` como el resto de los hooks del
+// módulo (ver useEstadoCargasCompleto/useEstadoCargas).
+describe('useItemsMaestroCarga', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.resetModules();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('con habilitado=true pega a /certificaciones/carga/items-maestro y devuelve la lista', async () => {
+    const { api } = await import('./client');
+    const { useItemsMaestroCarga } = await import('./certificaciones');
+    const spy = vi.spyOn(api, 'get').mockResolvedValue({
+      data: [{ id_item: 1, item_codigo: 'ITEM-01', codigo_k: 'K6', tarea: 'Tarea X', unidad_medida: 'UN' }],
+    });
+
+    const { result } = renderHook(() => useItemsMaestroCarga(true), { wrapper });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(spy).toHaveBeenCalledWith('/certificaciones/carga/items-maestro');
+    expect(result.current.data).toEqual([
+      { id_item: 1, item_codigo: 'ITEM-01', codigo_k: 'K6', tarea: 'Tarea X', unidad_medida: 'UN' },
+    ]);
+  });
+
+  it('con habilitado=false no dispara la request', async () => {
+    const { api } = await import('./client');
+    const { useItemsMaestroCarga } = await import('./certificaciones');
+    const spy = vi.spyOn(api, 'get').mockResolvedValue({ data: [] });
+
+    const { result } = renderHook(() => useItemsMaestroCarga(false), { wrapper });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.data).toBeUndefined();
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+// useConfirmarCarga: el body ahora suma `manuales` (filas agregadas a mano
+// en el paso 3, Task 9/10) junto a `previewId`/`ediciones` — el mock previo
+// de esta suite no lo mandaba porque el hook todavía no lo aceptaba.
+describe('useConfirmarCarga: body con manuales', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.resetModules();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('manda `manuales` en el body del POST', async () => {
+    const { api } = await import('./client');
+    const { useConfirmarCarga } = await import('./certificaciones');
+    const spy = vi.spyOn(api, 'post').mockResolvedValue({
+      data: { mensaje: 'ok', insertadas: 1, omitidas: 0, manuales: 1, errores: [] },
+    });
+
+    const { result } = renderHook(() => useConfirmarCarga(), { wrapper });
+    const manuales = [
+      { id_item: 1, provincia: 'Salta', cantidades: '3', precio_unitario: '100', total_mes: '300' },
+    ];
+    result.current.mutate({ previewId: 'preview-1', ediciones: [], manuales });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(spy).toHaveBeenCalledWith('/certificaciones/carga/confirmar', {
+      previewId: 'preview-1',
+      ediciones: [],
+      manuales,
+    });
+  });
+});
