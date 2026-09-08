@@ -11,12 +11,22 @@ import {
   useConfirmarCarga,
   useProvinciasAnalytics,
   useContratosAnalytics,
+  useItemsMaestroCarga,
   type FilaPreview,
   type RespuestaPreviewCarga,
   type RespuestaConfirmarCarga,
   type EdicionFilaCarga,
+  type FilaManualCarga,
+  type ItemMaestroCarga,
 } from '@/lib/api/certificaciones';
-import { revalidarFila, hojaCoincideConKs, validarArchivoCarga } from '@/features/certificaciones/carga/revalidar';
+import {
+  revalidarFila,
+  canonizarProvincia,
+  hojaCoincideConKs,
+  validarArchivoCarga,
+  type Cuadratura,
+} from '@/features/certificaciones/carga/revalidar';
+import { FilaManualForm } from './fila-manual-form';
 
 // Wizard de carga de certificaciones (Etapa 4 ERP). Rediseño 2026-09-03 según
 // mockup aprobado por el usuario (memoria "redisenio-carga-certificaciones-
@@ -27,6 +37,11 @@ import { revalidarFila, hojaCoincideConKs, validarArchivoCarga } from '@/feature
 // cambia. Gate por nivel: admin y carga; lectura no ve esta pantalla.
 
 const POR_PAGINA = 50;
+
+/** Tolerancia del descuadre contra el total declarado, en pesos: el mismo
+ * peso que tolera la cuadratura por fila (`TOLERANCIA_CUADRATURA`), acá
+ * aplicado a la suma. */
+const TOLERANCIA_DESCUADRE = 1;
 
 const MESES = [
   'Enero',
@@ -52,6 +67,14 @@ const BADGE_WARN =
   'inline-flex items-center rounded-full bg-warn/10 px-2 py-0.5 text-xs font-medium text-warn ring-1 ring-inset ring-warn/25';
 const BADGE_EXCLUIDA =
   'inline-flex items-center rounded-full bg-slate/10 px-2 py-0.5 text-xs font-medium text-slate ring-1 ring-inset ring-slate/25';
+/** Fila que NO se puede confirmar hasta resolverla (rojo, no ámbar: ámbar es
+ * "mirá esto", rojo es "no sigue"). */
+const BADGE_BLOQUEADA =
+  'inline-flex items-center rounded-full bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger ring-1 ring-inset ring-danger/25';
+/** Azul de "manual" (#3b6fc4, mismo que el resto del sistema para lo que
+ * cargó una persona a mano). No es un token de la paleta: va literal. */
+const BADGE_MANUAL =
+  'inline-flex items-center rounded-full bg-[#3b6fc4]/10 px-2 py-0.5 text-xs font-medium text-[#3b6fc4] ring-1 ring-inset ring-[#3b6fc4]/25';
 const CHIP_K = 'inline-flex rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-medium text-brand-deep ring-1 ring-inset ring-brand/30';
 
 function mensajeError(e: unknown, fallback: string): string {
@@ -98,9 +121,31 @@ function aplicarEdicion(f: FilaPreview, e: EdicionFilaCarga | undefined) {
     contrato_fuente,
     provincia: e?.provincia ?? f.provincia,
     cantidades: e?.cantidades ?? f.cantidades,
+    precio_unitario: e?.precio_unitario ?? f.precio_unitario,
+    item_codigo: e?.item_codigo ?? f.item_codigo,
     total_mes: e?.total_mes ?? f.total_mes,
     excluida: e?.excluida ?? f.excluida,
+    confirmada: e?.confirmada ?? f.confirmada,
   };
+}
+
+/** Fila manual del paso 3 mientras vive en el cliente: `localId` la
+ * identifica en la tabla (el backend todavía no la conoce; recién al
+ * confirmar aparece como `manual-N`, N = índice 1-based en `manuales`). */
+type FilaManualLocal = FilaManualCarga & { item: ItemMaestroCarga; localId: string };
+
+/** Bloqueo devuelto por el backend en el 422 del confirmar. */
+interface BloqueadaServidor {
+  rowId: string;
+  item_codigo: string;
+  detalle: string;
+}
+
+/** Texto corto del badge de una fila bloqueada: los dos bloqueos de
+ * cuadratura se nombran "No cuadra"; el resto (ítem, contrato, provincia,
+ * cantidad, total) queda como "Bloqueada" y el motivo se lee en el detalle. */
+function esBloqueoDeCuadratura(detalle: string | null): boolean {
+  return detalle !== null && (detalle.startsWith('No cuadra') || detalle.startsWith('Falta $ unitario'));
 }
 
 // ── Íconos (SVG inline, trazo 1.8, grilla 24) ────────────────────────────
@@ -227,10 +272,19 @@ function StatTile({
   label: string;
   value: string;
   sub?: string;
-  tone?: 'ink' | 'ok' | 'warn';
+  tone?: 'ink' | 'ok' | 'warn' | 'danger' | 'manual';
   testId: string;
 }) {
-  const color = tone === 'ok' ? 'text-approved' : tone === 'warn' ? 'text-warn' : 'text-ink';
+  const color =
+    tone === 'ok'
+      ? 'text-approved'
+      : tone === 'warn'
+        ? 'text-warn'
+        : tone === 'danger'
+          ? 'text-danger'
+          : tone === 'manual'
+            ? 'text-[#3b6fc4]'
+            : 'text-ink';
   return (
     <div className="rounded-xl border border-line bg-surface px-4 py-4">
       <p className="text-xs font-medium uppercase tracking-wide text-slate">{label}</p>
@@ -238,6 +292,84 @@ function StatTile({
         {value}
       </p>
       {sub && <p className="mt-0.5 text-xs tabular-nums text-slate">{sub}</p>}
+    </div>
+  );
+}
+
+/** Celda "Estado" de una fila del paso 3. Una fila manual lleva SIEMPRE su
+ * badge azul; si además está bloqueada o confirmada a mano, se ven los dos
+ * (que sea manual no dice nada de si cuadra). */
+function CeldaEstado({
+  excluida,
+  manual = false,
+  tieneError,
+  detalle,
+  confirmada,
+  cuadra,
+}: {
+  excluida: boolean;
+  manual?: boolean;
+  tieneError: boolean;
+  detalle: string | null;
+  confirmada: boolean;
+  cuadra: boolean;
+}) {
+  if (excluida) return <span className={BADGE_EXCLUIDA}>Excluida</span>;
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {manual && <span className={BADGE_MANUAL}>Manual</span>}
+      {tieneError ? (
+        <span className={BADGE_BLOQUEADA} title={detalle ?? ''}>
+          {esBloqueoDeCuadratura(detalle) ? 'No cuadra' : 'Bloqueada'}
+        </span>
+      ) : confirmada && !cuadra ? (
+        <span className={BADGE_WARN} title="Confirmada a mano: la cuadratura no cierra y la aceptaste igual">
+          Confirmada así
+        </span>
+      ) : (
+        <span className={BADGE_OK}>Cuadra</span>
+      )}
+    </span>
+  );
+}
+
+/** Las tres cifras de la cuadratura, siempre visibles en el detalle: es lo
+ * que la persona necesita para decidir cuál de las tres está mal. */
+function BloqueCuadratura({
+  cuadratura,
+  cantidades,
+  precioUnitario,
+  totalMes,
+  bloqueada,
+  children,
+}: {
+  cuadratura: Cuadratura;
+  cantidades: string | null;
+  precioUnitario: string | null;
+  totalMes: string | null;
+  bloqueada: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <div
+      className={`col-span-2 rounded-lg border bg-surface px-3 py-2.5 sm:col-span-4 ${
+        bloqueada ? 'border-danger/35' : 'border-line'
+      }`}
+    >
+      <p className="text-xs uppercase tracking-wide text-slate">Cuadratura</p>
+      <p className="mt-1 text-sm tabular-nums text-ink">
+        {cantidades ?? '—'} × {fmtMoney(precioUnitario)} ={' '}
+        {cuadratura.calculado !== null ? fmtMoney(cuadratura.calculado) : '—'} · impreso {fmtMoney(totalMes)} · diferencia{' '}
+        <span className={bloqueada ? 'font-semibold text-danger' : ''}>
+          $ {cuadratura.diferencia !== null ? fmtMoney(Math.abs(cuadratura.diferencia)) : '—'}
+        </span>
+      </p>
+      {bloqueada && cuadratura.sugerencia_cantidad && (
+        <p className="mt-1 text-[13px] text-slate">
+          Con el total impreso, la cantidad debería ser <span className="font-medium text-ink">{cuadratura.sugerencia_cantidad}</span>.
+        </p>
+      )}
+      {children}
     </div>
   );
 }
@@ -279,7 +411,15 @@ export default function CargaCertificacionesPage() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [resultado, setResultado] = useState<RespuestaConfirmarCarga | null>(null);
   const [expandidas, setExpandidas] = useState<Set<string>>(new Set());
+  const [manuales, setManuales] = useState<FilaManualLocal[]>([]);
+  const [mostrarFormManual, setMostrarFormManual] = useState(false);
+  /** Bloqueos que devolvió el backend en un 422 del confirmar, por rowId
+   * (las manuales ya traducidas de `manual-N` a su `localId`). Se limpian en
+   * cuanto el usuario toca esa fila: el intento siguiente vuelve a preguntar
+   * al servidor. */
+  const [bloqueosServidor, setBloqueosServidor] = useState<Map<string, string>>(new Map());
   const inputRef = useRef<HTMLInputElement>(null);
+  const { data: itemsMaestro } = useItemsMaestroCarga(puedeCargar && step === 3);
 
   if (!puedeCargar) return null;
 
@@ -314,6 +454,10 @@ export default function CargaCertificacionesPage() {
       const admin = nivel === 'admin';
       setHojasSel(admin ? new Set(data.hojas) : new Set(data.hojas.filter((h) => hojaCoincideConKs(h, ks))));
       setEdiciones(new Map());
+      setManuales([]);
+      setMostrarFormManual(false);
+      setBloqueosServidor(new Map());
+      setExpandidas(new Set());
       setPagina(1);
       setFiltroHoja('');
       setSoloProblemas(false);
@@ -342,8 +486,23 @@ export default function CargaCertificacionesPage() {
     });
   }
 
-  function setEdicionCampo(rowId: string, campo: 'provincia' | 'cantidades' | 'total_mes', valor: string) {
-    const v = campo === 'cantidades' || campo === 'total_mes' ? normalizarDecimal(valor) : valor;
+  /** El bloqueo que trajo el 422 vale para el estado que tenía la fila en ese
+   * intento: si el usuario la vuelve a tocar, se descarta y manda de nuevo. */
+  function limpiarBloqueoServidor(rowId: string) {
+    setBloqueosServidor((prev) => {
+      if (!prev.has(rowId)) return prev;
+      const next = new Map(prev);
+      next.delete(rowId);
+      return next;
+    });
+  }
+
+  type CampoEditable = 'provincia' | 'cantidades' | 'total_mes' | 'precio_unitario' | 'item_codigo';
+  const CAMPOS_DECIMALES: CampoEditable[] = ['cantidades', 'total_mes', 'precio_unitario'];
+
+  function setEdicionCampo(rowId: string, campo: CampoEditable, valor: string) {
+    const v = CAMPOS_DECIMALES.includes(campo) ? normalizarDecimal(valor) : valor;
+    limpiarBloqueoServidor(rowId);
     setEdiciones((prev) => {
       const next = new Map(prev);
       const actual = next.get(rowId) ?? { rowId };
@@ -352,13 +511,46 @@ export default function CargaCertificacionesPage() {
     });
   }
 
+  /** "Confirmar así": levanta ÚNICAMENTE el bloqueo por cuadratura de esa
+   * fila (mismo alcance en el espejo cliente y en el backend). */
+  function setConfirmada(rowId: string) {
+    limpiarBloqueoServidor(rowId);
+    setEdiciones((prev) => {
+      const next = new Map(prev);
+      const actual = next.get(rowId) ?? { rowId };
+      next.set(rowId, { ...actual, confirmada: true });
+      return next;
+    });
+  }
+
   function setExcluida(rowId: string, excluida: boolean) {
+    limpiarBloqueoServidor(rowId);
     setEdiciones((prev) => {
       const next = new Map(prev);
       const actual = next.get(rowId) ?? { rowId };
       next.set(rowId, { ...actual, excluida });
       return next;
     });
+  }
+
+  function agregarManual(m: FilaManualCarga & { item: ItemMaestroCarga }) {
+    setManuales((prev) => [...prev, { ...m, localId: `manual-local-${prev.length + 1}-${Date.now()}` }]);
+    setMostrarFormManual(false);
+  }
+
+  function quitarManual(localId: string) {
+    limpiarBloqueoServidor(localId);
+    setManuales((prev) => prev.filter((m) => m.localId !== localId));
+  }
+
+  function setManualCampo(localId: string, campo: 'cantidades' | 'precio_unitario' | 'total_mes', valor: string) {
+    limpiarBloqueoServidor(localId);
+    setManuales((prev) => prev.map((m) => (m.localId === localId ? { ...m, [campo]: normalizarDecimal(valor) } : m)));
+  }
+
+  function setManualConfirmada(localId: string) {
+    limpiarBloqueoServidor(localId);
+    setManuales((prev) => prev.map((m) => (m.localId === localId ? { ...m, confirmada: true } : m)));
   }
 
   function toggleExpandida(rowId: string) {
@@ -375,6 +567,7 @@ export default function CargaCertificacionesPage() {
   function setContratoCascada(itemCodigo: string, nuevoContrato: string) {
     if (!preview) return;
     const filasDelItem = preview.filas.filter((f) => f.item_codigo === itemCodigo);
+    for (const f of filasDelItem) limpiarBloqueoServidor(f.rowId);
     setEdiciones((prev) => {
       const next = new Map(prev);
       for (const f of filasDelItem) {
@@ -390,30 +583,81 @@ export default function CargaCertificacionesPage() {
 
   const filasCalculadas = filasEnHojas.map((f) => {
     const vista = aplicarEdicion(f, ediciones.get(f.rowId));
-    const { tieneError, detalle } = revalidarFila(vista, { itemExiste: f.item_en_maestro, provinciasValidas });
-    return { original: f, vista, tieneError, detalle };
+    const { tieneError, detalle, cuadratura } = revalidarFila(vista, {
+      itemExiste: f.item_en_maestro,
+      provinciasValidas,
+      confirmada: vista.confirmada,
+    });
+    // El 422 del backend gana sobre el espejo cliente: la fila queda
+    // bloqueada con SU motivo hasta que el usuario la vuelva a tocar.
+    const bloqueoServidor = bloqueosServidor.get(f.rowId) ?? null;
+    return {
+      original: f,
+      vista,
+      tieneError: tieneError || bloqueoServidor !== null,
+      detalle: bloqueoServidor ?? detalle,
+      cuadratura,
+      bloqueoServidor,
+    };
   });
 
-  const conProblemaFilas = filasCalculadas.filter((r) => !r.vista.excluida && r.tieneError);
-  const aCargar = filasCalculadas.filter((r) => !r.vista.excluida && !r.tieneError).length;
-  const conProblema = conProblemaFilas.length;
+  /** Filas manuales: mismo espejo de validación que las del archivo (ítem del
+   * maestro ⇒ `itemExiste: true`; contrato = el K del ítem, no se tipea). */
+  const manualesCalculadas = manuales.map((m) => {
+    const bloqueoServidor = bloqueosServidor.get(m.localId) ?? null;
+    const { tieneError, detalle, cuadratura } = revalidarFila(
+      {
+        item_codigo: m.item.item_codigo,
+        contrato: m.item.codigo_k,
+        provincia: m.provincia,
+        cantidades: m.cantidades,
+        precio_unitario: m.precio_unitario,
+        total_mes: m.total_mes,
+      },
+      { itemExiste: true, provinciasValidas, confirmada: m.confirmada },
+    );
+    return {
+      manual: m,
+      tieneError: tieneError || bloqueoServidor !== null,
+      detalle: bloqueoServidor ?? detalle,
+      cuadratura,
+      bloqueoServidor,
+    };
+  });
+
+  const bloqueadasFilas = filasCalculadas.filter((r) => !r.vista.excluida && r.tieneError);
+  const manualesOkFilas = manualesCalculadas.filter((r) => !r.tieneError);
+  const manualesBloqueadas = manualesCalculadas.length - manualesOkFilas.length;
+  const manualesOk = manualesOkFilas.length;
+  const aCargarArchivo = filasCalculadas.filter((r) => !r.vista.excluida && !r.tieneError).length;
+  const aCargar = aCargarArchivo + manualesOk;
+  const bloqueadas = bloqueadasFilas.length + manualesBloqueadas;
   const excluidasCount = filasCalculadas.filter((r) => r.vista.excluida).length;
   const totalFilas = filasCalculadas.length;
 
-  const montoACargar = filasCalculadas
-    .filter((r) => !r.vista.excluida && !r.tieneError)
-    .reduce((acc, r) => acc + (Number(r.vista.total_mes) || 0), 0);
-  const montoConProblema = conProblemaFilas.reduce((acc, r) => acc + (Number(r.vista.total_mes) || 0), 0);
+  const montoACargar =
+    filasCalculadas
+      .filter((r) => !r.vista.excluida && !r.tieneError)
+      .reduce((acc, r) => acc + (Number(r.vista.total_mes) || 0), 0) +
+    manualesOkFilas.reduce((acc, r) => acc + (Number(r.manual.total_mes) || 0), 0);
   // Un TOTAL MES en 0 en el archivo no es un total declarado (paridad con el portal).
   const totalDeclaradoCrudo = preview?.resumen.total_declarado ?? null;
   const totalDeclarado = totalDeclaradoCrudo ? totalDeclaradoCrudo : null;
-  const descuadre = totalDeclarado !== null && Math.abs(montoACargar - totalDeclarado) > 0.01;
   const diferencia = totalDeclarado !== null ? totalDeclarado - montoACargar : 0;
-  const descuadreExplicadoPorProblemas = descuadre && Math.abs(diferencia - montoConProblema) < 0.01;
+  /** Descuadre contra el total declarado: se muestra en rojo pero NO bloquea
+   * (la plata declarada puede no coincidir con lo cargable y el usuario tiene
+   * que poder decidir). Tolerancia $1, la misma de la cuadratura por fila. */
+  const descuadre = totalDeclarado !== null && Math.abs(diferencia) > TOLERANCIA_DESCUADRE;
 
   const contratosACargar = Array.from(
-    new Set(filasCalculadas.filter((r) => !r.vista.excluida && !r.tieneError).map((r) => r.vista.contrato).filter(Boolean)),
-  );
+    new Set([
+      ...filasCalculadas.filter((r) => !r.vista.excluida && !r.tieneError).map((r) => r.vista.contrato),
+      ...manualesOkFilas.map((r) => r.manual.item.codigo_k),
+    ]).values(),
+  ).filter(Boolean);
+
+  const avisosFuertes = preview?.avisos.filter((a) => a.fuerte) ?? [];
+  const avisosSuaves = preview?.avisos.filter((a) => !a.fuerte) ?? [];
 
   const filasVisibles = filasCalculadas.filter(
     (r) => (filtroHoja === '' || r.original.hoja_origen === filtroHoja) && (!soloProblemas || (!r.vista.excluida && r.tieneError)),
@@ -440,17 +684,46 @@ export default function CargaCertificacionesPage() {
     return Array.from(finales.values());
   }
 
+  /** `manual-N` (N = índice 1-based en el array `manuales` que se mandó) →
+   * `localId` de esa fila manual, para poder marcarla en la tabla. */
+  function rowIdLocal(rowId: string): string {
+    const m = /^manual-(\d+)$/.exec(rowId);
+    if (!m) return rowId;
+    return manuales[Number(m[1]) - 1]?.localId ?? rowId;
+  }
+
   async function confirmar() {
     if (!preview) return;
     try {
       const data = await confirmarMut.mutateAsync({
         previewId: preview.previewId,
         ediciones: edicionesParaConfirmar(),
+        // Solo va la clave si hay filas manuales: sin ella el backend recibe
+        // el mismo body que antes de esta pantalla.
+        ...(manuales.length > 0
+          ? { manuales: manuales.map(({ item: _item, localId: _localId, ...m }) => m) }
+          : {}),
       });
       setModalAbierto(false);
       setResultado(data);
       setStep(4);
     } catch (e) {
+      const resp = (
+        e as { response?: { status?: number; data?: { message?: string; bloqueadas?: BloqueadaServidor[] } } }
+      ).response;
+      const bloqueadasBackend = resp?.data?.bloqueadas;
+      if (resp?.status === 422 && bloqueadasBackend && bloqueadasBackend.length > 0) {
+        // El backend revalidó y encontró filas que el espejo cliente dejó
+        // pasar: se marcan y se abren para que el usuario las vea, con SU
+        // texto (el mensaje ya viene en singular/plural, no se reescribe).
+        const locales = bloqueadasBackend.map((b) => ({ ...b, local: rowIdLocal(b.rowId) }));
+        setBloqueosServidor(new Map(locales.map((b) => [b.local, b.detalle])));
+        setExpandidas((prev) => new Set([...prev, ...locales.map((b) => b.local)]));
+        setModalAbierto(false);
+        setSoloProblemas(false);
+        toast.error(resp.data?.message ?? 'Hay filas bloqueadas.');
+        return;
+      }
       toast.error(mensajeError(e, 'No se pudo confirmar la carga'));
     }
   }
@@ -466,6 +739,10 @@ export default function CargaCertificacionesPage() {
     setFiltroHoja('');
     setSoloProblemas(false);
     setModalAbierto(false);
+    setManuales([]);
+    setMostrarFormManual(false);
+    setBloqueosServidor(new Map());
+    setExpandidas(new Set());
     setStep(1);
     if (inputRef.current) inputRef.current.value = '';
   }
@@ -559,7 +836,7 @@ export default function CargaCertificacionesPage() {
             <TarjetaGuia
               icono={<IconoRevisar />}
               titulo="2 · Elegís hojas y revisás"
-              texto="Ves cuántas filas y qué monto se va a cargar, y corregís contrato, provincia, cantidad o total si hace falta."
+              texto="Ves qué cuadra y qué no, corregís cantidad, unitario, total, contrato o provincia, y agregás a mano lo que el archivo no dejó leer."
             />
             <TarjetaGuia
               icono={<IconoConfirmar />}
@@ -645,107 +922,176 @@ export default function CargaCertificacionesPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
             <StatTile
-              label="Filas a cargar"
+              label="A cargar"
               value={String(aCargar)}
-              sub={`de ${totalFilas} ${plural(totalFilas, 'leída', 'leídas')}`}
+              sub={`de ${totalFilas} ${plural(totalFilas, 'fila leída', 'filas leídas')}`}
               tone="ok"
               testId="metrica-a-cargar"
             />
             <StatTile
-              label="Con problema"
-              value={String(conProblema)}
-              sub={conProblema > 0 ? 'se omiten si no las corregís' : 'todas las filas están completas'}
-              tone={conProblema > 0 ? 'warn' : 'ink'}
-              testId="metrica-con-problema"
+              label="Bloqueadas"
+              value={String(bloqueadas)}
+              sub={
+                bloqueadas > 0
+                  ? plural(bloqueadas, 'corregila o excluila', 'corregilas o excluilas')
+                  : 'todas las filas cuadran'
+              }
+              tone={bloqueadas > 0 ? 'danger' : 'ink'}
+              testId="metrica-bloqueadas"
             />
             <StatTile
-              label="Excluidas por vos"
+              label="Manuales"
+              value={String(manuales.length)}
+              sub="agregadas por vos"
+              tone={manuales.length > 0 ? 'manual' : 'ink'}
+              testId="metrica-manuales"
+            />
+            <StatTile
+              label="Excluidas"
               value={String(excluidasCount)}
-              sub="destildá una fila para excluirla"
+              sub="destildá para excluir"
               testId="metrica-excluidas"
             />
             <StatTile
               label="Total a cargar"
               value={`$ ${fmtMoney(montoACargar)}`}
-              sub={totalDeclarado !== null ? `el archivo declara $ ${fmtMoney(totalDeclarado)}` : 'el archivo no declara un total'}
+              sub={totalDeclarado !== null ? `declara $ ${fmtMoney(totalDeclarado)}` : 'el archivo no declara un total'}
+              tone={descuadre ? 'warn' : 'ink'}
               testId="metrica-monto"
             />
           </div>
 
-          {(conProblema > 0 || descuadre) && (
-            <div className="flex items-start gap-3 rounded-xl border border-warn/45 bg-warn/5 px-4 py-3.5 text-warn" role="status">
+          {/* Cartel ROJO de cuadratura contra el total declarado. Rojo pero no
+              bloqueante: la plata declarada puede no coincidir con lo cargable
+              y la decisión es del usuario (mockup 2026-09-07). */}
+          {descuadre && (
+            <div
+              className="flex items-start gap-3 rounded-xl border border-danger/45 bg-danger/5 px-4 py-3.5 text-danger"
+              role="status"
+              data-testid="aviso-descuadre"
+            >
               <span className="mt-0.5">
                 <IconoAviso />
               </span>
               <div className="min-w-0 flex-1 space-y-1">
-                {conProblema > 0 && (
-                  <p className="text-sm font-medium">
-                    {conProblema} {plural(conProblema, 'fila con problema. Corregila', 'filas con problema. Corregilas')} en la tabla o
-                    se {plural(conProblema, 'omite', 'omiten')} al cargar.
-                  </p>
-                )}
-                {conProblemaFilas.slice(0, 5).map(({ original, vista, detalle }) => (
-                  <p key={original.rowId} className="truncate text-[13px] text-ink">
-                    Ítem {original.item_codigo} · hoja {original.hoja_origen} · fila {original.fila_excel} — {detalle}
-                    {vista.total_mes ? ` · $ ${fmtMoney(vista.total_mes)}` : ''}
+                <p className="text-sm font-medium">
+                  La suma no cierra con el total declarado: {diferencia > 0 ? 'faltan' : 'sobran'} ${' '}
+                  {fmtMoney(Math.abs(diferencia))}
+                </p>
+                <p className="text-[13px] text-ink">
+                  El archivo declara $ {fmtMoney(totalDeclarado)} y las filas a cargar suman $ {fmtMoney(montoACargar)} (las
+                  bloqueadas no cuentan). Podés confirmar igual, pero revisá si el parser perdió una fila y agregala a mano si hace
+                  falta.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Avisos FUERTES del parser (período distinto al elegido, sin total
+              declarado): mismo rojo, uno por línea. */}
+          {avisosFuertes.length > 0 && (
+            <div
+              className="flex items-start gap-3 rounded-xl border border-danger/45 bg-danger/5 px-4 py-3.5 text-danger"
+              role="status"
+              data-testid="avisos-fuertes"
+            >
+              <span className="mt-0.5">
+                <IconoAviso />
+              </span>
+              <div className="min-w-0 flex-1 space-y-1">
+                {avisosFuertes.map((a, i) => (
+                  <p key={i} className="text-sm font-medium">
+                    {a.mensaje}
                   </p>
                 ))}
-                {conProblema > 5 && <p className="text-[13px] text-slate">y {conProblema - 5} más — usá "Ver solo problemas".</p>}
-                {descuadre && (
-                  <p className="text-[13px] text-slate" data-testid="aviso-descuadre">
-                    El total a cargar (${fmtMoney(montoACargar)}) no coincide con el total declarado del archivo ($
-                    {fmtMoney(totalDeclarado)}): {diferencia > 0 ? 'faltan' : 'sobran'} ${fmtMoney(Math.abs(diferencia))}
-                    {descuadreExplicadoPorProblemas ? ', que coincide con lo omitido por problemas' : ''}. Podés seguir igual: es solo
-                    un aviso.
-                  </p>
-                )}
               </div>
-              {conProblema > 0 && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  aria-pressed={soloProblemas}
-                  onClick={() => {
-                    setSoloProblemas((v) => !v);
-                    setPagina(1);
-                  }}
-                >
-                  {soloProblemas ? 'Ver todas' : 'Ver solo problemas'}
-                </Button>
-              )}
+            </div>
+          )}
+
+          {/* Panel ÁMBAR "Avisos de lectura": columnas ignoradas, líneas que no
+              se pudieron leer como fila, K del nombre del archivo… más los
+              errores de parseo que ya se listaban. Ninguno bloquea. */}
+          {(avisosSuaves.length > 0 || preview.errores.length > 0) && (
+            <div className="flex items-start gap-3 rounded-xl border border-warn/40 bg-warn/5 px-4 py-3.5" data-testid="avisos-lectura">
+              <span className="mt-0.5 text-warn">
+                <IconoAviso />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-warn">Avisos de lectura</p>
+                <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[13px] text-ink">
+                  {avisosSuaves.map((a, i) => (
+                    <li key={`aviso-${i}`}>{a.mensaje}</li>
+                  ))}
+                  {preview.errores.map((err, i) => (
+                    <li key={`error-${i}`}>
+                      Hoja {err.hoja}, fila {err.fila} ({err.campo}): {err.mensaje}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
 
           {/* Sin overflow-x-auto: columnas principales + fila expandible
-              (patrón de la casa). El detalle secundario (hoja, $unitario,
-              región, reasignación completa, detalle de error) vive en la fila
-              que abre "Detalle". */}
+              (patrón de la casa). El detalle secundario (hoja, tarea,
+              observaciones, cuadratura, reasignación) vive en la fila que abre
+              "Detalle". */}
           <div className="rounded-xl border border-line bg-surface">
-            <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
-              <span className="text-sm font-medium text-ink">Filas del certificado</span>
-              {hojasSel.size > 1 && (
-                <select
-                  aria-label="Filtrar por hoja"
-                  value={filtroHoja}
-                  onChange={(e) => {
-                    setFiltroHoja(e.target.value);
-                    setPagina(1);
-                  }}
-                  className={`${inputCls} py-1.5 text-[13px]`}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-b border-line px-4 py-3">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate">
+                <span className="flex items-center gap-1.5">
+                  <span className={BADGE_OK}>Cuadra</span> cantidad × unitario = total
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className={BADGE_BLOQUEADA}>Bloqueada</span> no se confirma hasta resolverla
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className={BADGE_MANUAL}>Manual</span> agregada por vos
+                </span>
+              </div>
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                {hojasSel.size > 1 && (
+                  <select
+                    aria-label="Filtrar por hoja"
+                    value={filtroHoja}
+                    onChange={(e) => {
+                      setFiltroHoja(e.target.value);
+                      setPagina(1);
+                    }}
+                    className={`${inputCls} py-1.5 text-[13px]`}
+                  >
+                    <option value="">Todas las hojas</option>
+                    {Array.from(hojasSel).map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {(bloqueadasFilas.length > 0 || soloProblemas) && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    aria-pressed={soloProblemas}
+                    onClick={() => {
+                      setSoloProblemas((v) => !v);
+                      setPagina(1);
+                    }}
+                  >
+                    {soloProblemas ? 'Ver todas' : 'Ver solo bloqueadas'}
+                  </Button>
+                )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="border-[#3b6fc4]/50 text-[#3b6fc4]"
+                  onClick={() => setMostrarFormManual(true)}
                 >
-                  <option value="">Todas las hojas</option>
-                  {Array.from(hojasSel).map((h) => (
-                    <option key={h} value={h}>
-                      {h}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <span className="ml-auto text-[13px] text-slate">
-                Podés editar contrato, provincia, cantidad y total. El contrato se aplica a todas las filas del mismo ítem.
-              </span>
+                  + Agregar fila manual
+                </Button>
+              </div>
             </div>
             <table className="w-full text-sm" aria-label="Filas de la carga">
               <thead>
@@ -755,23 +1101,27 @@ export default function CargaCertificacionesPage() {
                   <th className="px-3 py-2.5 font-medium">Contrato</th>
                   <th className="px-3 py-2.5 font-medium">Provincia</th>
                   <th className="px-3 py-2.5 text-right font-medium">Cant.</th>
+                  <th className="px-3 py-2.5 text-right font-medium">$ Unitario</th>
                   <th className="px-3 py-2.5 text-right font-medium">$ Total</th>
                   <th className="px-3 py-2.5 font-medium">Estado</th>
                   <th className="px-3 py-2.5 font-medium" />
                 </tr>
               </thead>
               <tbody>
-                {enPagina.map(({ original, vista, tieneError, detalle }) => {
+                {enPagina.map(({ original, vista, tieneError, detalle, cuadratura, bloqueoServidor }) => {
                   const reasignado = vista.contrato_fuente === 'maestro' && original.contrato_archivo !== vista.contrato;
                   const expandida = expandidas.has(original.rowId);
-                  // Match de provincia case-insensitive contra el maestro (el
-                  // archivo trae "Salta", el maestro "SALTA"): el select queda
-                  // preseleccionado con el valor canónico; si no matchea se
-                  // muestra tal cual, marcado, para que el usuario lo corrija.
+                  const edicion = ediciones.get(original.rowId);
+                  // Match de provincia sin acentos/mayúsculas contra el maestro
+                  // (el archivo trae "Tucuman", el maestro "TUCUMÁN"): el select
+                  // queda preseleccionado con el valor canónico; si no matchea
+                  // se muestra tal cual, marcado, para que el usuario lo corrija.
                   const provArchivo = (vista.provincia ?? '').trim();
-                  const provCanon =
-                    provinciasValidas.find((p) => p.toUpperCase() === provArchivo.toUpperCase()) ?? provArchivo;
-                  const provInvalida = provArchivo !== '' && !provinciasValidas.includes(provCanon);
+                  const provCanon = canonizarProvincia(provArchivo, provinciasValidas) ?? provArchivo;
+                  const provInvalida = provArchivo !== '' && canonizarProvincia(provArchivo, provinciasValidas) === null;
+                  const bloqueadaPorCuadratura = tieneError && bloqueoServidor === null && esBloqueoDeCuadratura(detalle);
+                  const kArchivoDistinto =
+                    preview.k_nombre_archivo !== null && vista.contrato !== '' && vista.contrato !== preview.k_nombre_archivo;
                   return (
                     <Fragment key={original.rowId}>
                       <tr className={`border-b border-line align-top text-ink last:border-0 ${vista.excluida ? 'opacity-60' : ''}`}>
@@ -783,9 +1133,13 @@ export default function CargaCertificacionesPage() {
                             onChange={(e) => setExcluida(original.rowId, !e.target.checked)}
                           />
                         </td>
-                        <td className="max-w-[220px] px-3 py-2.5" title={original.tarea ?? ''}>
-                          <p className="font-medium">{original.item_codigo}</p>
-                          <p className="truncate text-xs text-slate">{original.tarea}</p>
+                        <td className="px-3 py-2.5">
+                          <input
+                            aria-label={`Ítem ${original.rowId}`}
+                            value={vista.item_codigo}
+                            onChange={(e) => setEdicionCampo(original.rowId, 'item_codigo', e.target.value)}
+                            className={`${inputCls} w-20`}
+                          />
                         </td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1">
@@ -834,28 +1188,35 @@ export default function CargaCertificacionesPage() {
                             value={vista.cantidades ?? ''}
                             inputMode="decimal"
                             onChange={(e) => setEdicionCampo(original.rowId, 'cantidades', e.target.value)}
-                            className={`${inputCls} w-16 text-right`}
+                            className={`${inputCls} w-16 text-right${bloqueadaPorCuadratura ? ' border-danger' : ''}`}
+                          />
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <input
+                            aria-label={`$ Unitario ${original.rowId}`}
+                            value={mostrarTotal(vista.precio_unitario, edicion?.precio_unitario !== undefined)}
+                            inputMode="decimal"
+                            onChange={(e) => setEdicionCampo(original.rowId, 'precio_unitario', e.target.value)}
+                            className={`${inputCls} w-28 text-right tabular-nums`}
                           />
                         </td>
                         <td className="px-3 py-2.5 text-right">
                           <input
                             aria-label={`Total ${original.rowId}`}
-                            value={mostrarTotal(vista.total_mes, ediciones.get(original.rowId)?.total_mes !== undefined)}
+                            value={mostrarTotal(vista.total_mes, edicion?.total_mes !== undefined)}
                             inputMode="decimal"
                             onChange={(e) => setEdicionCampo(original.rowId, 'total_mes', e.target.value)}
-                            className={`${inputCls} w-32 text-right tabular-nums`}
+                            className={`${inputCls} w-32 text-right tabular-nums${bloqueadaPorCuadratura ? ' border-danger' : ''}`}
                           />
                         </td>
                         <td className="px-3 py-2.5">
-                          {vista.excluida ? (
-                            <span className={BADGE_EXCLUIDA}>Excluida</span>
-                          ) : tieneError ? (
-                            <span className={BADGE_WARN} title={detalle ?? ''}>
-                              {detalle && detalle.length <= 22 ? detalle : 'Revisar'}
-                            </span>
-                          ) : (
-                            <span className={BADGE_OK}>OK</span>
-                          )}
+                          <CeldaEstado
+                            excluida={vista.excluida}
+                            tieneError={tieneError}
+                            detalle={detalle}
+                            confirmada={vista.confirmada}
+                            cuadra={cuadratura.cuadra}
+                          />
                         </td>
                         <td className="px-3 py-2.5 text-right text-xs text-slate">
                           <button type="button" onClick={() => toggleExpandida(original.rowId)} aria-expanded={expandida}>
@@ -865,38 +1226,90 @@ export default function CargaCertificacionesPage() {
                       </tr>
                       {expandida && (
                         <tr className="border-b border-line last:border-0">
-                          <td colSpan={8} className="bg-sand/30 px-3 py-3">
+                          <td colSpan={9} className="bg-sand/30 px-3 py-3">
                             <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
                               <div>
-                                <dt className="text-xs uppercase tracking-wide text-slate">Hoja</dt>
-                                <dd className="text-sm text-ink">{original.hoja_origen}</dd>
-                              </div>
-                              <div>
-                                <dt className="text-xs uppercase tracking-wide text-slate">$ Unitario</dt>
-                                <dd className="text-sm tabular-nums text-ink">{fmtMoney(original.precio_unitario)}</dd>
+                                <dt className="text-xs uppercase tracking-wide text-slate">Hoja / página</dt>
+                                <dd className="text-sm text-ink">
+                                  {original.hoja_origen} · fila {original.fila_excel}
+                                </dd>
                               </div>
                               <div>
                                 <dt className="text-xs uppercase tracking-wide text-slate">Región</dt>
                                 <dd className="text-sm text-ink">{original.region || '—'}</dd>
                               </div>
-                              <div>
-                                <dt className="text-xs uppercase tracking-wide text-slate">Fila del archivo</dt>
-                                <dd className="text-sm text-ink">{original.fila_excel}</dd>
+                              <div className="col-span-2">
+                                <dt className="text-xs uppercase tracking-wide text-slate">Tarea</dt>
+                                <dd className="text-sm text-ink">{original.tarea || '—'}</dd>
                               </div>
+                              <div className="col-span-2">
+                                <dt className="text-xs uppercase tracking-wide text-slate">Observaciones</dt>
+                                <dd className="text-sm text-ink">{original.observaciones || '—'}</dd>
+                              </div>
+                              {edicion?.item_codigo !== undefined && (
+                                <div className="col-span-2">
+                                  <dt className="text-xs uppercase tracking-wide text-slate">Ítem editado</dt>
+                                  <dd className="text-sm text-ink">El ítem editado se verifica al confirmar</dd>
+                                </div>
+                              )}
                               {reasignado && (
-                                <div className="col-span-2 sm:col-span-4">
+                                <div className="col-span-2">
                                   <dt className="text-xs uppercase tracking-wide text-slate">Reasignación de contrato</dt>
                                   <dd className="text-sm text-ink">
                                     archivo: {original.contrato_archivo} → {vista.contrato} (resuelto por el maestro)
                                   </dd>
                                 </div>
                               )}
-                              {tieneError && detalle && (
+                              {kArchivoDistinto && (
                                 <div className="col-span-2 sm:col-span-4">
-                                  <dt className="text-xs uppercase tracking-wide text-slate">Detalle del problema</dt>
-                                  <dd className="text-sm text-warn">{detalle}</dd>
+                                  <dt className="text-xs uppercase tracking-wide text-slate">Contrato</dt>
+                                  <dd className="text-sm text-ink">
+                                    El nombre del archivo dice {preview.k_nombre_archivo} · esta fila se resolvió en {vista.contrato} ·
+                                    si la plata va a {preview.k_nombre_archivo}, cambiá el contrato arriba.
+                                  </dd>
                                 </div>
                               )}
+                              {bloqueoServidor !== null && (
+                                <div className="col-span-2 sm:col-span-4">
+                                  <dt className="text-xs uppercase tracking-wide text-slate">Bloqueada por el servidor</dt>
+                                  <dd className="text-sm text-danger">{bloqueoServidor}</dd>
+                                </div>
+                              )}
+                              {tieneError && detalle && !esBloqueoDeCuadratura(detalle) && bloqueoServidor === null && (
+                                <div className="col-span-2 sm:col-span-4">
+                                  <dt className="text-xs uppercase tracking-wide text-slate">Detalle del bloqueo</dt>
+                                  <dd className="text-sm text-danger">{detalle}</dd>
+                                </div>
+                              )}
+                              <BloqueCuadratura
+                                cuadratura={cuadratura}
+                                cantidades={vista.cantidades}
+                                precioUnitario={vista.precio_unitario}
+                                totalMes={vista.total_mes}
+                                bloqueada={bloqueadaPorCuadratura}
+                              >
+                                {bloqueadaPorCuadratura && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {cuadratura.sugerencia_cantidad && (
+                                      <Button
+                                        variant="primary"
+                                        size="xs"
+                                        onClick={() =>
+                                          setEdicionCampo(original.rowId, 'cantidades', cuadratura.sugerencia_cantidad!)
+                                        }
+                                      >
+                                        Usar cantidad {cuadratura.sugerencia_cantidad}
+                                      </Button>
+                                    )}
+                                    <Button variant="secondary" size="xs" onClick={() => setConfirmada(original.rowId)}>
+                                      Confirmar así
+                                    </Button>
+                                    <Button variant="secondary" size="xs" onClick={() => setExcluida(original.rowId, true)}>
+                                      Excluir fila
+                                    </Button>
+                                  </div>
+                                )}
+                              </BloqueCuadratura>
                             </dl>
                           </td>
                         </tr>
@@ -904,18 +1317,154 @@ export default function CargaCertificacionesPage() {
                     </Fragment>
                   );
                 })}
-                {enPagina.length === 0 && (
+
+                {/* Filas MANUALES: siempre al final, sin paginar ni filtrar
+                    (son pocas y las acaba de agregar el usuario). */}
+                {manualesCalculadas.map(({ manual, tieneError, detalle, cuadratura, bloqueoServidor }) => {
+                  const expandida = expandidas.has(manual.localId);
+                  const bloqueadaPorCuadratura = tieneError && bloqueoServidor === null && esBloqueoDeCuadratura(detalle);
+                  return (
+                    <Fragment key={manual.localId}>
+                      <tr className="border-b border-line align-top text-ink last:border-0">
+                        <td className="px-3 py-2.5">
+                          <button
+                            type="button"
+                            className="text-xs text-slate underline-offset-2 hover:text-danger hover:underline"
+                            onClick={() => quitarManual(manual.localId)}
+                          >
+                            Quitar
+                          </button>
+                        </td>
+                        <td className="px-3 py-2.5 font-medium">{manual.item.item_codigo}</td>
+                        <td className="px-3 py-2.5">{manual.item.codigo_k}</td>
+                        <td className="px-3 py-2.5">{manual.provincia}</td>
+                        <td className="px-3 py-2.5 text-right">
+                          <input
+                            aria-label={`Cantidad ${manual.localId}`}
+                            value={manual.cantidades}
+                            inputMode="decimal"
+                            onChange={(e) => setManualCampo(manual.localId, 'cantidades', e.target.value)}
+                            className={`${inputCls} w-16 text-right${bloqueadaPorCuadratura ? ' border-danger' : ''}`}
+                          />
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <input
+                            aria-label={`$ Unitario ${manual.localId}`}
+                            value={manual.precio_unitario}
+                            inputMode="decimal"
+                            onChange={(e) => setManualCampo(manual.localId, 'precio_unitario', e.target.value)}
+                            className={`${inputCls} w-28 text-right tabular-nums`}
+                          />
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <input
+                            aria-label={`Total ${manual.localId}`}
+                            value={manual.total_mes}
+                            inputMode="decimal"
+                            onChange={(e) => setManualCampo(manual.localId, 'total_mes', e.target.value)}
+                            className={`${inputCls} w-32 text-right tabular-nums${bloqueadaPorCuadratura ? ' border-danger' : ''}`}
+                          />
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <CeldaEstado
+                            excluida={false}
+                            manual
+                            tieneError={tieneError}
+                            detalle={detalle}
+                            confirmada={manual.confirmada ?? false}
+                            cuadra={cuadratura.cuadra}
+                          />
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-xs text-slate">
+                          <button type="button" onClick={() => toggleExpandida(manual.localId)} aria-expanded={expandida}>
+                            {expandida ? 'Cerrar ▴' : 'Detalle ▾'}
+                          </button>
+                        </td>
+                      </tr>
+                      {expandida && (
+                        <tr className="border-b border-line last:border-0">
+                          <td colSpan={9} className="bg-sand/30 px-3 py-3">
+                            <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
+                              <div>
+                                <dt className="text-xs uppercase tracking-wide text-slate">Hoja / página</dt>
+                                <dd className="text-sm text-ink">agregada a mano en este paso</dd>
+                              </div>
+                              <div className="col-span-2">
+                                <dt className="text-xs uppercase tracking-wide text-slate">Tarea</dt>
+                                <dd className="text-sm text-ink">{manual.item.tarea}</dd>
+                              </div>
+                              {bloqueoServidor !== null && (
+                                <div className="col-span-2 sm:col-span-4">
+                                  <dt className="text-xs uppercase tracking-wide text-slate">Bloqueada por el servidor</dt>
+                                  <dd className="text-sm text-danger">{bloqueoServidor}</dd>
+                                </div>
+                              )}
+                              {tieneError && detalle && !esBloqueoDeCuadratura(detalle) && bloqueoServidor === null && (
+                                <div className="col-span-2 sm:col-span-4">
+                                  <dt className="text-xs uppercase tracking-wide text-slate">Detalle del bloqueo</dt>
+                                  <dd className="text-sm text-danger">{detalle}</dd>
+                                </div>
+                              )}
+                              <BloqueCuadratura
+                                cuadratura={cuadratura}
+                                cantidades={manual.cantidades}
+                                precioUnitario={manual.precio_unitario}
+                                totalMes={manual.total_mes}
+                                bloqueada={bloqueadaPorCuadratura}
+                              >
+                                {bloqueadaPorCuadratura && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {cuadratura.sugerencia_cantidad && (
+                                      <Button
+                                        variant="primary"
+                                        size="xs"
+                                        onClick={() =>
+                                          setManualCampo(manual.localId, 'cantidades', cuadratura.sugerencia_cantidad!)
+                                        }
+                                      >
+                                        Usar cantidad {cuadratura.sugerencia_cantidad}
+                                      </Button>
+                                    )}
+                                    <Button variant="secondary" size="xs" onClick={() => setManualConfirmada(manual.localId)}>
+                                      Confirmar así
+                                    </Button>
+                                    <Button variant="secondary" size="xs" onClick={() => quitarManual(manual.localId)}>
+                                      Quitar fila
+                                    </Button>
+                                  </div>
+                                )}
+                              </BloqueCuadratura>
+                            </dl>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+
+                {enPagina.length === 0 && manualesCalculadas.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-3 py-4 text-sm text-slate">
-                      {soloProblemas ? 'No quedan filas con problema.' : 'Sin filas para las hojas seleccionadas.'}
+                    <td colSpan={9} className="px-3 py-4 text-sm text-slate">
+                      {soloProblemas ? 'No quedan filas bloqueadas.' : 'Sin filas para las hojas seleccionadas.'}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+            {mostrarFormManual && (
+              <div className="border-t border-line px-4 py-3.5">
+                <FilaManualForm
+                  items={itemsMaestro ?? []}
+                  provincias={provinciasValidas}
+                  onAgregar={agregarManual}
+                  onCancelar={() => setMostrarFormManual(false)}
+                />
+              </div>
+            )}
             <div className="flex items-center justify-between border-t border-line px-4 py-3 text-[13px] text-slate">
               <span>
                 Página {paginaSegura} de {totalPaginas} · {filasVisibles.length} {plural(filasVisibles.length, 'fila', 'filas')}
+                {manuales.length > 0 ? ` · ${manuales.length} ${plural(manuales.length, 'manual', 'manuales')}` : ''}
               </span>
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm" disabled={paginaSegura <= 1} onClick={() => setPagina((p) => Math.max(1, p - 1))}>
@@ -933,16 +1482,27 @@ export default function CargaCertificacionesPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <Button variant="ghost" onClick={() => setStep(2)}>
-              Atrás
-            </Button>
-            <div className="flex items-center gap-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {bloqueadas > 0 ? (
+              <span className="text-[13px] text-danger">
+                No podés confirmar: hay {bloqueadas} {plural(bloqueadas, 'fila bloqueada', 'filas bloqueadas')}.{' '}
+                {plural(bloqueadas, 'Corregila, confirmala o excluila.', 'Corregilas, confirmalas o excluilas.')}
+              </span>
+            ) : (
               <span className="text-[13px] tabular-nums text-slate">
                 {aCargar} {plural(aCargar, 'fila', 'filas')} · $ {fmtMoney(montoACargar)}
               </span>
-              <Button variant="primary" disabled={aCargar === 0 || confirmarMut.isPending} onClick={() => setModalAbierto(true)}>
-                Revisar y cargar
+            )}
+            <div className="flex items-center gap-2.5">
+              <Button variant="ghost" onClick={() => setStep(2)}>
+                Volver a hojas
+              </Button>
+              <Button
+                variant="primary"
+                disabled={bloqueadas > 0 || aCargar === 0 || confirmarMut.isPending}
+                onClick={() => setModalAbierto(true)}
+              >
+                Confirmar carga
               </Button>
             </div>
           </div>
@@ -993,7 +1553,7 @@ export default function CargaCertificacionesPage() {
                     <dd className="mt-1 font-display text-xl font-semibold text-ink">
                       {aCargar}{' '}
                       <span className="font-sans text-[13px] font-normal text-slate">
-                        a cargar{conProblema > 0 ? ` · ${conProblema} ${plural(conProblema, 'omitida', 'omitidas')}` : ''}
+                        a cargar{manualesOk > 0 ? ` · ${manualesOk} ${plural(manualesOk, 'manual', 'manuales')}` : ''}
                         {excluidasCount > 0 ? ` · ${excluidasCount} ${plural(excluidasCount, 'excluida', 'excluidas')}` : ''}
                       </span>
                     </dd>
@@ -1004,14 +1564,14 @@ export default function CargaCertificacionesPage() {
                   </div>
                 </dl>
 
-                {(conProblema > 0 || descuadre) && (
+                {/* Con filas bloqueadas no se llega acá (el botón está
+                    deshabilitado): lo único que queda por avisar es el
+                    descuadre contra el total declarado. */}
+                {descuadre && (
                   <div className="flex items-start gap-2.5 rounded-lg bg-warn/8 px-3 py-2.5 text-[13px] text-warn">
                     <IconoAviso size={16} />
                     <span>
-                      {conProblema > 0 &&
-                        `${conProblema} ${plural(conProblema, 'fila con problema no se carga', 'filas con problema no se cargan')}. `}
-                      {descuadre &&
-                        `El total queda $ ${fmtMoney(Math.abs(diferencia))} ${diferencia > 0 ? 'por debajo' : 'por encima'} del declarado en el archivo.`}
+                      {`El total queda $ ${fmtMoney(Math.abs(diferencia))} ${diferencia > 0 ? 'por debajo' : 'por encima'} del declarado en el archivo.`}
                     </span>
                   </div>
                 )}
@@ -1039,8 +1599,9 @@ export default function CargaCertificacionesPage() {
             <div>
               <p className="font-display text-xl font-semibold text-ink">Certificación cargada</p>
               <p className="mt-1 text-sm text-slate">
-                {resultado.insertadas} {plural(resultado.insertadas, 'fila insertada', 'filas insertadas')} · {resultado.omitidas}{' '}
-                {plural(resultado.omitidas, 'omitida', 'omitidas')} · {periodoTexto}
+                {resultado.insertadas} {plural(resultado.insertadas, 'fila insertada', 'filas insertadas')}
+                {(resultado.manuales ?? 0) > 0 ? ` (${resultado.manuales} ${plural(resultado.manuales, 'manual', 'manuales')})` : ''} ·{' '}
+                {resultado.omitidas} {plural(resultado.omitidas, 'omitida', 'omitidas')} · {periodoTexto}
               </p>
             </div>
           </div>

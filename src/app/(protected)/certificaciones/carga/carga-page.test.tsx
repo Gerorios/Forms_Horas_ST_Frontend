@@ -1,18 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { FilaPreview, RespuestaPreviewCarga, RespuestaConfirmarCarga } from '@/lib/api/certificaciones';
+import { toast } from 'sonner';
+import type {
+  FilaPreview,
+  RespuestaPreviewCarga,
+  RespuestaConfirmarCarga,
+  ItemMaestroCarga,
+} from '@/lib/api/certificaciones';
 
 const usePreviewCarga = vi.fn();
 const useConfirmarCarga = vi.fn();
 const useProvinciasAnalytics = vi.fn();
 const useContratosAnalytics = vi.fn();
+const useItemsMaestroCarga = vi.fn();
 
 vi.mock('@/lib/api/certificaciones', () => ({
   usePreviewCarga: (...args: unknown[]) => usePreviewCarga(...args),
   useConfirmarCarga: (...args: unknown[]) => useConfirmarCarga(...args),
   useProvinciasAnalytics: (...args: unknown[]) => useProvinciasAnalytics(...args),
   useContratosAnalytics: (...args: unknown[]) => useContratosAnalytics(...args),
+  useItemsMaestroCarga: (...args: unknown[]) => useItemsMaestroCarga(...args),
 }));
 
 const useSession = vi.fn();
@@ -82,6 +90,16 @@ function previewBase(overrides: Partial<RespuestaPreviewCarga> = {}): RespuestaP
   };
 }
 
+const ITEMS_MAESTRO: ItemMaestroCarga[] = [
+  {
+    id_item: 77,
+    item_codigo: '5',
+    codigo_k: 'K12',
+    tarea: 'Adicional para servicios que superen los 3 metros',
+    unidad_medida: 'UN',
+  },
+];
+
 const preview = vi.fn();
 const confirmar = vi.fn();
 
@@ -91,15 +109,17 @@ beforeEach(() => {
   useConfirmarCarga.mockReturnValue({ mutateAsync: confirmar, isPending: false });
   useProvinciasAnalytics.mockReturnValue({ data: ['Salta', 'Jujuy'] });
   useContratosAnalytics.mockReturnValue({ data: ['K6', 'K12'] });
+  useItemsMaestroCarga.mockReturnValue({ data: ITEMS_MAESTRO });
   preview.mockReset();
   confirmar.mockReset();
   push.mockClear();
+  vi.mocked(toast.error).mockClear();
 });
 
-/** Rediseño: "Revisar y cargar" abre el modal de resumen; la carga real se
- * dispara con "Cargar N fila(s)" adentro del modal. */
+/** "Confirmar carga" abre el modal de resumen; la carga real se dispara con
+ * "Cargar N fila(s)" adentro del modal. */
 async function confirmarDesdeModal() {
-  await userEvent.click(screen.getByRole('button', { name: /revisar y cargar/i }));
+  await userEvent.click(screen.getByRole('button', { name: /confirmar carga/i }));
   await userEvent.click(await screen.findByRole('button', { name: /^cargar \d+ filas?$/i }));
 }
 
@@ -213,7 +233,7 @@ describe('CargaCertificacionesPage', () => {
     expect(screen.getByTestId('metrica-a-cargar')).toHaveTextContent(/^0$/);
 
     // Sin filas a cargar no se puede seguir (paridad con el portal).
-    expect(screen.getByRole('button', { name: /revisar y cargar/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /confirmar carga/i })).toBeDisabled();
     expect(confirmar).not.toHaveBeenCalled();
   });
 
@@ -323,7 +343,7 @@ describe('CargaCertificacionesPage', () => {
     await userEvent.type(cantidadInput, '9');
 
     // Vuelvo al paso 2 y deselecciono la hoja de rB.
-    await userEvent.click(screen.getByRole('button', { name: /atrás/i }));
+    await userEvent.click(screen.getByRole('button', { name: /volver a hojas/i }));
     await userEvent.click(screen.getByRole('button', { name: 'CERTIF K2' }));
     await userEvent.click(screen.getByRole('button', { name: /ver filas/i }));
 
@@ -353,7 +373,7 @@ describe('CargaCertificacionesPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
 
     expect(await screen.findByTestId('metrica-monto')).toHaveTextContent('$ 1.500,50');
-    expect(screen.getByTestId('metrica-monto').parentElement).toHaveTextContent('el archivo declara $ 1.500,50');
+    expect(screen.getByTestId('metrica-monto').parentElement).toHaveTextContent('declara $ 1.500,50');
   });
 
   it('preselecciona la provincia del archivo aunque el maestro la escriba con otras mayúsculas', async () => {
@@ -367,7 +387,7 @@ describe('CargaCertificacionesPage', () => {
 
     const select = (await screen.findByLabelText('Provincia r1')) as HTMLSelectElement;
     expect(select.value).toBe('SANTIAGO DEL ESTERO');
-    expect(screen.getByTestId('metrica-con-problema')).toHaveTextContent(/^0$/);
+    expect(screen.getByTestId('metrica-bloqueadas')).toHaveTextContent(/^0$/);
   });
 
   it('total declarado 0 en el archivo: sin aviso de descuadre ni métrica de declarado', async () => {
@@ -383,7 +403,7 @@ describe('CargaCertificacionesPage', () => {
 
     expect(await screen.findByTestId('metrica-monto')).toHaveTextContent('$ 300,00');
     expect(screen.getByTestId('metrica-monto').parentElement).toHaveTextContent('el archivo no declara un total');
-    expect(screen.queryByText(/no coincide con el total declarado/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('aviso-descuadre')).not.toBeInTheDocument();
   });
 
   it('modal de confirmación: muestra archivo, contratos, filas y total; "Volver a revisar" cierra sin cargar', async () => {
@@ -401,7 +421,7 @@ describe('CargaCertificacionesPage', () => {
     await subirArchivo();
     await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
 
-    await userEvent.click(screen.getByRole('button', { name: /revisar y cargar/i }));
+    await userEvent.click(screen.getByRole('button', { name: /confirmar carga/i }));
     const dialog = await screen.findByRole('dialog', { name: /confirmar la carga/i });
     expect(dialog).toHaveTextContent('CERTIFICADO K12.xlsx');
     expect(dialog).toHaveTextContent('K12');
@@ -432,8 +452,202 @@ describe('CargaCertificacionesPage', () => {
     await subirArchivo();
     await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
 
-    expect(await screen.findByText(/no coincide con el total declarado/i)).toBeInTheDocument();
+    expect(await screen.findByText(/la suma no cierra con el total declarado/i)).toBeInTheDocument();
     // No bloqueante: el botón de confirmar sigue habilitado.
-    expect(screen.getByRole('button', { name: /revisar y cargar/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /confirmar carga/i })).not.toBeDisabled();
+  });
+  // ── Paso 3 según el mockup 2026-09-07 ─────────────────────────────────
+
+  /** La fila 132 del K11 real: la columna ignorada CUENTA metió 922 donde iba
+   * la cantidad (221), así que la fila no cuadra y queda BLOQUEADA. */
+  function previewNoCuadra() {
+    return previewBase({
+      resumen: { total: 1, con_error: 1, bloqueadas: 1, total_mes: 14804768, total_declarado: 0 },
+      filas: [
+        filaBase({
+          rowId: 'row-1',
+          item_codigo: '132',
+          cantidades: '922',
+          precio_unitario: '66989.90',
+          total_mes: '14804768',
+          tiene_error: true,
+          error_detalle: 'No cuadra: 922 × 66989.90 = 61764687.80, impreso 14804768 (dif. $ 46959919.80)',
+          cuadratura: {
+            calculado: 61764687.8,
+            impreso: 14804768,
+            diferencia: -46959919.8,
+            cuadra: false,
+            sugerencia_cantidad: '221',
+          },
+        }),
+      ],
+    });
+  }
+
+  it('fila que no cuadra: badge "No cuadra", tile Bloqueadas = 1 y Confirmar deshabilitado con motivo', async () => {
+    preview.mockResolvedValue(previewNoCuadra());
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    const tabla = screen.getByRole('table', { name: /filas de la carga/i });
+    expect(within(tabla).getByText('No cuadra')).toBeInTheDocument();
+    expect(screen.getByTestId('metrica-bloqueadas')).toHaveTextContent('1');
+    expect(screen.getByRole('button', { name: /confirmar carga/i })).toBeDisabled();
+    expect(screen.getByText(/hay 1 fila bloqueada/i)).toBeInTheDocument();
+  });
+
+  it('"Usar cantidad 221" corrige la fila y la desbloquea', async () => {
+    preview.mockResolvedValue(previewNoCuadra());
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    await userEvent.click(screen.getByRole('button', { name: /detalle/i }));
+    // Las tres cifras de la cuadratura, visibles antes de decidir.
+    expect(screen.getByText(/impreso 14\.804\.768,00 · diferencia/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /usar cantidad 221/i }));
+
+    expect(screen.getByLabelText('Cantidad row-1')).toHaveValue('221');
+    expect(screen.getByTestId('metrica-bloqueadas')).toHaveTextContent('0');
+    expect(screen.getByRole('button', { name: /confirmar carga/i })).toBeEnabled();
+    expect(within(screen.getByRole('table', { name: /filas de la carga/i })).getByText('Cuadra')).toBeInTheDocument();
+  });
+
+  it('"Confirmar así" desbloquea y manda confirmada: true al confirmar', async () => {
+    preview.mockResolvedValue(previewNoCuadra());
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    await userEvent.click(screen.getByRole('button', { name: /detalle/i }));
+    await userEvent.click(screen.getByRole('button', { name: /confirmar así/i }));
+
+    expect(screen.getByTestId('metrica-bloqueadas')).toHaveTextContent('0');
+    expect(screen.getByText('Confirmada así')).toBeInTheDocument();
+
+    confirmar.mockResolvedValue({ mensaje: 'ok', insertadas: 1, omitidas: 0, manuales: 0, errores: [] });
+    await confirmarDesdeModal();
+
+    await waitFor(() =>
+      expect(confirmar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ediciones: expect.arrayContaining([expect.objectContaining({ rowId: 'row-1', confirmada: true })]),
+        }),
+      ),
+    );
+  });
+
+  it('cartel rojo de descuadre contra el total declarado deja confirmar', async () => {
+    preview.mockResolvedValue(
+      previewBase({
+        resumen: { total: 1, con_error: 0, bloqueadas: 0, total_mes: 22474602.04, total_declarado: 22535209.93 },
+        filas: [filaBase({ rowId: 'r1', cantidades: '1', precio_unitario: '22474602.04', total_mes: '22474602.04' })],
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    expect(await screen.findByTestId('aviso-descuadre')).toHaveTextContent('faltan $ 60.607,89');
+    expect(screen.getByTestId('aviso-descuadre')).toHaveTextContent('las bloqueadas no cuentan');
+    expect(screen.getByRole('button', { name: /confirmar carga/i })).toBeEnabled();
+  });
+
+  it('avisos de lectura: columna ignorada y período (fuerte) se muestran', async () => {
+    preview.mockResolvedValue(
+      previewBase({
+        columnas_ignoradas: ['CUENTA'],
+        avisos: [
+          {
+            tipo: 'columna_ignorada',
+            hoja: 'CERTIF K12',
+            fila: 0,
+            mensaje: 'Columna ignorada: CUENTA. Sus valores no se asignaron a ninguna columna.',
+            fuerte: false,
+          },
+          {
+            tipo: 'periodo_archivo',
+            hoja: 'CERTIF K12',
+            fila: 0,
+            mensaje: 'El período del archivo es julio 2026 y elegiste agosto 2026.',
+            fuerte: true,
+          },
+        ],
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    expect(screen.getByText(/columna ignorada: cuenta/i)).toBeInTheDocument();
+    expect(screen.getByTestId('avisos-lectura')).toHaveTextContent(/avisos de lectura/i);
+    expect(screen.getByTestId('avisos-fuertes')).toHaveTextContent(/elegiste agosto 2026/i);
+  });
+
+  it('fila manual: elegir ítem, completar, total propuesto, suma en cuadratura y viaja en manuales', async () => {
+    const user = userEvent.setup();
+    preview.mockResolvedValue(previewBase({ filas: [filaBase({ rowId: 'r1' })] }));
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await user.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    await user.click(screen.getByRole('button', { name: /agregar fila manual/i }));
+    const form = screen.getByTestId('form-manual');
+    await user.selectOptions(within(form).getByLabelText(/ítem del maestro/i), '77');
+    await user.type(within(form).getByLabelText(/^cantidad$/i), '4');
+    await user.type(within(form).getByLabelText(/\$ unitario/i), '15151,96');
+    expect(within(form).getByLabelText(/^\$ total$/i)).toHaveValue('60607.84');
+    await user.click(within(form).getByRole('button', { name: /^agregar$/i }));
+
+    expect(screen.getByTestId('metrica-manuales')).toHaveTextContent('1');
+    const tabla = screen.getByRole('table', { name: /filas de la carga/i });
+    expect(within(tabla).getAllByText('Manual')).toHaveLength(1);
+    // La manual suma en el total a cargar (300 del archivo + 60.607,84).
+    expect(screen.getByTestId('metrica-monto')).toHaveTextContent('$ 60.907,84');
+
+    confirmar.mockResolvedValue({ mensaje: 'ok', insertadas: 2, omitidas: 0, manuales: 1, errores: [] });
+    await confirmarDesdeModal();
+
+    await waitFor(() =>
+      expect(confirmar).toHaveBeenCalledWith({
+        previewId: 'preview-1',
+        ediciones: [],
+        manuales: [{ id_item: 77, provincia: 'Salta', cantidades: '4', precio_unitario: '15151.96', total_mes: '60607.84' }],
+      }),
+    );
+    // Paso 4: el resumen dice cuántas de las insertadas son manuales.
+    await waitFor(() => expect(screen.getByText(/2 filas insertadas \(1 manual\)/i)).toBeInTheDocument());
+  });
+
+  it('422 con bloqueadas del backend: toast con el mensaje y las filas quedan marcadas', async () => {
+    preview.mockResolvedValue(previewBase({ filas: [filaBase({ rowId: 'r1' })] }));
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    confirmar.mockRejectedValue({
+      response: {
+        status: 422,
+        data: {
+          message: 'Hay 1 fila bloqueada. Corregila, confirmala o excluila.',
+          bloqueadas: [{ rowId: 'r1', item_codigo: 'ITEM-01', detalle: "Provincia 'Salta' inválida" }],
+        },
+      },
+    });
+    await confirmarDesdeModal();
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Hay 1 fila bloqueada. Corregila, confirmala o excluila.'));
+    // La fila queda marcada, expandida y con el motivo del servidor a la vista.
+    expect(screen.getByTestId('metrica-bloqueadas')).toHaveTextContent('1');
+    expect(screen.getByText('Bloqueada por el servidor')).toBeInTheDocument();
+    expect(screen.getByText("Provincia 'Salta' inválida")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirmar carga/i })).toBeDisabled();
+
+    // Tocar la fila descarta el bloqueo del intento anterior.
+    await userEvent.clear(screen.getByLabelText('Cantidad r1'));
+    await userEvent.type(screen.getByLabelText('Cantidad r1'), '3');
+    expect(screen.getByTestId('metrica-bloqueadas')).toHaveTextContent('0');
   });
 });
