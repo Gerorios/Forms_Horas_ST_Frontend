@@ -119,6 +119,36 @@ describe('FilaManualForm', () => {
     });
   });
 
+  it('acepta la cifra con punto de miles y coma decimal ("15.151,96")', async () => {
+    const user = userEvent.setup();
+    montar();
+    await user.type(screen.getByLabelText(/^cantidad$/i), '4');
+    await user.type(screen.getByLabelText(/\$ unitario/i), '15.151,96');
+    expect(screen.getByLabelText(/\$ unitario/i)).toHaveValue('15151.96');
+    expect(screen.getByLabelText(/^\$ total$/i)).toHaveValue('60607.84');
+  });
+
+  it('observaciones: opcional, tope de 500 y viaja solo si el usuario escribió algo', async () => {
+    const user = userEvent.setup();
+    montar();
+    const obs = screen.getByLabelText(/observaciones/i);
+    expect(obs).toHaveAttribute('maxLength', '500');
+
+    await user.selectOptions(screen.getByLabelText(/ítem del maestro/i), '77');
+    await user.type(screen.getByLabelText(/^cantidad$/i), '4');
+    await user.type(screen.getByLabelText(/\$ unitario/i), '100');
+    // Sin observaciones: la clave no aparece en el payload.
+    await user.click(screen.getByRole('button', { name: /^agregar$/i }));
+    expect(onAgregar).toHaveBeenCalledWith(expect.not.objectContaining({ observaciones: expect.anything() }));
+
+    onAgregar.mockReset();
+    await user.type(obs, '  Fila que el PDF no dejó leer  ');
+    await user.click(screen.getByRole('button', { name: /^agregar$/i }));
+    expect(onAgregar).toHaveBeenCalledWith(
+      expect.objectContaining({ observaciones: 'Fila que el PDF no dejó leer' }),
+    );
+  });
+
   it('Cancelar avisa al caller sin agregar nada', async () => {
     const user = userEvent.setup();
     montar();

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/button';
 import type { FilaManualCarga, ItemMaestroCarga } from '@/lib/api/certificaciones';
+import { normalizarCifraEsAr } from '@/features/certificaciones/carga/revalidar';
 
 /** Formulario de FILA MANUAL del paso 3 (mockup 2026-09-07): el parser no
  * reconoció una línea que sí está en el documento y el usuario la agrega a
@@ -18,15 +19,13 @@ import type { FilaManualCarga, ItemMaestroCarga } from '@/lib/api/certificacione
 const inputCls =
   'rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
 
-/** Coma→punto para que un usuario es-AR pueda tipear "15151,96". Copia del
- * helper de `page.tsx` (3 líneas, no vale un módulo compartido). */
-function normalizarDecimal(v: string): string {
-  return v.trim().replace(',', '.');
-}
-
+/** Regla de cifras es-AR compartida con `page.tsx` y con el espejo de
+ * validación: vive UNA sola vez en `revalidar.ts` (`normalizarCifraEsAr`),
+ * que además es el espejo de `parsearMontoTexto` del backend. */
 function num(v: string): number | null {
-  if (v.trim() === '') return null;
-  const n = Number(v.replace(',', '.'));
+  const t = normalizarCifraEsAr(v);
+  if (t === '') return null;
+  const n = Number(t);
   return Number.isNaN(n) ? null : n;
 }
 
@@ -54,6 +53,9 @@ export function FilaManualForm({
    * `null` (no a `''`) para que el propuesto reaparezca en vez de dejar el
    * input vacío. */
   const [totalTipeado, setTotalTipeado] = useState<string | null>(null);
+  /** Observaciones: opcional y libre (máx. 500, el mismo tope que el DTO del
+   * backend). Sirve para dejar dicho POR QUÉ se agregó la fila a mano. */
+  const [observaciones, setObservaciones] = useState('');
 
   const cant = num(cantidad);
   const unit = num(unitario);
@@ -65,6 +67,7 @@ export function FilaManualForm({
 
   function agregar() {
     if (!item) return;
+    const obs = observaciones.trim();
     onAgregar({
       item,
       id_item: item.id_item,
@@ -72,6 +75,9 @@ export function FilaManualForm({
       cantidades: cantidad,
       precio_unitario: unitario,
       total_mes: total,
+      // Solo viaja si el usuario escribió algo: el campo es opcional en el
+      // DTO y no vale mandar un string vacío.
+      ...(obs !== '' ? { observaciones: obs } : {}),
     });
   }
 
@@ -117,7 +123,7 @@ export function FilaManualForm({
           <input
             value={cantidad}
             inputMode="decimal"
-            onChange={(e) => setCantidad(normalizarDecimal(e.target.value))}
+            onChange={(e) => setCantidad(normalizarCifraEsAr(e.target.value))}
             className={`${inputCls} text-right tabular-nums`}
           />
         </label>
@@ -127,7 +133,7 @@ export function FilaManualForm({
           <input
             value={unitario}
             inputMode="decimal"
-            onChange={(e) => setUnitario(normalizarDecimal(e.target.value))}
+            onChange={(e) => setUnitario(normalizarCifraEsAr(e.target.value))}
             className={`${inputCls} text-right tabular-nums`}
           />
         </label>
@@ -141,7 +147,7 @@ export function FilaManualForm({
               value={total}
               inputMode="decimal"
               onChange={(e) => {
-                const v = normalizarDecimal(e.target.value);
+                const v = normalizarCifraEsAr(e.target.value);
                 setTotalTipeado(v === '' ? null : v);
               }}
               className={`${inputCls} text-right tabular-nums`}
@@ -165,6 +171,17 @@ export function FilaManualForm({
           </Button>
         </div>
       </div>
+
+      <label className="grid gap-1">
+        <span className="text-xs uppercase tracking-wide text-slate">Observaciones (opcional)</span>
+        <input
+          value={observaciones}
+          maxLength={500}
+          onChange={(e) => setObservaciones(e.target.value)}
+          placeholder="Por qué se agrega a mano, referencia del documento…"
+          className={inputCls}
+        />
+      </label>
 
       {item && (
         <p className="text-xs text-slate">
