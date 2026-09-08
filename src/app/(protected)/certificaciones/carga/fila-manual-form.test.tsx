@@ -52,10 +52,39 @@ describe('FilaManualForm', () => {
     await user.type(screen.getByLabelText(/\$ unitario/i), '100');
     expect(screen.getByLabelText(/^\$ total$/i)).toHaveValue('400.00');
 
-    await user.clear(screen.getByLabelText(/^\$ total$/i));
-    await user.type(screen.getByLabelText(/^\$ total$/i), '395,50');
+    await user.tripleClick(screen.getByLabelText(/^\$ total$/i));
+    await user.keyboard('395,50');
     await user.type(screen.getByLabelText(/^cantidad$/i), '0');
     expect(screen.getByLabelText(/^\$ total$/i)).toHaveValue('395.50');
+  });
+
+  it('si el usuario borra el total del todo, vuelve a proponerse cantidad × unitario', async () => {
+    const user = userEvent.setup();
+    montar();
+    await user.type(screen.getByLabelText(/^cantidad$/i), '4');
+    await user.type(screen.getByLabelText(/\$ unitario/i), '100');
+    expect(screen.getByLabelText(/^\$ total$/i)).toHaveValue('400.00');
+
+    await user.tripleClick(screen.getByLabelText(/^\$ total$/i));
+    await user.keyboard('395,50');
+    expect(screen.getByLabelText(/^\$ total$/i)).toHaveValue('395.50');
+
+    await user.clear(screen.getByLabelText(/^\$ total$/i));
+    expect(screen.getByLabelText(/^\$ total$/i)).toHaveValue('400.00');
+  });
+
+  it('Agregar queda deshabilitado si el total quedó vacío', async () => {
+    const user = userEvent.setup();
+    montar();
+    await user.selectOptions(screen.getByLabelText(/ítem del maestro/i), '77');
+    await user.type(screen.getByLabelText(/^cantidad$/i), '4');
+    await user.type(screen.getByLabelText(/\$ unitario/i), '100');
+    expect(screen.getByRole('button', { name: /^agregar$/i })).toBeEnabled();
+
+    await user.clear(screen.getByLabelText(/^\$ total$/i));
+    await user.clear(screen.getByLabelText(/^cantidad$/i));
+    expect(screen.getByLabelText(/^\$ total$/i)).toHaveValue('');
+    expect(screen.getByRole('button', { name: /^agregar$/i })).toBeDisabled();
   });
 
   it('Agregar queda deshabilitado hasta tener ítem, provincia, cantidad y unitario', async () => {

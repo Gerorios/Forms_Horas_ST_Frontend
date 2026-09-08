@@ -720,7 +720,8 @@ export default function CargaCertificacionesPage() {
         setBloqueosServidor(new Map(locales.map((b) => [b.local, b.detalle])));
         setExpandidas((prev) => new Set([...prev, ...locales.map((b) => b.local)]));
         setModalAbierto(false);
-        setSoloProblemas(false);
+        setSoloProblemas(true);
+        setPagina(1);
         toast.error(resp.data?.message ?? 'Hay filas bloqueadas.');
         return;
       }

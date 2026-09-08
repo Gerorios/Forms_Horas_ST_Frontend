@@ -644,10 +644,75 @@ describe('CargaCertificacionesPage', () => {
     expect(screen.getByText('Bloqueada por el servidor')).toBeInTheDocument();
     expect(screen.getByText("Provincia 'Salta' inválida")).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /confirmar carga/i })).toBeDisabled();
+    // El toggle queda en "solo bloqueadas": es lo que el usuario necesita ver.
+    expect(screen.getByRole('button', { name: /ver todas/i })).toHaveAttribute('aria-pressed', 'true');
 
     // Tocar la fila descarta el bloqueo del intento anterior.
     await userEvent.clear(screen.getByLabelText('Cantidad r1'));
     await userEvent.type(screen.getByLabelText('Cantidad r1'), '3');
     expect(screen.getByTestId('metrica-bloqueadas')).toHaveTextContent('0');
+  });
+
+  it('422 con más de 50 filas: tras el error el toggle "solo bloqueadas" queda activo y la fila bloqueada se ve aunque esté más allá de la página 1', async () => {
+    // 60 filas OK + la fila bloqueada al final (rowId r60): en la vista "todas"
+    // quedaría en la página 2 (50 por página); con el fix, el toggle a "solo
+    // problemas" la trae a la página 1 sin que el usuario tenga que navegar.
+    const filasOk = Array.from({ length: 59 }, (_, i) =>
+      filaBase({ rowId: `r${i + 1}`, item_codigo: `ITEM-${i + 1}` }),
+    );
+    const filaBloqueada = filaBase({ rowId: 'r60', item_codigo: 'ITEM-60' });
+    preview.mockResolvedValue(previewBase({ filas: [...filasOk, filaBloqueada] }));
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    confirmar.mockRejectedValue({
+      response: {
+        status: 422,
+        data: {
+          message: 'Hay 1 fila bloqueada.',
+          bloqueadas: [{ rowId: 'r60', item_codigo: 'ITEM-60', detalle: "Provincia 'Salta' inválida" }],
+        },
+      },
+    });
+    await confirmarDesdeModal();
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: /ver todas/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('Cantidad r60')).toBeInTheDocument();
+  });
+
+  it('422 con una fila manual bloqueada por el backend: se traduce manual-1 → la fila manual y muestra el badge', async () => {
+    const user = userEvent.setup();
+    preview.mockResolvedValue(previewBase({ filas: [filaBase({ rowId: 'r1' })] }));
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await user.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    await user.click(screen.getByRole('button', { name: /agregar fila manual/i }));
+    const form = screen.getByTestId('form-manual');
+    await user.selectOptions(within(form).getByLabelText(/ítem del maestro/i), '77');
+    await user.type(within(form).getByLabelText(/^cantidad$/i), '4');
+    await user.type(within(form).getByLabelText(/\$ unitario/i), '100');
+    await user.click(within(form).getByRole('button', { name: /^agregar$/i }));
+    expect(screen.getByTestId('metrica-manuales')).toHaveTextContent('1');
+
+    confirmar.mockRejectedValue({
+      response: {
+        status: 422,
+        data: {
+          message: 'Hay 1 fila bloqueada.',
+          bloqueadas: [{ rowId: 'manual-1', item_codigo: '5', detalle: "Ítem '5' no está en el maestro" }],
+        },
+      },
+    });
+    await confirmarDesdeModal();
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(screen.getByTestId('metrica-bloqueadas')).toHaveTextContent('1');
+    expect(screen.getByText("Ítem '5' no está en el maestro")).toBeInTheDocument();
+    const tabla = screen.getByRole('table', { name: /filas de la carga/i });
+    expect(within(tabla).getAllByText('Manual')).toHaveLength(1);
+    expect(within(tabla).getByText('Bloqueada')).toBeInTheDocument();
   });
 });

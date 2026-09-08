@@ -45,11 +45,14 @@ export function FilaManualForm({
   const [provincia, setProvincia] = useState(provincias[0] ?? '');
   const [cantidad, setCantidad] = useState('');
   const [unitario, setUnitario] = useState('');
-  /** `null` = el usuario todavía no tocó el total, así que vale el propuesto
-   * (cantidad × unitario). Se guarda así, DERIVANDO el propuesto en el render,
-   * en vez de sincronizarlo con un `useEffect` + flag: el efecto sería un
-   * setState en cascada (lo prohíbe `react-hooks/set-state-in-effect`) y este
-   * estado no necesita sincronizarse con nada externo. */
+  /** `null` = el usuario todavía no tocó el total (o lo borró del todo), así
+   * que vale el propuesto (cantidad × unitario). Se guarda así, DERIVANDO el
+   * propuesto en el render, en vez de sincronizarlo con un `useEffect` + flag:
+   * el efecto sería un setState en cascada (lo prohíbe
+   * `react-hooks/set-state-in-effect`) y este estado no necesita
+   * sincronizarse con nada externo. Borrar el campo por completo vuelve a
+   * `null` (no a `''`) para que el propuesto reaparezca en vez de dejar el
+   * input vacío. */
   const [totalTipeado, setTotalTipeado] = useState<string | null>(null);
 
   const cant = num(cantidad);
@@ -58,7 +61,7 @@ export function FilaManualForm({
   const total = totalTipeado ?? totalPropuesto;
 
   const item = items.find((i) => String(i.id_item) === idItem) ?? null;
-  const completo = item !== null && provincia !== '' && cant !== null && unit !== null;
+  const completo = item !== null && provincia !== '' && cant !== null && unit !== null && total !== '';
 
   function agregar() {
     if (!item) return;
@@ -137,7 +140,10 @@ export function FilaManualForm({
             <input
               value={total}
               inputMode="decimal"
-              onChange={(e) => setTotalTipeado(normalizarDecimal(e.target.value))}
+              onChange={(e) => {
+                const v = normalizarDecimal(e.target.value);
+                setTotalTipeado(v === '' ? null : v);
+              }}
               className={`${inputCls} text-right tabular-nums`}
             />
           </label>
