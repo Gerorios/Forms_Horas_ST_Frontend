@@ -118,9 +118,11 @@ export function claveProvincia(s: string | null | undefined): string {
 /**
  * Devuelve la grafía EXACTA del maestro (`validas`) cuya `claveProvincia`
  * matchea la de `valor` (ignorando tildes/mayúsculas/espacios), o `null` si
- * ninguna matchea. La fila adopta esta grafía canónica — no la que trajo el
- * archivo — para que el resto del sistema (INSERT, filtros) vea siempre la
- * misma forma.
+ * ninguna matchea. Es solo BÚSQUEDA/VALIDACIÓN: la fila NO se reescribe en
+ * el cliente. La grafía canónica la aplica el backend al confirmar (ahí sí
+ * queda una sola forma en el INSERT y en los filtros); acá el valor sirve
+ * para saber si la provincia existe y, si se quiere, mostrarle a la persona
+ * cómo la escribe el maestro.
  */
 export function canonizarProvincia(valor: string | null | undefined, validas: string[]): string | null {
   const clave = claveProvincia(valor);
@@ -129,8 +131,9 @@ export function canonizarProvincia(valor: string | null | undefined, validas: st
 }
 
 /**
- * Fila cargable: ítem en maestro + contrato K + provincia válida (match
- * UPPER contra las provincias activas) + cantidad != 0 + total_mes
+ * Fila cargable: ítem en maestro + contrato K + provincia válida (match sin
+ * acentos/mayúsculas/espacios de más contra las provincias activas) +
+ * cantidad != 0 + total_mes
  * presente (0 es válido; solo debe parsear) + fila que cuadra. `detalle`
  * une las faltas con "; " usando los textos exactos del portal. La
  * cuadratura solo se evalúa si no hay ninguna otra falta (una fila sin
