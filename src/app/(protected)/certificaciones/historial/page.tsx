@@ -128,6 +128,11 @@ export default function HistorialCargasPage() {
                   <td className="px-3 py-2.5 text-right tabular-nums">
                     {c.filas_cargadas}
                     {c.filas_error > 0 && <span className="ml-1 text-xs text-warn">{c.filas_error} err</span>}
+                    {c.filas_manuales > 0 && (
+                      <span className="ml-1 text-xs text-[#3b6fc4]">
+                        {c.filas_manuales} {c.filas_manuales === 1 ? 'manual' : 'manuales'}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2.5">
                     {c.estado === 'ok' ? <span className={BADGE_OK}>OK</span> : <span className={BADGE_WARN}>Parcial</span>}
