@@ -58,6 +58,9 @@ function filaBase(overrides: Partial<FilaPreview> = {}): FilaPreview {
     contrato_fuente: 'archivo',
     contrato_del_maestro: null,
     excluida: false,
+    cuadratura: { calculado: 300, impreso: 300, diferencia: 0, cuadra: true, sugerencia_cantidad: null },
+    confirmada: false,
+    origen: 'archivo',
     ...overrides,
   };
 }
@@ -68,9 +71,13 @@ function previewBase(overrides: Partial<RespuestaPreviewCarga> = {}): RespuestaP
     archivo: 'archivo.xlsx',
     hojas: ['CERTIF K12'],
     periodo: '2026-08',
-    resumen: { total: 1, con_error: 0, total_mes: 300, total_declarado: 300 },
+    resumen: { total: 1, con_error: 0, bloqueadas: 0, total_mes: 300, total_declarado: 300 },
     filas: [filaBase()],
     errores: [],
+    avisos: [],
+    columnas_ignoradas: [],
+    periodo_archivo: null,
+    k_nombre_archivo: null,
     ...overrides,
   };
 }
@@ -150,7 +157,7 @@ describe('CargaCertificacionesPage', () => {
     await userEvent.clear(cantidadInput);
     await userEvent.type(cantidadInput, '5');
 
-    confirmar.mockResolvedValue({ mensaje: 'ok', insertadas: 1, omitidas: 0, errores: [] } as RespuestaConfirmarCarga);
+    confirmar.mockResolvedValue({ mensaje: 'ok', insertadas: 1, omitidas: 0, manuales: 0, errores: [] } as RespuestaConfirmarCarga);
     await confirmarDesdeModal();
 
     await waitFor(() =>
@@ -332,7 +339,7 @@ describe('CargaCertificacionesPage', () => {
   it('muestra el monto total a cargar y el total declarado del archivo en el paso 3', async () => {
     preview.mockResolvedValue(
       previewBase({
-        resumen: { total: 2, con_error: 0, total_mes: 1500.5, total_declarado: 1500.5 },
+        resumen: { total: 2, con_error: 0, bloqueadas: 0, total_mes: 1500.5, total_declarado: 1500.5 },
         filas: [filaBase({ rowId: 'r1', total_mes: '1000' }), filaBase({ rowId: 'r2', total_mes: '500.5' })],
       }),
     );
@@ -361,7 +368,7 @@ describe('CargaCertificacionesPage', () => {
   it('total declarado 0 en el archivo: sin aviso de descuadre ni métrica de declarado', async () => {
     preview.mockResolvedValue(
       previewBase({
-        resumen: { total: 1, con_error: 0, total_mes: 300, total_declarado: 0 },
+        resumen: { total: 1, con_error: 0, bloqueadas: 0, total_mes: 300, total_declarado: 0 },
         filas: [filaBase({ rowId: 'r1', total_mes: '300' })],
       }),
     );
@@ -379,7 +386,7 @@ describe('CargaCertificacionesPage', () => {
       previewBase({
         archivo: 'CERTIFICADO K12.xlsx',
         filas: [filaBase({ rowId: 'r1', total_mes: '1000' }), filaBase({ rowId: 'r2', total_mes: '500.5', fila_excel: 6 })],
-        resumen: { total: 2, con_error: 0, total_mes: 1500.5, total_declarado: 1500.5 },
+        resumen: { total: 2, con_error: 0, bloqueadas: 0, total_mes: 1500.5, total_declarado: 1500.5 },
       }),
     );
     render(<CargaCertificacionesPage />);
@@ -409,7 +416,7 @@ describe('CargaCertificacionesPage', () => {
   it('aviso de descuadre no bloqueante cuando el total a cargar difiere del total declarado', async () => {
     preview.mockResolvedValue(
       previewBase({
-        resumen: { total: 1, con_error: 0, total_mes: 300, total_declarado: 999 },
+        resumen: { total: 1, con_error: 0, bloqueadas: 0, total_mes: 300, total_declarado: 999 },
         filas: [filaBase({ rowId: 'r1', total_mes: '300' })],
       }),
     );
