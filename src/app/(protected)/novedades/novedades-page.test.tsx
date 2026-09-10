@@ -6,8 +6,12 @@ import type { Novedad } from '@/types/domain';
 const crear = vi.fn().mockResolvedValue({});
 const actualizar = vi.fn().mockResolvedValue({});
 const anular = vi.fn().mockResolvedValue({});
+const agregarCert = vi.fn().mockResolvedValue({});
+const quitarCert = vi.fn().mockResolvedValue({});
+const abrirAdjunto = vi.fn().mockResolvedValue(undefined);
 const h = vi.hoisted(() => ({
-  perfil: { rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] } as {
+  perfil: { cuil: '20999999999', rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] } as {
+    cuil: string;
     rol: { nombre: string };
     tiposNovedadHabilitados: { tipoNovedad: { id: number; nombre: string } }[];
   },
@@ -23,7 +27,8 @@ const NOVEDADES_FILTROS: Novedad[] = [
     justificacionTexto: null,
     descargoHys: null,
     pierdePresentismoHys: null,
-    adjuntoUrl: null,
+    adjuntos: [],
+    certificadoPosteriorAResolucion: false,
     estadoHys: 'pendiente',
     operario: { cuil: '20111111111', apellido_nombre: 'GOMEZ JUAN', legajo: 1001 },
     tipoNovedad: { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
@@ -43,7 +48,8 @@ const NOVEDADES_FILTROS: Novedad[] = [
     justificacionTexto: null,
     descargoHys: null,
     pierdePresentismoHys: null,
-    adjuntoUrl: null,
+    adjuntos: [],
+    certificadoPosteriorAResolucion: false,
     estadoHys: 'no_aplica',
     operario: { cuil: '20222222222', apellido_nombre: 'PEREZ ANA', legajo: 1002 },
     tipoNovedad: { id: 8, nombre: 'Viáticos', requiereAprobacionHys: false },
@@ -70,6 +76,10 @@ vi.mock('@/lib/api/novedades', () => ({
   }),
   useCrearNovedad: () => ({ mutateAsync: crear, isPending: false }),
   useActualizarNovedad: () => ({ mutateAsync: actualizar, isPending: false }),
+  // Usados por CertificadosNovedad, dentro de DetalleNovedadDialog.
+  useAgregarCertificado: () => ({ mutateAsync: agregarCert, isPending: false }),
+  useQuitarCertificado: () => ({ mutateAsync: quitarCert, isPending: false }),
+  abrirAdjuntoNovedad: (id: number, adjuntoId: number) => abrirAdjunto(id, adjuntoId),
   useAnularNovedad: () => ({ mutateAsync: anular, isPending: false }),
 }));
 vi.mock('@/lib/api/empleados', () => ({
@@ -85,7 +95,7 @@ describe('NovedadesPage', () => {
     crear.mockClear();
     actualizar.mockClear();
     anular.mockClear();
-    h.perfil = { rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] };
+    h.perfil = { cuil: '20999999999', rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] };
     useNovedadesMock.mockReset();
     useNovedadesMock.mockReturnValue({ data: [], isLoading: false });
   });
@@ -115,6 +125,7 @@ describe('NovedadesPage', () => {
 
   it('JefeCuadrilla solo ve los tipos que le habilitaron', async () => {
     h.perfil = {
+      cuil: '20999999999',
       rol: { nombre: 'JefeCuadrilla' },
       tiposNovedadHabilitados: [{ tipoNovedad: { id: 8, nombre: 'Viáticos' } }],
     };
@@ -125,7 +136,7 @@ describe('NovedadesPage', () => {
   });
 
   it('JefeCuadrilla ve la aclaración de que solo se listan las que cargó', () => {
-    h.perfil = { rol: { nombre: 'JefeCuadrilla' }, tiposNovedadHabilitados: [] };
+    h.perfil = { cuil: '20999999999', rol: { nombre: 'JefeCuadrilla' }, tiposNovedadHabilitados: [] };
     render(<NovedadesPage />);
     expect(screen.getByText('Las que cargaste vos')).toBeInTheDocument();
   });
@@ -194,20 +205,20 @@ describe('NovedadesPage', () => {
   });
 
   it('JefeContrato no ve el botón "Nueva novedad" (solo consulta)', () => {
-    h.perfil = { rol: { nombre: 'JefeContrato' }, tiposNovedadHabilitados: [] };
+    h.perfil = { cuil: '20999999999', rol: { nombre: 'JefeContrato' }, tiposNovedadHabilitados: [] };
     render(<NovedadesPage />);
     expect(screen.queryByRole('button', { name: /nueva novedad/i })).not.toBeInTheDocument();
   });
 
   it('HyS no ve el botón "Nueva novedad" (no puede cargar)', () => {
-    h.perfil = { rol: { nombre: 'HyS' }, tiposNovedadHabilitados: [] };
+    h.perfil = { cuil: '20999999999', rol: { nombre: 'HyS' }, tiposNovedadHabilitados: [] };
     render(<NovedadesPage />);
     expect(screen.queryByRole('button', { name: /nueva novedad/i })).not.toBeInTheDocument();
   });
 
   describe('Editar / Anular (Admin en cualquier tipo, HyS solo en Ausencia)', () => {
     it('Admin ve "Editar" y "Anular" en todas las filas, sin importar el tipo', () => {
-      h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
+      h.perfil = { cuil: '20999999999', rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
       useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
       render(<NovedadesPage />);
       expect(screen.getAllByRole('button', { name: 'Editar' })).toHaveLength(NOVEDADES_FILTROS.length);
@@ -215,7 +226,7 @@ describe('NovedadesPage', () => {
     });
 
     it('HyS ve "Editar" y "Anular" solo en la fila de tipo Ausencia', () => {
-      h.perfil = { rol: { nombre: 'HyS' }, tiposNovedadHabilitados: [] };
+      h.perfil = { cuil: '20999999999', rol: { nombre: 'HyS' }, tiposNovedadHabilitados: [] };
       useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
       render(<NovedadesPage />);
       // GOMEZ JUAN (id 1) es Ausencia; PEREZ ANA (id 2) es Viáticos.
@@ -229,7 +240,7 @@ describe('NovedadesPage', () => {
     });
 
     it('Supervisor NO ve los botones "Editar"/"Anular" (ni la columna Acciones)', () => {
-      h.perfil = { rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] };
+      h.perfil = { cuil: '20999999999', rol: { nombre: 'Supervisor' }, tiposNovedadHabilitados: [] };
       useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
       render(<NovedadesPage />);
       expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
@@ -238,7 +249,7 @@ describe('NovedadesPage', () => {
     });
 
     it('anular: pide motivo y checkbox de confirmación, y llama a la mutación con {id, motivo}', async () => {
-      h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
+      h.perfil = { cuil: '20999999999', rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
       useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
       render(<NovedadesPage />);
       await userEvent.click(screen.getAllByRole('button', { name: 'Anular' })[0]);
@@ -255,7 +266,7 @@ describe('NovedadesPage', () => {
     });
 
     it('clickear "Editar" abre el formulario precargado con los datos actuales', async () => {
-      h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
+      h.perfil = { cuil: '20999999999', rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
       useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
       render(<NovedadesPage />);
       await userEvent.click(screen.getAllByRole('button', { name: 'Editar' })[0]);
@@ -268,8 +279,8 @@ describe('NovedadesPage', () => {
       expect(screen.getByLabelText('Fecha inicio')).toHaveValue('2026-08-05');
     });
 
-    it('guardar cambios llama a PATCH /novedades/:id con FormData', async () => {
-      h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
+    it('guardar cambios llama a PATCH /novedades/:id con los campos editados', async () => {
+      h.perfil = { cuil: '20999999999', rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
       useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
       render(<NovedadesPage />);
       await userEvent.click(screen.getAllByRole('button', { name: 'Editar' })[0]);
@@ -280,28 +291,116 @@ describe('NovedadesPage', () => {
       await userEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
 
       await waitFor(() => expect(actualizar).toHaveBeenCalledTimes(1));
-      const { id, form } = actualizar.mock.calls[0][0] as { id: number; form: FormData };
+      const { id, cambios } = actualizar.mock.calls[0][0] as {
+        id: number;
+        cambios: Record<string, unknown>;
+      };
       expect(id).toBe(1);
-      expect(form).toBeInstanceOf(FormData);
-      expect(form.get('fechaInicio')).toBe('2026-08-06');
-      expect(form.get('operarioCuil')).toBe('20111111111');
+      expect(cambios.fechaInicio).toBe('2026-08-06');
+      expect(cambios.operarioCuil).toBe('20111111111');
     });
 
-    it('permite reemplazar el certificado adjunto al editar', async () => {
-      h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
+    /** El adjunto salió del editor: antes, editar con un archivo reemplazaba
+     * el certificado anterior y lo BORRABA del disco sin vuelta atrás. Ahora
+     * los certificados se agregan y se quitan desde el detalle. */
+    it('el editor ya no permite adjuntar un certificado', async () => {
+      h.perfil = { cuil: '20999999999', rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
       useNovedadesMock.mockReturnValue({ data: NOVEDADES_FILTROS, isLoading: false });
       render(<NovedadesPage />);
       await userEvent.click(screen.getAllByRole('button', { name: 'Editar' })[0]);
 
-      const archivo = new File(['contenido'], 'nuevo-certificado.pdf', { type: 'application/pdf' });
-      const input = screen.getByLabelText('Reemplazar certificado (opcional)') as HTMLInputElement;
-      await userEvent.upload(input, archivo);
-      await userEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+      expect(screen.queryByLabelText(/certificado/i)).not.toBeInTheDocument();
+      expect(
+        screen.getByText('Los certificados se agregan y se quitan desde el detalle de la novedad.'),
+      ).toBeInTheDocument();
+    });
+  });
 
-      await waitFor(() => expect(actualizar).toHaveBeenCalledTimes(1));
-      const { form } = actualizar.mock.calls[0][0] as { id: number; form: FormData };
-      const enviado = form.get('adjunto') as File;
-      expect(enviado.name).toBe('nuevo-certificado.pdf');
+  /**
+   * El detalle se deriva de la lista por ID, no se guarda como copia. Con la
+   * copia, subir un certificado desde adentro del modal no se veía: había que
+   * cerrarlo y volver a abrirlo (reportado al probar en local, 2026-09-10).
+   */
+  it('el detalle refleja un certificado recién subido, sin cerrar y reabrir', async () => {
+    const sinCert = { ...NOVEDADES_FILTROS[0], adjuntos: [] };
+    const conCert = {
+      ...NOVEDADES_FILTROS[0],
+      adjuntos: [
+        {
+          id: 7,
+          mimetype: 'application/pdf' as const,
+          subidoPorCuil: '20999999999',
+          subidoPor: 'SUPERVISOR TEST',
+          subidoEn: '2026-09-10T10:00:00.000Z',
+        },
+      ],
+    };
+
+    useNovedadesMock.mockReturnValue({ data: [sinCert], isLoading: false });
+    const { rerender } = render(<NovedadesPage />);
+    await userEvent.click(screen.getByText('GOMEZ JUAN'));
+    expect(screen.getByText('Detalle de la novedad')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ver certificado' })).not.toBeInTheDocument();
+
+    // Lo que pasa de verdad al subir: la mutación invalida la query y la
+    // lista vuelve con el certificado. El modal sigue abierto.
+    useNovedadesMock.mockReturnValue({ data: [conCert], isLoading: false });
+    rerender(<NovedadesPage />);
+
+    expect(screen.getByText('Detalle de la novedad')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ver certificado' })).toBeInTheDocument();
+  });
+
+  describe('Paginación', () => {
+    /** 25 novedades: entran 20 en la primera página y 5 en la segunda. */
+    const MUCHAS: Novedad[] = Array.from({ length: 25 }, (_, i) => ({
+      ...NOVEDADES_FILTROS[0],
+      id: 100 + i,
+      operarioCuil: `2011111${String(i).padStart(4, '0')}`,
+      operario: {
+        cuil: `2011111${String(i).padStart(4, '0')}`,
+        apellido_nombre: `OPERARIO ${i}`,
+        legajo: 2000 + i,
+      },
+    }));
+
+    it('muestra 20 por página y el total en el pie', () => {
+      useNovedadesMock.mockReturnValue({ data: MUCHAS, isLoading: false });
+      render(<NovedadesPage />);
+      expect(screen.getByText('OPERARIO 0')).toBeInTheDocument();
+      expect(screen.getByText('OPERARIO 19')).toBeInTheDocument();
+      expect(screen.queryByText('OPERARIO 20')).not.toBeInTheDocument();
+      expect(screen.getByText('Página 1 de 2 · 25 novedades')).toBeInTheDocument();
+    });
+
+    it('Siguiente muestra el resto', async () => {
+      useNovedadesMock.mockReturnValue({ data: MUCHAS, isLoading: false });
+      render(<NovedadesPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+      expect(screen.getByText('OPERARIO 24')).toBeInTheDocument();
+      expect(screen.queryByText('OPERARIO 0')).not.toBeInTheDocument();
+      expect(screen.getByText('Página 2 de 2 · 25 novedades')).toBeInTheDocument();
+    });
+
+    it('con 20 o menos no muestra el pie de paginación', () => {
+      useNovedadesMock.mockReturnValue({ data: MUCHAS.slice(0, 20), isLoading: false });
+      render(<NovedadesPage />);
+      expect(screen.queryByLabelText('Paginación')).not.toBeInTheDocument();
+    });
+
+    /** Quedarse en la página 3 después de filtrar mostraba una tabla vacía. */
+    it('filtrar vuelve a la página 1', async () => {
+      useNovedadesMock.mockReturnValue({ data: MUCHAS, isLoading: false });
+      render(<NovedadesPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+      expect(screen.getByText('Página 2 de 2 · 25 novedades')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByLabelText('Filtrar por estado'));
+      await userEvent.click(screen.getByLabelText('Pendiente'));
+      await userEvent.keyboard('{Escape}');
+
+      expect(screen.getByText('OPERARIO 0')).toBeInTheDocument();
+      expect(screen.getByText('Página 1 de 2 · 25 novedades')).toBeInTheDocument();
     });
   });
 
@@ -317,7 +416,8 @@ describe('NovedadesPage', () => {
         justificacionTexto: null,
         descargoHys: null,
         pierdePresentismoHys: null,
-        adjuntoUrl: null,
+        adjuntos: [],
+    certificadoPosteriorAResolucion: false,
         estadoHys: 'pendiente',
         operario: { cuil: '20333333333', apellido_nombre: 'LOPEZ CARLOS', legajo: 1003 },
         tipoNovedad: { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
@@ -347,7 +447,7 @@ describe('NovedadesPage', () => {
     });
 
     it('una fila anulada se ve de-enfatizada y sin botones de Editar/Anular', async () => {
-      h.perfil = { rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
+      h.perfil = { cuil: '20999999999', rol: { nombre: 'Admin' }, tiposNovedadHabilitados: [] };
       useNovedadesMock.mockReturnValue({ data: CON_ANULADA, isLoading: false });
       render(<NovedadesPage />);
 

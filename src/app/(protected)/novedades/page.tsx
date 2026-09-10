@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { useActualizarNovedad, useAnularNovedad, useNovedades } from '@/lib/api/novedades';
+import {
+  useActualizarNovedad,
+  useAnularNovedad,
+  useNovedades,
+  type EditarNovedadInput,
+} from '@/lib/api/novedades';
 import { useSession } from '@/lib/auth/session';
 import { NuevaNovedadForm } from '@/features/novedades/nueva-novedad-form';
 import { EditarNovedadDialog } from '@/features/novedades/editar-novedad-dialog';
@@ -13,6 +18,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { TableSkeleton } from '@/components/skeleton';
 import { Button } from '@/components/button';
 import { BarraFiltros, MultiFiltro } from '@/components/ui/barra-filtros';
+import { Paginador, paginar } from '@/components/paginador';
 import { PeriodoFiltro } from '@/features/novedades/periodo-filtro';
 import { opcionesFacetadas } from '@/lib/facetado';
 import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
@@ -30,6 +36,9 @@ const VIGENCIA_LABEL: Record<EstadoNovedad, string> = { activa: 'Activa', anulad
 /** Quiénes pueden cargar novedades (ver @Roles de POST /novedades en el
  * backend) — JefeContrato queda solo en consulta por ahora, a propósito. */
 const ROLES_QUE_CARGAN = ['Supervisor', 'JefeCuadrilla', 'Admin'];
+
+/** Mismo tamaño de página que la bandeja de HyS (/ausencias). */
+const POR_PAGINA = 20;
 
 function pasaMulti(valor: string, seleccionados: string[]) {
   return seleccionados.length === 0 || seleccionados.includes(valor);
@@ -50,7 +59,12 @@ export default function NovedadesPage() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editando, setEditando] = useState<Novedad | null>(null);
   const [anulando, setAnulando] = useState<Novedad | null>(null);
-  const [detalle, setDetalle] = useState<Novedad | null>(null);
+  /** Se guarda el ID, no el objeto: el modal tiene que reflejar los cambios
+   * que se hacen desde adentro (subir o quitar un certificado invalida la
+   * query y la lista se repuebla). Guardando el objeto, el modal seguía
+   * mostrando la copia congelada del momento en que se abrió y había que
+   * cerrarlo y volver a abrirlo para ver el certificado nuevo. */
+  const [detalleId, setDetalleId] = useState<number | null>(null);
   const actualizar = useActualizarNovedad();
   const anular = useAnularNovedad();
 
@@ -58,9 +72,9 @@ export default function NovedadesPage() {
   const esHys = perfil?.rol.nombre === 'HyS';
   const mostrarColumnaAcciones = esAdmin || esHys;
 
-  function guardarEdicion(form: FormData) {
+  function guardarEdicion(cambios: EditarNovedadInput) {
     if (!editando) return;
-    const promesa = actualizar.mutateAsync({ id: editando.id, form });
+    const promesa = actualizar.mutateAsync({ id: editando.id, cambios });
     toast.promise(promesa, {
       loading: 'Guardando cambios…',
       success: 'Novedad actualizada',
@@ -84,6 +98,10 @@ export default function NovedadesPage() {
   const [periodo, setPeriodo] = useState<Quincena>(() => quincenaDeFecha(new Date()));
   const { data, isLoading } = useNovedades(periodoActivo ? periodo : undefined);
 
+  const detalle =
+    detalleId === null ? null : ((data ?? []).find((n) => n.id === detalleId) ?? null);
+  const setDetalle = (n: Novedad | null) => setDetalleId(n?.id ?? null);
+
   const [tipoSel, setTipoSel] = useState<string[]>([]);
   const [operarioSel, setOperarioSel] = useState<string[]>([]);
   const [estadoSel, setEstadoSel] = useState<string[]>([]);
@@ -92,6 +110,18 @@ export default function NovedadesPage() {
   // usuario filtre a propósito (2026-08-19, pedido explícito — a diferencia
   // de combustible, acá no querían que las anuladas quedaran ocultas).
   const [estadoActivoSel, setEstadoActivoSel] = useState<string[]>([]);
+  const [pagina, setPagina] = useState(1);
+
+  /** Cambiar un filtro vuelve a la página 1: quedarse en la 3 después de
+   * filtrar mostraba una tabla vacía sin explicación. Se envuelven los
+   * setters en vez de usar un useEffect, que además dispara la regla
+   * react-hooks/set-state-in-effect. */
+  function filtrando<T>(set: (v: T) => void) {
+    return (v: T) => {
+      set(v);
+      setPagina(1);
+    };
+  }
 
   // JefeCuadrilla solo ve lo que él mismo cargó (el backend ya lo scopea);
   // se lo aclaramos acá para que no piense que falta algo.
@@ -107,6 +137,10 @@ export default function NovedadesPage() {
         pasaMulti(n.estado, estadoActivoSel),
     );
   }, [data, tipoSel, operarioSel, estadoSel, estadoActivoSel]);
+
+  // `paginar` devuelve la página "segura": si la lista se achicó y la página
+  // actual quedó fuera de rango, muestra la última válida en vez de vacío.
+  const { enPagina, paginaSegura, totalPaginas } = paginar(filtradas, pagina, POR_PAGINA);
 
   // Opciones facetadas: cada MultiFiltro se acota con los DEMÁS filtros
   // aplicados (excluyendo el propio) sobre lo que ya trajo el período.
@@ -198,6 +232,7 @@ export default function NovedadesPage() {
           onChange={(activo, q) => {
             setPeriodoActivo(activo);
             setPeriodo(q);
+            setPagina(1);
           }}
         />
         <MultiFiltro
@@ -205,28 +240,28 @@ export default function NovedadesPage() {
           ariaLabel="Filtrar por tipo de novedad"
           opciones={opcionesTipo}
           seleccionados={tipoSel}
-          onChange={setTipoSel}
+          onChange={filtrando(setTipoSel)}
         />
         <MultiFiltro
           label="Operario"
           ariaLabel="Filtrar por operario"
           opciones={opcionesOperario}
           seleccionados={operarioSel}
-          onChange={setOperarioSel}
+          onChange={filtrando(setOperarioSel)}
         />
         <MultiFiltro
           label="Estado"
           ariaLabel="Filtrar por estado"
           opciones={opcionesEstado}
           seleccionados={estadoSel}
-          onChange={setEstadoSel}
+          onChange={filtrando(setEstadoSel)}
         />
         <MultiFiltro
           label="Vigencia"
           ariaLabel="Filtrar por vigencia"
           opciones={opcionesEstadoActivo}
           seleccionados={estadoActivoSel}
-          onChange={setEstadoActivoSel}
+          onChange={filtrando(setEstadoActivoSel)}
         />
       </BarraFiltros>
 
@@ -255,7 +290,7 @@ export default function NovedadesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtradas.map((n: Novedad) => {
+                {enPagina.map((n: Novedad) => {
                   const anulada = n.estado === 'anulada';
                   return (
                     <tr
@@ -323,6 +358,14 @@ export default function NovedadesPage() {
                 })}
               </tbody>
             </table>
+            <Paginador
+              pagina={paginaSegura}
+              totalPaginas={totalPaginas}
+              total={filtradas.length}
+              singular="novedad"
+              plural="novedades"
+              onChange={setPagina}
+            />
           </div>
         </div>
       )}
@@ -340,6 +383,8 @@ export default function NovedadesPage() {
             setDetalle(null);
             setAnulando(detalle);
           }}
+          cuilUsuario={perfil?.cuil ?? ''}
+          rolUsuario={perfil?.rol.nombre ?? ''}
         />
       )}
 

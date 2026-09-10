@@ -3,6 +3,17 @@ import { api } from './client';
 import type { Novedad, TipoNovedad, EstadoHys, EstadoNovedad, ResumenAusenciaOperario } from '@/types/domain';
 import type { Quincena } from '@/lib/quincena';
 
+/** Campos editables de una novedad. Todos opcionales: se aplican solo los
+ * provistos. `fechaFin` vacío NO se manda (el @IsDateString del backend
+ * rechaza '' con 400); omitirlo deja la que estaba. */
+export interface EditarNovedadInput {
+  operarioCuil?: string;
+  tipoNovedadId?: number;
+  fechaInicio?: string;
+  fechaFin?: string;
+  justificacionTexto?: string;
+}
+
 export function useTiposNovedad() {
   return useQuery({
     queryKey: ['tipos-novedad'],
@@ -51,13 +62,42 @@ export function useCrearNovedad() {
   });
 }
 
-/** PATCH /novedades/:id, Admin only. Subset parcial de campos + adjunto opcional
- * (reemplaza el existente) — mismo patrón multipart que useEditarCargaCombustible. */
+/** PATCH /novedades/:id, HyS/Admin. Subset parcial de campos.
+ *
+ * Ya NO lleva adjunto: desde 2026-09-10 los certificados se suben y se quitan
+ * por su propio endpoint (useAgregarCertificado/useQuitarCertificado) y editar
+ * no los toca. Antes, editar con un archivo reemplazaba el anterior y lo
+ * borraba del disco sin vuelta atrás. Por eso ahora es JSON y no FormData. */
 export function useActualizarNovedad() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, form }: { id: number; form: FormData }) =>
-      (await api.patch<Novedad>(`/novedades/${id}`, form)).data,
+    mutationFn: async ({ id, cambios }: { id: number; cambios: EditarNovedadInput }) =>
+      (await api.patch<Novedad>(`/novedades/${id}`, cambios)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['novedades'] }),
+  });
+}
+
+/** Agrega un certificado a una novedad ya cargada (PATCH /novedades/:id/adjunto).
+ * Sube SOLO el archivo: no cambia el estado de HyS ni ningún otro campo. */
+export function useAgregarCertificado() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, archivo }: { id: number; archivo: File }) => {
+      const form = new FormData();
+      form.append('adjunto', archivo, archivo.name);
+      return (await api.patch<Novedad>(`/novedades/${id}/adjunto`, form)).data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['novedades'] }),
+  });
+}
+
+/** Quita un certificado (DELETE /novedades/:id/adjuntos/:adjuntoId). Es baja
+ * lógica: el archivo se conserva del lado del backend. */
+export function useQuitarCertificado() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, adjuntoId }: { id: number; adjuntoId: number }) =>
+      (await api.delete<Novedad>(`/novedades/${id}/adjuntos/${adjuntoId}`)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['novedades'] }),
   });
 }
@@ -124,8 +164,8 @@ export function useResumenAusencias(periodo: Quincena) {
 /** Trae el adjunto (imagen o PDF) como blob y lo abre en una pestaña nueva —
  * mismo patrón de FotoTicketView (api + responseType: 'blob' + createObjectURL),
  * pero como acción puntual (no un componente que lo muestra montado). */
-export async function abrirAdjuntoNovedad(id: number): Promise<void> {
-  const { data } = await api.get(`/novedades/${id}/adjunto`, { responseType: 'blob' });
+export async function abrirAdjuntoNovedad(id: number, adjuntoId: number): Promise<void> {
+  const { data } = await api.get(`/novedades/${id}/adjuntos/${adjuntoId}`, { responseType: 'blob' });
   const url = URL.createObjectURL(data);
   window.open(url, '_blank');
   // Revocamos con demora: la pestaña nueva necesita tiempo para terminar de

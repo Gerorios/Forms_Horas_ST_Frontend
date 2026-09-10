@@ -1,10 +1,9 @@
 'use client';
 
 import { type ReactNode } from 'react';
-import { toast } from 'sonner';
 import { StatusBadge } from '@/components/status-badge';
 import { Button } from '@/components/button';
-import { abrirAdjuntoNovedad } from '@/lib/api/novedades';
+import { CertificadosNovedad } from '@/features/novedades/certificados-novedad';
 import type { Novedad } from '@/types/domain';
 
 function formatearFechaHora(iso: string): string {
@@ -51,6 +50,8 @@ export function DetalleNovedadDialog({
   onEditar,
   onAnular,
   accionesHys,
+  cuilUsuario,
+  rolUsuario,
 }: {
   novedad: Novedad;
   onClose: () => void;
@@ -58,16 +59,12 @@ export function DetalleNovedadDialog({
   onEditar: () => void;
   onAnular: () => void;
   accionesHys?: AccionesHys;
+  /** Quién está mirando: decide qué certificados puede quitar (ver
+   * CertificadosNovedad). El permiso real lo hace cumplir el backend. */
+  cuilUsuario: string;
+  rolUsuario: string;
 }) {
   const anulada = novedad.estado === 'anulada';
-
-  async function verCertificado() {
-    try {
-      await abrirAdjuntoNovedad(novedad.id);
-    } catch {
-      toast.error('No se pudo abrir el certificado');
-    }
-  }
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-4">
@@ -124,20 +121,7 @@ export function DetalleNovedadDialog({
               />
             )}
 
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate">Certificado adjunto</p>
-            {novedad.adjuntoUrl ? (
-              <button
-                type="button"
-                onClick={verCertificado}
-                className="mt-1 text-sm font-medium text-brand-deep underline transition hover:no-underline"
-              >
-                Ver certificado
-              </button>
-            ) : (
-              <p className="text-sm text-ink">—</p>
-            )}
-          </div>
+          <CertificadosNovedad novedad={novedad} cuilUsuario={cuilUsuario} rolUsuario={rolUsuario} />
 
           {!anulada && ((accionesHys?.puedeGestionar ?? false) || puedeActuar) && (
             <div className="flex flex-wrap justify-end gap-2 border-t border-line pt-4">
