@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { useActualizarNovedad, useAnularNovedad, useNovedades } from '@/lib/api/novedades';
+import {
+  useActualizarNovedad,
+  useAnularNovedad,
+  useNovedades,
+  type EditarNovedadInput,
+} from '@/lib/api/novedades';
 import { useSession } from '@/lib/auth/session';
 import { NuevaNovedadForm } from '@/features/novedades/nueva-novedad-form';
 import { EditarNovedadDialog } from '@/features/novedades/editar-novedad-dialog';
@@ -58,9 +63,9 @@ export default function NovedadesPage() {
   const esHys = perfil?.rol.nombre === 'HyS';
   const mostrarColumnaAcciones = esAdmin || esHys;
 
-  function guardarEdicion(form: FormData) {
+  function guardarEdicion(cambios: EditarNovedadInput) {
     if (!editando) return;
-    const promesa = actualizar.mutateAsync({ id: editando.id, form });
+    const promesa = actualizar.mutateAsync({ id: editando.id, cambios });
     toast.promise(promesa, {
       loading: 'Guardando cambios…',
       success: 'Novedad actualizada',
@@ -340,6 +345,8 @@ export default function NovedadesPage() {
             setDetalle(null);
             setAnulando(detalle);
           }}
+          cuilUsuario={perfil?.cuil ?? ''}
+          rolUsuario={perfil?.rol.nombre ?? ''}
         />
       )}
 

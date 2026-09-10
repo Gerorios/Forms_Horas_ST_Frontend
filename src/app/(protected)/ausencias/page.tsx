@@ -20,6 +20,7 @@ import {
   useReabrirNovedad,
   useResolverHys,
   useResumenAusencias,
+  type EditarNovedadInput,
 } from '@/lib/api/novedades';
 import { useSession } from '@/lib/auth/session';
 import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
@@ -275,9 +276,9 @@ export default function AusenciasPage() {
     setDetalle(null);
   }
 
-  function guardarEdicion(form: FormData) {
+  function guardarEdicion(cambios: EditarNovedadInput) {
     if (!editando) return;
-    const promesa = actualizar.mutateAsync({ id: editando.id, form });
+    const promesa = actualizar.mutateAsync({ id: editando.id, cambios });
     toast.promise(promesa, {
       loading: 'Guardando cambios…',
       success: 'Ausencia actualizada',
@@ -393,7 +394,24 @@ export default function AusenciasPage() {
                     {n.fechaInicio.slice(0, 10)}
                     {n.fechaFin ? ` → ${n.fechaFin.slice(0, 10)}` : ''}
                   </td>
-                  <td className="px-4 py-2.5 text-brand-deep">{n.adjuntoUrl && <IconoClip />}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {n.adjuntos.length > 0 && (
+                        <span className="inline-flex items-center gap-1 text-brand-deep">
+                          <IconoClip />
+                          <span className="text-xs tabular-nums">{n.adjuntos.length}</span>
+                        </span>
+                      )}
+                      {/* El aviso de que llegó un certificado DESPUÉS de que
+                          HyS resolvió: subirlo no cambió el estado, la
+                          decisión de reabrir sigue siendo de HyS. */}
+                      {n.certificadoPosteriorAResolucion && (
+                        <span className="whitespace-nowrap rounded-full border border-brand/50 bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand-deep">
+                          Certificado nuevo
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-2.5">
                     <StatusBadge estado={n.estadoHys} />
                   </td>
@@ -478,6 +496,8 @@ export default function AusenciasPage() {
             resolviendo: resolver.isPending,
             reabriendo: reabrir.isPending,
           }}
+          cuilUsuario={perfil?.cuil ?? ''}
+          rolUsuario={perfil?.rol.nombre ?? ''}
         />
       )}
 

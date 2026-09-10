@@ -1,15 +1,19 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useTiposNovedad } from '@/lib/api/novedades';
+import { useTiposNovedad, type EditarNovedadInput } from '@/lib/api/novedades';
 import { OperariosSelect } from '@/features/reporte/operarios-select';
-import { AdjuntoInput } from '@/features/novedades/adjunto-input';
 import { Button } from '@/components/button';
 import type { EmpleadoBusqueda, Novedad } from '@/types/domain';
 
-/** Modal de edición de una novedad (PATCH /novedades/:id, Admin only) — mismo
- * patrón de modal que EditarCargaDialog (combustible/detalle-carga.tsx):
- * FormData armado acá, mutación la maneja quien renderiza. */
+/** Modal de edición de una novedad (PATCH /novedades/:id, HyS/Admin) — mismo
+ * patrón de modal que EditarCargaDialog (combustible/detalle-carga.tsx): el
+ * payload se arma acá, la mutación la maneja quien renderiza.
+ *
+ * Sin adjunto a propósito: los certificados se agregan y se quitan desde el
+ * detalle (CertificadosNovedad), que es el único camino desde 2026-09-10.
+ * Antes, editar con un archivo reemplazaba el anterior y lo borraba del disco
+ * sin vuelta atrás. */
 export function EditarNovedadDialog({
   novedad,
   onCancel,
@@ -18,7 +22,7 @@ export function EditarNovedadDialog({
 }: {
   novedad: Novedad;
   onCancel: () => void;
-  onGuardar: (form: FormData) => void;
+  onGuardar: (cambios: EditarNovedadInput) => void;
   guardando: boolean;
 }) {
   const { data: tiposCatalogo } = useTiposNovedad();
@@ -39,24 +43,22 @@ export function EditarNovedadDialog({
   const [fechaInicio, setFechaInicio] = useState(novedad.fechaInicio.slice(0, 10));
   const [fechaFin, setFechaFin] = useState(novedad.fechaFin ? novedad.fechaFin.slice(0, 10) : '');
   const [justificacion, setJustificacion] = useState(novedad.justificacionTexto ?? '');
-  const [adjunto, setAdjunto] = useState<File | null>(null);
 
   const tipos = tiposCatalogo ?? [];
   const valido = operario.length === 1 && fechaInicio !== '';
 
   function guardar() {
     if (!valido) return;
-    const form = new FormData();
-    form.append('operarioCuil', operario[0].cuil);
-    form.append('tipoNovedadId', String(tipoNovedadId));
-    form.append('fechaInicio', fechaInicio);
-    // fechaFin vacío no se manda: @IsDateString() del backend rechaza '' con
-    // 400 (@IsOptional() solo salta la validación con undefined/null, no con
-    // string vacío) — omitir el campo deja la fechaFin existente sin tocar.
-    if (fechaFin) form.append('fechaFin', fechaFin);
-    form.append('justificacionTexto', justificacion);
-    if (adjunto) form.append('adjunto', adjunto, adjunto.name);
-    onGuardar(form);
+    onGuardar({
+      operarioCuil: operario[0].cuil,
+      tipoNovedadId,
+      fechaInicio,
+      // fechaFin vacío no se manda: @IsDateString() del backend rechaza '' con
+      // 400 (@IsOptional() solo salta la validación con undefined/null, no con
+      // string vacío) — omitir el campo deja la fechaFin existente sin tocar.
+      ...(fechaFin ? { fechaFin } : {}),
+      justificacionTexto: justificacion,
+    });
   }
 
   return (
@@ -118,7 +120,9 @@ export function EditarNovedadDialog({
           />
         </label>
 
-        <AdjuntoInput label="Reemplazar certificado (opcional)" onArchivo={setAdjunto} />
+        <p className="text-xs text-slate">
+          Los certificados se agregan y se quitan desde el detalle de la novedad.
+        </p>
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onCancel}>

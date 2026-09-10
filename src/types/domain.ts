@@ -129,6 +129,21 @@ export interface TipoNovedad {
 
 export type EstadoNovedad = 'activa' | 'anulada';
 
+/** Certificado adjunto a una novedad. El operario suele traer más de un papel
+ * (certificado de atención + alta médica), por eso son varios y no uno. */
+export interface NovedadAdjunto {
+  id: number;
+  mimetype: 'image/jpeg' | 'image/png' | 'application/pdf';
+  subidoPorCuil: string;
+  /** Nombre resuelto por el backend (snuempleados, fallback nombreFueraNomina). */
+  subidoPor: string;
+  subidoEn: string;
+}
+
+/** Tope de certificados vigentes por novedad — espejo de
+ * MAX_ADJUNTOS_POR_NOVEDAD en el backend, que es quien lo hace cumplir. */
+export const MAX_ADJUNTOS_POR_NOVEDAD = 3;
+
 export interface Novedad {
   id: number;
   operarioCuil: string;
@@ -144,9 +159,15 @@ export interface Novedad {
    * del backend). Null en cualquier otro estadoHys — esos casos siempre
    * pierden presentismo por regla fija. */
   pierdePresentismoHys: boolean | null;
-  /** Ruta del certificado adjunto en el backend. No renderizar/confiar en el valor
-   * en sí — solo usarlo como flag de "hay adjunto" y pedirlo por GET /novedades/:id/adjunto. */
-  adjuntoUrl: string | null;
+  /** Certificados vigentes, del más viejo al más nuevo (hasta 3). Los dados de
+   * baja no vienen. El archivo se pide por
+   * GET /novedades/:id/adjuntos/:adjuntoId. */
+  adjuntos: NovedadAdjunto[];
+  /** Llegó un certificado DESPUÉS de que HyS resolvió: el aviso para que lo
+   * revea y decida si reabre. Lo deriva el backend de las fechas, así que se
+   * apaga solo cuando HyS vuelve a resolver. Siempre false mientras la
+   * novedad no esté resuelta. */
+  certificadoPosteriorAResolucion: boolean;
   operario: { cuil: string; apellido_nombre: string; legajo: number };
   tipoNovedad: { id: number; nombre: string; requiereAprobacionHys: boolean };
   /** Nombre resuelto vía snuempleados (fallback a nombreFueraNomina) — un
