@@ -316,6 +316,41 @@ describe('NovedadesPage', () => {
     });
   });
 
+  /**
+   * El detalle se deriva de la lista por ID, no se guarda como copia. Con la
+   * copia, subir un certificado desde adentro del modal no se veía: había que
+   * cerrarlo y volver a abrirlo (reportado al probar en local, 2026-09-10).
+   */
+  it('el detalle refleja un certificado recién subido, sin cerrar y reabrir', async () => {
+    const sinCert = { ...NOVEDADES_FILTROS[0], adjuntos: [] };
+    const conCert = {
+      ...NOVEDADES_FILTROS[0],
+      adjuntos: [
+        {
+          id: 7,
+          mimetype: 'application/pdf' as const,
+          subidoPorCuil: '20999999999',
+          subidoPor: 'SUPERVISOR TEST',
+          subidoEn: '2026-09-10T10:00:00.000Z',
+        },
+      ],
+    };
+
+    useNovedadesMock.mockReturnValue({ data: [sinCert], isLoading: false });
+    const { rerender } = render(<NovedadesPage />);
+    await userEvent.click(screen.getByText('GOMEZ JUAN'));
+    expect(screen.getByText('Detalle de la novedad')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ver certificado' })).not.toBeInTheDocument();
+
+    // Lo que pasa de verdad al subir: la mutación invalida la query y la
+    // lista vuelve con el certificado. El modal sigue abierto.
+    useNovedadesMock.mockReturnValue({ data: [conCert], isLoading: false });
+    rerender(<NovedadesPage />);
+
+    expect(screen.getByText('Detalle de la novedad')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ver certificado' })).toBeInTheDocument();
+  });
+
   describe('Filtro de Vigencia (activa/anulada)', () => {
     const CON_ANULADA: Novedad[] = [
       ...NOVEDADES_FILTROS,

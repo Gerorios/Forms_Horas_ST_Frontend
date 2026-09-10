@@ -55,7 +55,12 @@ export default function NovedadesPage() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editando, setEditando] = useState<Novedad | null>(null);
   const [anulando, setAnulando] = useState<Novedad | null>(null);
-  const [detalle, setDetalle] = useState<Novedad | null>(null);
+  /** Se guarda el ID, no el objeto: el modal tiene que reflejar los cambios
+   * que se hacen desde adentro (subir o quitar un certificado invalida la
+   * query y la lista se repuebla). Guardando el objeto, el modal seguía
+   * mostrando la copia congelada del momento en que se abrió y había que
+   * cerrarlo y volver a abrirlo para ver el certificado nuevo. */
+  const [detalleId, setDetalleId] = useState<number | null>(null);
   const actualizar = useActualizarNovedad();
   const anular = useAnularNovedad();
 
@@ -88,6 +93,10 @@ export default function NovedadesPage() {
   const [periodoActivo, setPeriodoActivo] = useState(false);
   const [periodo, setPeriodo] = useState<Quincena>(() => quincenaDeFecha(new Date()));
   const { data, isLoading } = useNovedades(periodoActivo ? periodo : undefined);
+
+  const detalle =
+    detalleId === null ? null : ((data ?? []).find((n) => n.id === detalleId) ?? null);
+  const setDetalle = (n: Novedad | null) => setDetalleId(n?.id ?? null);
 
   const [tipoSel, setTipoSel] = useState<string[]>([]);
   const [operarioSel, setOperarioSel] = useState<string[]>([]);
