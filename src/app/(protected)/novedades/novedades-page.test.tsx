@@ -351,6 +351,59 @@ describe('NovedadesPage', () => {
     expect(screen.getByRole('button', { name: 'Ver certificado' })).toBeInTheDocument();
   });
 
+  describe('Paginación', () => {
+    /** 25 novedades: entran 20 en la primera página y 5 en la segunda. */
+    const MUCHAS: Novedad[] = Array.from({ length: 25 }, (_, i) => ({
+      ...NOVEDADES_FILTROS[0],
+      id: 100 + i,
+      operarioCuil: `2011111${String(i).padStart(4, '0')}`,
+      operario: {
+        cuil: `2011111${String(i).padStart(4, '0')}`,
+        apellido_nombre: `OPERARIO ${i}`,
+        legajo: 2000 + i,
+      },
+    }));
+
+    it('muestra 20 por página y el total en el pie', () => {
+      useNovedadesMock.mockReturnValue({ data: MUCHAS, isLoading: false });
+      render(<NovedadesPage />);
+      expect(screen.getByText('OPERARIO 0')).toBeInTheDocument();
+      expect(screen.getByText('OPERARIO 19')).toBeInTheDocument();
+      expect(screen.queryByText('OPERARIO 20')).not.toBeInTheDocument();
+      expect(screen.getByText('Página 1 de 2 · 25 novedades')).toBeInTheDocument();
+    });
+
+    it('Siguiente muestra el resto', async () => {
+      useNovedadesMock.mockReturnValue({ data: MUCHAS, isLoading: false });
+      render(<NovedadesPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+      expect(screen.getByText('OPERARIO 24')).toBeInTheDocument();
+      expect(screen.queryByText('OPERARIO 0')).not.toBeInTheDocument();
+      expect(screen.getByText('Página 2 de 2 · 25 novedades')).toBeInTheDocument();
+    });
+
+    it('con 20 o menos no muestra el pie de paginación', () => {
+      useNovedadesMock.mockReturnValue({ data: MUCHAS.slice(0, 20), isLoading: false });
+      render(<NovedadesPage />);
+      expect(screen.queryByLabelText('Paginación')).not.toBeInTheDocument();
+    });
+
+    /** Quedarse en la página 3 después de filtrar mostraba una tabla vacía. */
+    it('filtrar vuelve a la página 1', async () => {
+      useNovedadesMock.mockReturnValue({ data: MUCHAS, isLoading: false });
+      render(<NovedadesPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+      expect(screen.getByText('Página 2 de 2 · 25 novedades')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByLabelText('Filtrar por estado'));
+      await userEvent.click(screen.getByLabelText('Pendiente'));
+      await userEvent.keyboard('{Escape}');
+
+      expect(screen.getByText('OPERARIO 0')).toBeInTheDocument();
+      expect(screen.getByText('Página 1 de 2 · 25 novedades')).toBeInTheDocument();
+    });
+  });
+
   describe('Filtro de Vigencia (activa/anulada)', () => {
     const CON_ANULADA: Novedad[] = [
       ...NOVEDADES_FILTROS,
