@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/button';
 import { useCrearMovil } from '@/lib/api/admin';
-import { normalizarPatente } from '@/lib/moviles';
 
 const inputCls =
   'mt-1 w-full rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
@@ -29,10 +28,12 @@ export function CrearMovilDialog({ onClose }: { onClose: () => void }) {
 
   async function confirmar() {
     if (!puedeCrear) return;
-    // La patente se guarda como la tiene el resto de la flota — mayúsculas y
-    // sin separadores — aunque acá se tipee "ab 123 cd".
+    // Se guarda tal cual se escribe. No se normaliza a [A-Z0-9] porque el
+    // identificador no siempre es una patente: en la flota hay "TACHO PAÑOL",
+    // "S/N" y "HQJ 539", que normalizados se juntarían y perderían la Ñ. El
+    // buscador sí normaliza los dos lados, así que igual se encuentran.
     const promesa = crear.mutateAsync({
-      identificador: normalizarPatente(patente),
+      identificador: patente.trim(),
       descripcion: descripcion.trim() || undefined,
     });
     toast.promise(promesa, {
@@ -53,7 +54,9 @@ export function CrearMovilDialog({ onClose }: { onClose: () => void }) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Añadir móvil</DialogTitle>
-          <DialogDescription>La patente es obligatoria; la descripción es el tipo de vehículo.</DialogDescription>
+          <DialogDescription>
+            La patente es obligatoria — o un nombre, si el móvil no tiene (S/N, TACHO PAÑOL).
+          </DialogDescription>
         </DialogHeader>
 
         <label className="block text-sm font-medium text-ink">

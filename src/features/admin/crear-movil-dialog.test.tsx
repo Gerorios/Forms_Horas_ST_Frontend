@@ -32,13 +32,23 @@ describe('CrearMovilDialog', () => {
     expect(boton).toBeEnabled();
   });
 
-  it('crea con la patente normalizada y sin descripción', async () => {
+  it('guarda lo escrito tal cual, recortando solo los extremos', async () => {
     render(<CrearMovilDialog onClose={onClose} />);
-    // Se tipea como la lee una persona, con espacios y en minúscula.
-    await userEvent.type(screen.getByLabelText('Patente'), 'ab 123 cd');
+    await userEvent.type(screen.getByLabelText('Patente'), '  AB123CD  ');
     await userEvent.click(screen.getByRole('button', { name: /^crear$/i }));
     await waitFor(() =>
       expect(crear).toHaveBeenCalledWith({ identificador: 'AB123CD', descripcion: undefined }),
+    );
+  });
+
+  it('no rompe los móviles que se identifican por nombre en vez de por patente', async () => {
+    // En la flota hay identificadores como "TACHO PAÑOL", "S/N" o "HQJ 539".
+    // Normalizar a [A-Z0-9] los juntaría y se comería la Ñ: se guarda tal cual.
+    render(<CrearMovilDialog onClose={onClose} />);
+    await userEvent.type(screen.getByLabelText('Patente'), 'TACHO PAÑOL');
+    await userEvent.click(screen.getByRole('button', { name: /^crear$/i }));
+    await waitFor(() =>
+      expect(crear).toHaveBeenCalledWith({ identificador: 'TACHO PAÑOL', descripcion: undefined }),
     );
   });
 
