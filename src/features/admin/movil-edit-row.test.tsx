@@ -21,17 +21,17 @@ function renderRow(movil: MovilAdmin = MOVIL) {
 describe('MovilEditRow', () => {
   beforeEach(() => { editar.mockClear(); });
 
-  it('precarga identificador y descripción al expandir', async () => {
+  it('precarga patente y descripción al expandir', async () => {
     renderRow();
     await userEvent.click(screen.getByRole('button', { name: /editar/i }));
-    expect(screen.getByLabelText('Identificador')).toHaveValue('INT-101');
+    expect(screen.getByLabelText('Patente')).toHaveValue('INT-101');
     expect(screen.getByLabelText('Descripción')).toHaveValue('Camioneta');
   });
 
-  it('editar el identificador y guardar llama al mutate con id e identificador nuevo', async () => {
+  it('editar la patente y guardar llama al mutate con id e identificador nuevo', async () => {
     renderRow();
     await userEvent.click(screen.getByRole('button', { name: /editar/i }));
-    const identificador = screen.getByLabelText('Identificador');
+    const identificador = screen.getByLabelText('Patente');
     await userEvent.clear(identificador);
     await userEvent.type(identificador, 'INT-102');
     await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
@@ -47,9 +47,9 @@ describe('MovilEditRow', () => {
   it('Cancelar colapsa la fila sin llamar al mutate', async () => {
     renderRow();
     await userEvent.click(screen.getByRole('button', { name: /editar/i }));
-    await userEvent.type(screen.getByLabelText('Identificador'), 'X');
+    await userEvent.type(screen.getByLabelText('Patente'), 'X');
     await userEvent.click(screen.getByRole('button', { name: /cancelar/i }));
-    expect(screen.queryByLabelText('Identificador')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Patente')).not.toBeInTheDocument();
     expect(editar).not.toHaveBeenCalled();
   });
 });

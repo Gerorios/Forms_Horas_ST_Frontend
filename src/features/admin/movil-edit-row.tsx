@@ -61,8 +61,8 @@ export function MovilEditRow({ movil, pill }: { movil: MovilAdmin; pill: ReactNo
         <div className="space-y-3 bg-accent/20 px-4 py-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-sm font-medium text-ink">
-              Identificador
-              <input aria-label="Identificador" value={identificador} onChange={(e) => setIdentificador(e.target.value)} className={inputCls} />
+              Patente
+              <input aria-label="Patente" value={identificador} onChange={(e) => setIdentificador(e.target.value)} className={inputCls} />
             </label>
             <label className="flex flex-col gap-1 text-sm font-medium text-ink">
               Descripción
