@@ -13,7 +13,8 @@ vi.mock('@/lib/api/liquidacion', () => ({
         cuil: '20111111111',
         regimen: 'jornalizado',
         categoriaUocraId: 1,
-        modalidadPago: 'en_b',
+        horasExtraPactadas: null,
+        permiteHorasExtra: false,
         contratosImputacionIds: [],
         empleado: { apellido_nombre: 'GOMEZ JUAN', legajo: 1, cargo: 'OF' },
         categoria: { id: 1, nombre: 'OFICIAL UOCRA' },
@@ -22,10 +23,32 @@ vi.mock('@/lib/api/liquidacion', () => ({
         cuil: '20444444444',
         regimen: 'mensualizado',
         categoriaUocraId: null,
-        modalidadPago: null,
+        horasExtraPactadas: null,
+        permiteHorasExtra: false,
         contratosImputacionIds: [1],
         empleado: { apellido_nombre: 'SOSA MARIA', legajo: 4, cargo: 'OF' },
         categoria: null,
+      },
+      {
+        // Ex fijo_105: el Decimal llega como string por JSON.
+        cuil: '20555555555',
+        regimen: 'fijo',
+        categoriaUocraId: 1,
+        horasExtraPactadas: '17.50',
+        permiteHorasExtra: false,
+        contratosImputacionIds: [],
+        empleado: { apellido_nombre: 'RIOS CARLOS', legajo: 5, cargo: 'AY' },
+        categoria: { id: 1, nombre: 'OFICIAL UOCRA' },
+      },
+      {
+        cuil: '20666666666',
+        regimen: 'fijo',
+        categoriaUocraId: 1,
+        horasExtraPactadas: null,
+        permiteHorasExtra: false,
+        contratosImputacionIds: [],
+        empleado: { apellido_nombre: 'VEGA SILVIA', legajo: 6, cargo: 'AY' },
+        categoria: { id: 1, nombre: 'OFICIAL UOCRA' },
       },
     ],
     isLoading: false,
@@ -48,6 +71,8 @@ vi.mock('@/lib/api/empleados', () => ({
       { cuil: '20222222222', apellido_nombre: 'PEREZ ANA', legajo: 2, cargo: 'AY' },
       { cuil: '20333333333', apellido_nombre: 'RUIZ LUIS', legajo: 3, cargo: 'AD' },
       { cuil: '20444444444', apellido_nombre: 'SOSA MARIA', legajo: 4, cargo: 'OF' },
+      { cuil: '20555555555', apellido_nombre: 'RIOS CARLOS', legajo: 5, cargo: 'AY' },
+      { cuil: '20666666666', apellido_nombre: 'VEGA SILVIA', legajo: 6, cargo: 'AY' },
     ],
     isLoading: false,
   }),
@@ -63,7 +88,7 @@ describe('PerfilesLiquidacionPage', () => {
     render(<PerfilesLiquidacionPage />);
     expect(screen.getByText('GOMEZ JUAN')).toBeInTheDocument();
     expect(screen.getByText('PEREZ ANA')).toBeInTheDocument();
-    expect(screen.getByRole('cell', { name: 'OFICIAL UOCRA' })).toBeInTheDocument();
+    expect(screen.getAllByRole('cell', { name: 'OFICIAL UOCRA' }).length).toBeGreaterThan(0);
   });
 
   it('filtra la lista por empleado tildado en el MultiFiltro', async () => {
@@ -75,20 +100,18 @@ describe('PerfilesLiquidacionPage', () => {
     expect(screen.getByText('PEREZ ANA')).toBeInTheDocument();
   });
 
-  it('asigna régimen/categoría/modalidad a varios empleados tildados a la vez', async () => {
+  it('asigna régimen y categoría a varios empleados tildados a la vez', async () => {
     render(<PerfilesLiquidacionPage />);
     await userEvent.click(screen.getByLabelText('Seleccionar GOMEZ JUAN'));
     await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));
     await userEvent.selectOptions(screen.getByLabelText('Régimen'), 'jornalizado');
     await userEvent.selectOptions(screen.getByLabelText('Categoría UOCRA'), '1');
-    await userEvent.selectOptions(screen.getByLabelText('Modalidad de pago'), 'con_descuentos');
     await userEvent.click(screen.getByRole('button', { name: /asignar a 2 seleccionados/i }));
     await waitFor(() =>
       expect(upsertMasivo).toHaveBeenCalledWith({
         cuils: ['20111111111', '20222222222'],
         regimen: 'jornalizado',
         categoriaUocraId: 1,
-        modalidadPago: 'con_descuentos',
       }),
     );
   });
@@ -159,7 +182,8 @@ describe('PerfilesLiquidacionPage', () => {
         cuil: '20444444444',
         regimen: 'mensualizado',
         categoriaUocraId: undefined,
-        modalidadPago: undefined,
+        horasExtraPactadas: undefined,
+        permiteHorasExtra: false,
         contratosImputacionIds: [1, 2],
       }),
     );
@@ -204,20 +228,67 @@ describe('PerfilesLiquidacionPage', () => {
     );
   });
 
-  it('al elegir régimen Administrativo, deshabilita categoría y modalidad y no las manda', async () => {
+  it('al elegir régimen Administrativo, deshabilita la categoría y no la manda', async () => {
     render(<PerfilesLiquidacionPage />);
     await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));
     await userEvent.selectOptions(screen.getByLabelText('Régimen'), 'administrativo');
     expect(screen.getByLabelText('Categoría UOCRA')).toBeDisabled();
-    expect(screen.getByLabelText('Modalidad de pago')).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: /asignar a 1 seleccionado/i }));
     await waitFor(() =>
       expect(upsertMasivo).toHaveBeenCalledWith({
         cuils: ['20222222222'],
         regimen: 'administrativo',
         categoriaUocraId: undefined,
-        modalidadPago: undefined,
       }),
     );
+  });
+
+  it('el casillero de horas extra pactadas solo aparece con régimen Fijo (ADR-023)', async () => {
+    render(<PerfilesLiquidacionPage />);
+    await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));
+    expect(screen.queryByLabelText('Horas extra pactadas')).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText('Régimen'), 'fijo');
+    expect(screen.getByLabelText('Horas extra pactadas')).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText('Régimen'), 'jornalizado');
+    expect(screen.queryByLabelText('Horas extra pactadas')).not.toBeInTheDocument();
+  });
+
+  it('asignar Fijo con 12 horas pactadas las manda (el caso MACCHIAROLA)', async () => {
+    render(<PerfilesLiquidacionPage />);
+    await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));
+    await userEvent.selectOptions(screen.getByLabelText('Régimen'), 'fijo');
+    await userEvent.selectOptions(screen.getByLabelText('Categoría UOCRA'), '1');
+    await userEvent.type(screen.getByLabelText('Horas extra pactadas'), '12');
+    await userEvent.click(screen.getByRole('button', { name: /asignar a 1 seleccionado/i }));
+    await waitFor(() =>
+      expect(upsertMasivo).toHaveBeenCalledWith({
+        cuils: ['20222222222'],
+        regimen: 'fijo',
+        categoriaUocraId: 1,
+        horasExtraPactadas: 12,
+      }),
+    );
+  });
+
+  it('un 0 pactado se manda como 0, no se confunde con vacío', async () => {
+    render(<PerfilesLiquidacionPage />);
+    await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));
+    await userEvent.selectOptions(screen.getByLabelText('Régimen'), 'fijo');
+    await userEvent.selectOptions(screen.getByLabelText('Categoría UOCRA'), '1');
+    await userEvent.type(screen.getByLabelText('Horas extra pactadas'), '0');
+    await userEvent.click(screen.getByRole('button', { name: /asignar a 1 seleccionado/i }));
+    await waitFor(() =>
+      expect(upsertMasivo).toHaveBeenCalledWith(
+        expect.objectContaining({ horasExtraPactadas: 0 }),
+      ),
+    );
+  });
+
+  it('la etiqueta del régimen muestra las horas pactadas, y avisa cuando faltan', () => {
+    render(<PerfilesLiquidacionPage />);
+    expect(screen.getByText('Fijo (88 + 17,5)')).toBeInTheDocument();
+    expect(screen.getByText('Fijo (faltan las horas pactadas)')).toBeInTheDocument();
   });
 });

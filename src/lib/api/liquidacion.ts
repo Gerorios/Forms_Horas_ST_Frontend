@@ -7,20 +7,22 @@ export interface CategoriaUocra {
   activo: boolean;
 }
 
-export type RegimenLiquidacion = 'jornalizado' | 'fijo' | 'fijo_105' | 'mensualizado' | 'por_tantos' | 'administrativo';
-export type ModalidadPago = 'en_b' | 'con_descuentos';
+export type RegimenLiquidacion = 'jornalizado' | 'fijo' | 'mensualizado' | 'por_tantos' | 'administrativo';
 export type TipoBonoNoRemunerativo = 'monto_fijo' | 'porcentaje';
 
 export interface PerfilLiquidacion {
   cuil: string;
   regimen: RegimenLiquidacion;
   categoriaUocraId: number | null;
-  modalidadPago: ModalidadPago | null;
+  /** Solo con regimen='fijo': horas extra que se pagan SIEMPRE sobre las 88 del
+   * CCT, sin depender de lo reportado. Llega como string (Decimal por JSON).
+   * null = falta cargarlo; '0' = las 88 puras. Ver ADR-023. */
+  horasExtraPactadas: string | null;
   /** Contratos de imputación para el corte por contrato del Análisis: solo
    * aplica a mensualizado/fijo/por_tantos; el costo se reparte en partes
    * iguales entre estos contratos (plan 2026-08-12, addendum). */
   contratosImputacionIds: number[];
-  /** Solo tiene sentido con regimen='fijo': además del básico fijo, cobra horas extra sobre lo declarado (ver ADR-017). */
+  /** Solo tiene sentido con regimen='mensualizado': además del monto fijo, cobra horas extra sobre lo declarado (ver ADR-017). */
   permiteHorasExtra: boolean;
   empleado: { apellido_nombre: string; legajo: number; cargo: string };
   categoria: { id: number; nombre: string } | null;
@@ -288,7 +290,7 @@ export function useUpsertPerfilesMasivo() {
       cuils: string[];
       regimen: RegimenLiquidacion;
       categoriaUocraId?: number;
-      modalidadPago?: ModalidadPago;
+      horasExtraPactadas?: number;
       permiteHorasExtra?: boolean;
     }) => api.post<{ asignados: number; omitidos: string[] }>('/liquidacion/perfiles/masivo', dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'perfiles'] }),
@@ -310,7 +312,10 @@ export function useUpsertPerfilLiquidacion() {
       cuil: string;
       regimen: RegimenLiquidacion;
       categoriaUocraId?: number;
-      modalidadPago?: ModalidadPago;
+      horasExtraPactadas?: number;
+      /** El backend hace `?? false`, así que quien edite OTRA cosa del perfil
+       * tiene que re-mandarlo o se lo apaga sin querer. */
+      permiteHorasExtra?: boolean;
       /** Reemplaza el set completo; ausente = no tocar. */
       contratosImputacionIds?: number[];
     }) => api.post(`/liquidacion/perfiles/${cuil}`, dto).then((r) => r.data),
@@ -480,7 +485,6 @@ export interface FilaDetalleEmpleado {
   plusIndividual: string | null;
   plusIndividualMotivo: string | null;
   total: string;
-  modalidadPago: ModalidadPago | null;
   etiquetaNovedades: string;
   datoFaltante: string | null;
   /** spec §6.4: provincia no mapeada (ver zonaDeProvincia en el backend) → null. */
@@ -583,7 +587,6 @@ export interface CierreDetalleFila {
   zona: 'norte' | 'sur' | null;
   regimen: string;
   categoria: string | null;
-  modalidadPago: string | null;
   tienePresentismo: boolean;
   precioBruto: number | string | null;
   horasTotal: number | string | null;

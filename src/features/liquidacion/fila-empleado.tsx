@@ -8,7 +8,6 @@ import { formatMoney } from './formato';
 export const REGIMEN_LABEL: Record<RegimenLiquidacion, string> = {
   jornalizado: 'Jornalizado',
   fijo: 'Fijo',
-  fijo_105: 'Fijo 105hs',
   mensualizado: 'Mensualizado',
   por_tantos: 'Por tantos',
   administrativo: 'Administrativo',

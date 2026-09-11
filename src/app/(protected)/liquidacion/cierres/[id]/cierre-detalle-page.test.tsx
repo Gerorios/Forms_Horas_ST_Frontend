@@ -43,7 +43,6 @@ const detalleFixture: CierreDetalle = {
       zona: 'norte',
       regimen: 'jornalizado',
       categoria: 'Oficial UOCRA',
-      modalidadPago: 'en_b',
       tienePresentismo: true,
       precioBruto: 4838,
       horasTotal: 104,

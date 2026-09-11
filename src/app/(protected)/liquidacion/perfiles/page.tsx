@@ -15,7 +15,6 @@ import {
   useContratosLiquidacion,
   mensajeDeError,
   type RegimenLiquidacion,
-  type ModalidadPago,
   type PerfilLiquidacion,
   type ContratoLiquidacion,
 } from '@/lib/api/liquidacion';
@@ -23,16 +22,10 @@ import { Button } from '@/components/button';
 
 const REGIMEN_LABEL: Record<RegimenLiquidacion, string> = {
   jornalizado: 'Jornalizado (por horas)',
-  fijo: 'Fijo (88hs por quincena)',
-  fijo_105: 'Fijo 105hs (88 básico + 17,5 extra fijas)',
+  fijo: 'Fijo (88hs + horas extra pactadas)',
   mensualizado: 'Mensualizado (monto fijo por quincena)',
   por_tantos: 'Por tantos (por cantidad)',
   administrativo: 'Administrativo (se liquida por otro circuito)',
-};
-
-const MODALIDAD_PAGO_LABEL: Record<ModalidadPago, string> = {
-  en_b: 'En B (sin descuentos)',
-  con_descuentos: 'Con descuentos (sueldo formal)',
 };
 
 const POR_PAGINA = 20;
@@ -40,7 +33,7 @@ const POR_PAGINA = 20;
 /** Regímenes que admiten contratos de imputación para el corte por contrato
  * del Análisis (plan 2026-08-12, addendum): sin horas reales que prorratear,
  * el costo se reparte en partes iguales entre los contratos asignados. */
-const REGIMENES_CON_IMPUTACION: RegimenLiquidacion[] = ['mensualizado', 'fijo', 'fijo_105', 'por_tantos'];
+const REGIMENES_CON_IMPUTACION: RegimenLiquidacion[] = ['mensualizado', 'fijo', 'por_tantos'];
 
 /** Selector múltiple de contratos de imputación de UNA fila. Guarda con el
  * upsert individual (el masivo NO toca imputación), re-mandando el resto del
@@ -65,7 +58,12 @@ function ContratosImputacionCell({
         cuil: perfil.cuil,
         regimen: perfil.regimen,
         categoriaUocraId: perfil.categoriaUocraId ?? undefined,
-        modalidadPago: perfil.modalidadPago ?? undefined,
+        // Se re-mandan aunque no se editen: el backend hace `?? null` / `?? false`,
+        // así que omitirlos acá borraría las horas pactadas y apagaría el flag
+        // de horas extra sin que nadie lo pidiera.
+        horasExtraPactadas:
+          perfil.horasExtraPactadas != null ? Number(perfil.horasExtraPactadas) : undefined,
+        permiteHorasExtra: perfil.permiteHorasExtra,
         contratosImputacionIds: ids.map(Number),
       }),
       {
@@ -108,13 +106,21 @@ function valorCategoriaDe(perfil: PerfilLiquidacion | undefined) {
   return perfil?.categoriaUocraId ? String(perfil.categoriaUocraId) : 'sin_categoria';
 }
 
-function valorModalidadDe(perfil: PerfilLiquidacion | undefined) {
-  return perfil?.modalidadPago ?? 'sin_modalidad';
+/** Formatea las horas pactadas al estilo local: 17.50 -> "17,5", 12.00 -> "12". */
+function formatearHoras(valor: string) {
+  return String(Number(valor)).replace('.', ',');
 }
 
-/** Solo "mensualizado" puede tener permiteHorasExtra — ver ADR-017. */
+/** Solo "mensualizado" puede tener permiteHorasExtra — ver ADR-017.
+ * Un "fijo" muestra sus horas pactadas acá mismo (no hay columna propia):
+ * "Fijo (88 + 12)", o el aviso si nadie las cargó todavía. Ver ADR-023. */
 function etiquetaRegimenDe(perfil: PerfilLiquidacion | undefined) {
   if (!perfil) return '—';
+  if (perfil.regimen === 'fijo') {
+    return perfil.horasExtraPactadas == null
+      ? 'Fijo (faltan las horas pactadas)'
+      : `Fijo (88 + ${formatearHoras(perfil.horasExtraPactadas)})`;
+  }
   const base = REGIMEN_LABEL[perfil.regimen];
   return perfil.regimen === 'mensualizado' && perfil.permiteHorasExtra ? `${base} + horas extra` : base;
 }
@@ -134,16 +140,16 @@ export default function PerfilesLiquidacionPage() {
   const [empleadoSel, setEmpleadoSel] = useState<string[]>([]);
   const [filtroRegimenSel, setFiltroRegimenSel] = useState<string[]>([]);
   const [filtroCategoriaSel, setFiltroCategoriaSel] = useState<string[]>([]);
-  const [filtroModalidadSel, setFiltroModalidadSel] = useState<string[]>([]);
   const [pagina, setPagina] = useState(1);
   const [seleccionados, setSeleccionados] = useState<string[]>([]);
   const [regimen, setRegimen] = useState<RegimenLiquidacion | ''>('');
   const [categoriaUocraId, setCategoriaUocraId] = useState<number | null>(null);
-  const [modalidadPago, setModalidadPago] = useState<ModalidadPago | ''>('');
+  const [horasExtraPactadas, setHorasExtraPactadas] = useState('');
   const [permiteHorasExtra, setPermiteHorasExtra] = useState(false);
 
   const esAdministrativo = regimen === 'administrativo';
   const esMensualizado = regimen === 'mensualizado';
+  const esFijo = regimen === 'fijo';
 
   const perfilPorCuil = useMemo(() => {
     return new Map((perfiles ?? []).map((p) => [p.cuil, p]));
@@ -155,11 +161,10 @@ export default function PerfilesLiquidacionPage() {
       return (
         pasaMulti(e.cuil, empleadoSel) &&
         pasaMulti(valorRegimenDe(perfil), filtroRegimenSel) &&
-        pasaMulti(valorCategoriaDe(perfil), filtroCategoriaSel) &&
-        pasaMulti(valorModalidadDe(perfil), filtroModalidadSel)
+        pasaMulti(valorCategoriaDe(perfil), filtroCategoriaSel)
       );
     });
-  }, [empleados, perfilPorCuil, empleadoSel, filtroRegimenSel, filtroCategoriaSel, filtroModalidadSel]);
+  }, [empleados, perfilPorCuil, empleadoSel, filtroRegimenSel, filtroCategoriaSel]);
 
   // Opciones facetadas: cada MultiFiltro se acota con los DEMÁS filtros
   // aplicados (excluyendo el propio), con el catálogo completo como base para
@@ -170,22 +175,20 @@ export default function PerfilesLiquidacionPage() {
       const perfil = perfilPorCuil.get(e.cuil);
       return (
         pasaMulti(valorRegimenDe(perfil), filtroRegimenSel) &&
-        pasaMulti(valorCategoriaDe(perfil), filtroCategoriaSel) &&
-        pasaMulti(valorModalidadDe(perfil), filtroModalidadSel)
+        pasaMulti(valorCategoriaDe(perfil), filtroCategoriaSel)
       );
     });
     return opcionesFacetadas(candidatos, (e) => e.cuil, empleadoSel, {
       labelDe: (cuil) => (empleados ?? []).find((e) => e.cuil === cuil)?.apellido_nombre ?? cuil,
     });
-  }, [empleados, perfilPorCuil, filtroRegimenSel, filtroCategoriaSel, filtroModalidadSel, empleadoSel]);
+  }, [empleados, perfilPorCuil, filtroRegimenSel, filtroCategoriaSel, empleadoSel]);
 
   const opcionesRegimen = useMemo(() => {
     const candidatos = (empleados ?? []).filter((e) => {
       const perfil = perfilPorCuil.get(e.cuil);
       return (
         pasaMulti(e.cuil, empleadoSel) &&
-        pasaMulti(valorCategoriaDe(perfil), filtroCategoriaSel) &&
-        pasaMulti(valorModalidadDe(perfil), filtroModalidadSel)
+        pasaMulti(valorCategoriaDe(perfil), filtroCategoriaSel)
       );
     });
     const counts = opcionesFacetadas(candidatos, (e) => valorRegimenDe(perfilPorCuil.get(e.cuil)), filtroRegimenSel);
@@ -198,15 +201,14 @@ export default function PerfilesLiquidacionPage() {
         count: countPorValor.get(r) ?? 0,
       })),
     ];
-  }, [empleados, perfilPorCuil, empleadoSel, filtroCategoriaSel, filtroModalidadSel, filtroRegimenSel]);
+  }, [empleados, perfilPorCuil, empleadoSel, filtroCategoriaSel, filtroRegimenSel]);
 
   const opcionesCategoria = useMemo(() => {
     const candidatos = (empleados ?? []).filter((e) => {
       const perfil = perfilPorCuil.get(e.cuil);
       return (
         pasaMulti(e.cuil, empleadoSel) &&
-        pasaMulti(valorRegimenDe(perfil), filtroRegimenSel) &&
-        pasaMulti(valorModalidadDe(perfil), filtroModalidadSel)
+        pasaMulti(valorRegimenDe(perfil), filtroRegimenSel)
       );
     });
     const counts = opcionesFacetadas(candidatos, (e) => valorCategoriaDe(perfilPorCuil.get(e.cuil)), filtroCategoriaSel);
@@ -219,28 +221,7 @@ export default function PerfilesLiquidacionPage() {
         count: countPorValor.get(String(c.id)) ?? 0,
       })),
     ];
-  }, [empleados, perfilPorCuil, empleadoSel, filtroRegimenSel, filtroModalidadSel, filtroCategoriaSel, categorias]);
-
-  const opcionesModalidad = useMemo(() => {
-    const candidatos = (empleados ?? []).filter((e) => {
-      const perfil = perfilPorCuil.get(e.cuil);
-      return (
-        pasaMulti(e.cuil, empleadoSel) &&
-        pasaMulti(valorRegimenDe(perfil), filtroRegimenSel) &&
-        pasaMulti(valorCategoriaDe(perfil), filtroCategoriaSel)
-      );
-    });
-    const counts = opcionesFacetadas(candidatos, (e) => valorModalidadDe(perfilPorCuil.get(e.cuil)), filtroModalidadSel);
-    const countPorValor = new Map(counts.map((o) => [o.value, o.count]));
-    return [
-      { value: 'sin_modalidad', label: 'Sin modalidad', count: countPorValor.get('sin_modalidad') ?? 0 },
-      ...(Object.keys(MODALIDAD_PAGO_LABEL) as ModalidadPago[]).map((m) => ({
-        value: m,
-        label: MODALIDAD_PAGO_LABEL[m],
-        count: countPorValor.get(m) ?? 0,
-      })),
-    ];
-  }, [empleados, perfilPorCuil, empleadoSel, filtroRegimenSel, filtroCategoriaSel, filtroModalidadSel]);
+  }, [empleados, perfilPorCuil, empleadoSel, filtroRegimenSel, filtroCategoriaSel, categorias]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
   const paginaSegura = Math.min(pagina, totalPaginas);
@@ -248,16 +229,18 @@ export default function PerfilesLiquidacionPage() {
 
   useEffect(() => {
     setPagina(1);
-  }, [empleadoSel, filtroRegimenSel, filtroCategoriaSel, filtroModalidadSel]);
+  }, [empleadoSel, filtroRegimenSel, filtroCategoriaSel]);
 
   function cambiarRegimen(valor: RegimenLiquidacion | '') {
     setRegimen(valor);
     if (valor === 'administrativo') {
       setCategoriaUocraId(null);
-      setModalidadPago('');
     }
     if (valor !== 'mensualizado') {
       setPermiteHorasExtra(false);
+    }
+    if (valor !== 'fijo') {
+      setHorasExtraPactadas('');
     }
   }
 
@@ -284,7 +267,10 @@ export default function PerfilesLiquidacionPage() {
       cuils: seleccionados,
       regimen: regimen as RegimenLiquidacion,
       categoriaUocraId: categoriaUocraId ?? undefined,
-      modalidadPago: modalidadPago || undefined,
+      // Vacío es "no lo cargo todavía" (queda la alerta); "0" es una respuesta
+      // válida y tiene que viajar como 0. Ver ADR-023.
+      horasExtraPactadas:
+        esFijo && horasExtraPactadas.trim() !== '' ? Number(horasExtraPactadas) : undefined,
       permiteHorasExtra: esMensualizado ? permiteHorasExtra : undefined,
     });
     toast.promise(promesa, {
@@ -344,21 +330,24 @@ export default function PerfilesLiquidacionPage() {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-sm font-medium text-ink">
-            Modalidad de pago
-            <select
-              aria-label="Modalidad de pago"
-              value={modalidadPago}
-              disabled={esAdministrativo}
-              onChange={(e) => setModalidadPago(e.target.value as ModalidadPago | '')}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 disabled:opacity-50"
-            >
-              <option value="">— (no aplica)</option>
-              {(Object.keys(MODALIDAD_PAGO_LABEL) as ModalidadPago[]).map((m) => (
-                <option key={m} value={m}>{MODALIDAD_PAGO_LABEL[m]}</option>
-              ))}
-            </select>
-          </label>
+          {esFijo && (
+            <label className="flex flex-col gap-1 text-sm font-medium text-ink">
+              Horas extra pactadas
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                aria-label="Horas extra pactadas"
+                value={horasExtraPactadas}
+                onChange={(e) => setHorasExtraPactadas(e.target.value)}
+                placeholder="12"
+                className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+              />
+              <span className="text-xs font-normal text-slate">
+                88 hs de base (CCT) + estas horas extra, siempre, sin depender de lo reportado. 0 = solo las 88.
+              </span>
+            </label>
+          )}
           {esMensualizado && (
             <label className="flex items-center gap-2 text-sm font-medium text-ink sm:col-span-3">
               <input
@@ -379,14 +368,12 @@ export default function PerfilesLiquidacionPage() {
         hayFiltros={
           empleadoSel.length > 0 ||
           filtroRegimenSel.length > 0 ||
-          filtroCategoriaSel.length > 0 ||
-          filtroModalidadSel.length > 0
+          filtroCategoriaSel.length > 0
         }
         onLimpiar={() => {
           setEmpleadoSel([]);
           setFiltroRegimenSel([]);
           setFiltroCategoriaSel([]);
-          setFiltroModalidadSel([]);
         }}
       >
         <MultiFiltro
@@ -409,13 +396,6 @@ export default function PerfilesLiquidacionPage() {
           opciones={opcionesCategoria}
           seleccionados={filtroCategoriaSel}
           onChange={setFiltroCategoriaSel}
-        />
-        <MultiFiltro
-          label="Modalidad de pago"
-          ariaLabel="Filtrar por modalidad de pago"
-          opciones={opcionesModalidad}
-          seleccionados={filtroModalidadSel}
-          onChange={setFiltroModalidadSel}
         />
       </BarraFiltros>
 
@@ -441,7 +421,6 @@ export default function PerfilesLiquidacionPage() {
                   <th className="px-4 py-2.5 font-medium">Empleado</th>
                   <th className="px-4 py-2.5 font-medium">Régimen</th>
                   <th className="px-4 py-2.5 font-medium">Categoría</th>
-                  <th className="px-4 py-2.5 font-medium">Modalidad de pago</th>
                   <th className="px-4 py-2.5 font-medium">Contratos de imputación (análisis)</th>
                   <th className="px-4 py-2.5"></th>
                 </tr>
@@ -462,9 +441,6 @@ export default function PerfilesLiquidacionPage() {
                       <td className="px-4 py-2.5">{e.apellido_nombre}</td>
                       <td className="px-4 py-2.5">{etiquetaRegimenDe(perfil)}</td>
                       <td className="px-4 py-2.5">{perfil?.categoria?.nombre ?? '—'}</td>
-                      <td className="px-4 py-2.5">
-                        {perfil?.modalidadPago ? MODALIDAD_PAGO_LABEL[perfil.modalidadPago] : '—'}
-                      </td>
                       <td className="px-4 py-2.5">
                         {perfil && REGIMENES_CON_IMPUTACION.includes(perfil.regimen) ? (
                           <ContratosImputacionCell
