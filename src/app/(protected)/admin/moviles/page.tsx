@@ -50,6 +50,7 @@ export default function MovilesAdminPage() {
   // `paginar` devuelve la página "segura": si la lista se achicó y la página
   // actual quedó fuera de rango, muestra la última válida en vez de vacío.
   const { enPagina, paginaSegura, totalPaginas } = paginar(filtrados, pagina, POR_PAGINA);
+  const noHayMoviles = (data ?? []).length === 0;
 
   function agregar() {
     if (!identificador.trim()) return;
@@ -155,14 +156,13 @@ export default function MovilesAdminPage() {
               pill={<PillActivo activo={m.activo} disabled={toggle.isPending} onToggle={() => cambiarActivo(m.id, !m.activo)} />}
             />
           ))}
-          {(data ?? []).length === 0 ? (
-            <div className="px-4 py-2.5 text-sm text-slate">Sin móviles.</div>
-          ) : (
-            filtrados.length === 0 && (
-              <div className="px-4 py-2.5 text-sm text-slate">
-                Ningún móvil coincide con «{busqueda.trim()}»
-              </div>
-            )
+          {/* "Sin móviles" es que no hay ninguno cargado; si hay pero la
+              búsqueda no pegó, conviene decir qué se buscó. */}
+          {noHayMoviles && <div className="px-4 py-2.5 text-sm text-slate">Sin móviles.</div>}
+          {!noHayMoviles && filtrados.length === 0 && (
+            <div className="px-4 py-2.5 text-sm text-slate">
+              Ningún móvil coincide con «{busqueda.trim()}»
+            </div>
           )}
           <Paginador
             pagina={paginaSegura}
