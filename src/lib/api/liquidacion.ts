@@ -131,7 +131,7 @@ export interface AlertasQuincena {
     apellidoNombre: string;
     regimen: RegimenLiquidacion;
     faltaCategoria: boolean;
-    faltaModalidad: boolean;
+    faltaHorasExtraPactadas: boolean;
   }[];
   sinHorasAprobadas: {
     cuil: string;

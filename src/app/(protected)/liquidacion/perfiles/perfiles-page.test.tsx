@@ -286,6 +286,20 @@ describe('PerfilesLiquidacionPage', () => {
     );
   });
 
+  it('dejar el casillero vacío NO manda 0: queda como dato faltante', async () => {
+    render(<PerfilesLiquidacionPage />);
+    await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));
+    await userEvent.selectOptions(screen.getByLabelText('Régimen'), 'fijo');
+    await userEvent.selectOptions(screen.getByLabelText('Categoría UOCRA'), '1');
+    // sin tipear nada en Horas extra pactadas
+    await userEvent.click(screen.getByRole('button', { name: /asignar a 1 seleccionado/i }));
+    await waitFor(() =>
+      expect(upsertMasivo).toHaveBeenCalledWith(
+        expect.objectContaining({ horasExtraPactadas: undefined }),
+      ),
+    );
+  });
+
   it('la etiqueta del régimen muestra las horas pactadas, y avisa cuando faltan', () => {
     render(<PerfilesLiquidacionPage />);
     expect(screen.getByText('Fijo (88 + 17,5)')).toBeInTheDocument();
