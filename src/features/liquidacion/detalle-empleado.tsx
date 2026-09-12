@@ -1,12 +1,7 @@
 'use client';
 
-import type { FilaDetalleEmpleado, ModalidadPago } from '@/lib/api/liquidacion';
+import type { FilaDetalleEmpleado } from '@/lib/api/liquidacion';
 import { formatMoney } from './fila-empleado';
-
-const MODALIDAD_LABEL: Record<ModalidadPago, string> = {
-  en_b: 'En B',
-  con_descuentos: 'Con descuentos',
-};
 
 export function DetalleEmpleado({
   fila,
@@ -18,12 +13,6 @@ export function DetalleEmpleado({
   return (
     <div className="space-y-4 text-sm text-ink" onClick={(e) => e.stopPropagation()}>
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate">
-        <span>
-          Modalidad de pago:{' '}
-          <span className="text-ink">
-            {fila.modalidadPago ? (MODALIDAD_LABEL[fila.modalidadPago] ?? fila.modalidadPago) : '—'}
-          </span>
-        </span>
         <span>
           Novedades: <span className="text-ink">{fila.etiquetaNovedades || '—'}</span>
         </span>
