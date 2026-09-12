@@ -18,6 +18,9 @@ export interface PerfilLiquidacion {
    * CCT, sin depender de lo reportado. Llega como string (Decimal por JSON).
    * null = falta cargarlo; '0' = las 88 puras. Ver ADR-023. */
   horasExtraPactadas: string | null;
+  /** Excepción: fuerza la hoja del Excel por encima de la provincia.
+   * null = manda la provincia (lo normal). Ver ADR-023. */
+  zonaOverride: 'norte' | 'sur' | null;
   /** Contratos de imputación para el corte por contrato del Análisis: solo
    * aplica a mensualizado/fijo/por_tantos; el costo se reparte en partes
    * iguales entre estos contratos (plan 2026-08-12, addendum). */
@@ -291,6 +294,7 @@ export function useUpsertPerfilesMasivo() {
       regimen: RegimenLiquidacion;
       categoriaUocraId?: number;
       horasExtraPactadas?: number;
+      zonaOverride?: 'norte' | 'sur' | null;
       permiteHorasExtra?: boolean;
     }) => api.post<{ asignados: number; omitidos: string[] }>('/liquidacion/perfiles/masivo', dto).then((r) => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['liquidacion', 'perfiles'] }),
@@ -313,6 +317,7 @@ export function useUpsertPerfilLiquidacion() {
       regimen: RegimenLiquidacion;
       categoriaUocraId?: number;
       horasExtraPactadas?: number;
+      zonaOverride?: 'norte' | 'sur' | null;
       /** El backend hace `?? false`, así que quien edite OTRA cosa del perfil
        * tiene que re-mandarlo o se lo apaga sin querer. */
       permiteHorasExtra?: boolean;

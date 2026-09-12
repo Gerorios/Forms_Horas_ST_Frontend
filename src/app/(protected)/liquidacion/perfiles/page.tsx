@@ -64,6 +64,7 @@ function ContratosImputacionCell({
         horasExtraPactadas:
           perfil.horasExtraPactadas != null ? Number(perfil.horasExtraPactadas) : undefined,
         permiteHorasExtra: perfil.permiteHorasExtra,
+        zonaOverride: perfil.zonaOverride,
         contratosImputacionIds: ids.map(Number),
       }),
       {
@@ -145,6 +146,7 @@ export default function PerfilesLiquidacionPage() {
   const [regimen, setRegimen] = useState<RegimenLiquidacion | ''>('');
   const [categoriaUocraId, setCategoriaUocraId] = useState<number | null>(null);
   const [horasExtraPactadas, setHorasExtraPactadas] = useState('');
+  const [zonaOverride, setZonaOverride] = useState<'' | 'norte' | 'sur'>('');
   const [permiteHorasExtra, setPermiteHorasExtra] = useState(false);
 
   const esAdministrativo = regimen === 'administrativo';
@@ -271,6 +273,9 @@ export default function PerfilesLiquidacionPage() {
       // válida y tiene que viajar como 0. Ver ADR-023.
       horasExtraPactadas:
         esFijo && horasExtraPactadas.trim() !== '' ? Number(horasExtraPactadas) : undefined,
+      // Vacío = "no toco la excepción". Para QUITARLA hay que mandar null
+      // explícito, y eso lo hace la opción "Por su provincia".
+      zonaOverride: zonaOverride === '' ? undefined : zonaOverride,
       permiteHorasExtra: esMensualizado ? permiteHorasExtra : undefined,
     });
     toast.promise(promesa, {
@@ -348,6 +353,22 @@ export default function PerfilesLiquidacionPage() {
               </span>
             </label>
           )}
+          <label className="flex flex-col gap-1 text-sm font-medium text-ink">
+            Zona del Excel (excepción)
+            <select
+              aria-label="Zona del Excel"
+              value={zonaOverride}
+              onChange={(e) => setZonaOverride(e.target.value as '' | 'norte' | 'sur')}
+              className="rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30"
+            >
+              <option value="">— (no cambiar)</option>
+              <option value="norte">Forzar NORTE</option>
+              <option value="sur">Forzar SUR (Tucumán)</option>
+            </select>
+            <span className="text-xs font-normal text-slate">
+              Normalmente la hoja sale de la provincia. Esto la fuerza para quien no encaje en esa regla.
+            </span>
+          </label>
           {esMensualizado && (
             <label className="flex items-center gap-2 text-sm font-medium text-ink sm:col-span-3">
               <input

@@ -15,6 +15,7 @@ vi.mock('@/lib/api/liquidacion', () => ({
         categoriaUocraId: 1,
         horasExtraPactadas: null,
         permiteHorasExtra: false,
+        zonaOverride: null,
         contratosImputacionIds: [],
         empleado: { apellido_nombre: 'GOMEZ JUAN', legajo: 1, cargo: 'OF' },
         categoria: { id: 1, nombre: 'OFICIAL UOCRA' },
@@ -25,6 +26,7 @@ vi.mock('@/lib/api/liquidacion', () => ({
         categoriaUocraId: null,
         horasExtraPactadas: null,
         permiteHorasExtra: false,
+        zonaOverride: null,
         contratosImputacionIds: [1],
         empleado: { apellido_nombre: 'SOSA MARIA', legajo: 4, cargo: 'OF' },
         categoria: null,
@@ -36,6 +38,7 @@ vi.mock('@/lib/api/liquidacion', () => ({
         categoriaUocraId: 1,
         horasExtraPactadas: '17.50',
         permiteHorasExtra: false,
+        zonaOverride: null,
         contratosImputacionIds: [],
         empleado: { apellido_nombre: 'RIOS CARLOS', legajo: 5, cargo: 'AY' },
         categoria: { id: 1, nombre: 'OFICIAL UOCRA' },
@@ -46,6 +49,7 @@ vi.mock('@/lib/api/liquidacion', () => ({
         categoriaUocraId: 1,
         horasExtraPactadas: null,
         permiteHorasExtra: false,
+        zonaOverride: null,
         contratosImputacionIds: [],
         empleado: { apellido_nombre: 'VEGA SILVIA', legajo: 6, cargo: 'AY' },
         categoria: { id: 1, nombre: 'OFICIAL UOCRA' },
@@ -184,6 +188,7 @@ describe('PerfilesLiquidacionPage', () => {
         categoriaUocraId: undefined,
         horasExtraPactadas: undefined,
         permiteHorasExtra: false,
+        zonaOverride: null,
         contratosImputacionIds: [1, 2],
       }),
     );
@@ -297,6 +302,25 @@ describe('PerfilesLiquidacionPage', () => {
       expect(upsertMasivo).toHaveBeenCalledWith(
         expect.objectContaining({ horasExtraPactadas: undefined }),
       ),
+    );
+  });
+
+  it('forzar la zona SUR la manda; dejarlo en "no cambiar" no toca la excepción', async () => {
+    render(<PerfilesLiquidacionPage />);
+    await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));
+    await userEvent.selectOptions(screen.getByLabelText('Régimen'), 'jornalizado');
+    await userEvent.click(screen.getByRole('button', { name: /asignar a 1 seleccionado/i }));
+    await waitFor(() =>
+      expect(upsertMasivo).toHaveBeenCalledWith(expect.objectContaining({ zonaOverride: undefined })),
+    );
+
+    // Asignar limpia la selección, así que hay que volver a tildar.
+    upsertMasivo.mockClear();
+    await userEvent.click(screen.getByLabelText('Seleccionar PEREZ ANA'));
+    await userEvent.selectOptions(screen.getByLabelText('Zona del Excel'), 'sur');
+    await userEvent.click(screen.getByRole('button', { name: /asignar a 1 seleccionado/i }));
+    await waitFor(() =>
+      expect(upsertMasivo).toHaveBeenCalledWith(expect.objectContaining({ zonaOverride: 'sur' })),
     );
   });
 
