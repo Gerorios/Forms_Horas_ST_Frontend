@@ -113,6 +113,16 @@ describe('RegistrosCards', () => {
     expect(screen.getByText(/según recorrido son 8hs/)).toBeInTheDocument();
   });
 
+  it('no muestra el chip "+16h" al operario aunque el registro traiga alertaHoras (pedido 2026-09-18: los confundía)', () => {
+    const larga = { ...reg(1, '2026-07-05', '17', 'aprobado'), alertaHoras: true };
+    const rechazada = { ...reg(2, '2026-07-06', '18', 'desaprobado'), loteId: 'lote-viejo', alertaHoras: true };
+    const corregida = { ...reg(3, '2026-07-06', '17', 'aprobado'), loteId: 'lote-nuevo', loteIdOrigen: 'lote-viejo', alertaHoras: true };
+    render(<RegistrosCards registros={[larga, rechazada, corregida]} quincena={QUINCENA_1} isLoading={false} />);
+    // Las horas se ven igual; la alerta de jornada larga queda para el jefe, en aprobaciones.
+    expect(screen.getAllByText('17 hs').length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText('+16h')).not.toBeInTheDocument();
+  });
+
   it('isLoading muestra el estado de carga', () => {
     render(<RegistrosCards registros={undefined} quincena={QUINCENA_1} isLoading />);
     expect(screen.getByRole('status', { name: 'Cargando…' })).toBeInTheDocument();
