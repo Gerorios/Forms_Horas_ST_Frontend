@@ -30,12 +30,10 @@ function TarjetaSimple({ r }: { r: RegistroHoras }) {
       <div className="flex items-start justify-between gap-3">
         <Encabezado r={r} />
         <div className="text-right">
-          <div className="text-lg font-bold tabular-nums text-ink">
-            {r.horas} hs
-            {r.alertaHoras && (
-              <span className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn">+16h</span>
-            )}
-          </div>
+          {/* Sin el chip "+16h": la alerta de jornada larga es para quien
+              aprueba (aprobaciones / control general), no para el operario,
+              que la encontraba confusa (pedido 2026-09-18). */}
+          <div className="text-lg font-bold tabular-nums text-ink">{r.horas} hs</div>
           <StatusBadge estado={r.estado} />
         </div>
       </div>
@@ -55,12 +53,7 @@ function TarjetaCorregida({ original, corregida }: { original: RegistroHoras; co
         <Encabezado r={corregida} />
         <div className="text-right">
           <div className="text-sm text-slate/60 line-through tabular-nums">{original.horas} hs</div>
-          <div className="text-lg font-bold tabular-nums text-ink">
-            {corregida.horas} hs
-            {corregida.alertaHoras && (
-              <span className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn">+16h</span>
-            )}
-          </div>
+          <div className="text-lg font-bold tabular-nums text-ink">{corregida.horas} hs</div>
           <StatusBadge estado="aprobado" />
         </div>
       </div>
