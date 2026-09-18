@@ -88,7 +88,13 @@ const FilaPorTantos = memo(function FilaPorTantos({ fila: f, km }: { fila: FilaD
         <td className="px-2 py-2.5 font-medium tabular-nums">
           {formatMoney(String(Number(f.basico) + Number(f.presentismo) + Number(f.noRemunerativo)))}
         </td>
-        <td className="px-2 py-2.5 font-medium tabular-nums">{formatMoney(f.montoExtra)}</td>
+        {/* Monto B = residual de extras + plus individual. El plus del relevador
+            va a B (decisión 2026-09-17): antes no entraba en A ni en B y no se
+            cobraba, aunque el total del backend sí lo sumaba. Mismo criterio
+            que el montoB congelado por el cierre. */}
+        <td className="px-2 py-2.5 font-medium tabular-nums">
+          {formatMoney(String(Number(f.montoExtra) + Number(f.plusIndividual ?? 0)))}
+        </td>
         <td className="px-2 py-2.5">
           {f.datoFaltante && (
             <span className="rounded bg-danger/10 px-1 text-xs font-medium text-danger" title={f.datoFaltante}>
@@ -106,6 +112,16 @@ const FilaPorTantos = memo(function FilaPorTantos({ fila: f, km }: { fila: FilaD
             <div className="space-y-3 text-sm text-ink">
               {f.datoFaltante && (
                 <p className="text-xs text-danger">{f.datoFaltante}</p>
+              )}
+              {/* Misma línea que ve el detalle de los demás empleados
+                  (detalle-empleado.tsx): el plus se explica con su motivo. */}
+              {f.plusIndividual != null && (
+                <p className="text-xs text-slate">
+                  Plus individual (en Monto B):{' '}
+                  <span className="text-ink">
+                    {formatMoney(f.plusIndividual)} ({f.plusIndividualMotivo})
+                  </span>
+                </p>
               )}
               <div>
                 <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate">

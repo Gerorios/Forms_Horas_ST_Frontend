@@ -124,7 +124,11 @@ const filaPorTantos = {
   presentismo: '105600.00',
   totalPlus: '0.00',
   noRemunerativo: '33550.00',
-  total: '1039150.00',
+  // Plus individual del relevador: va a la parte B (decisión 2026-09-17),
+  // así que Monto B = 372.000 + 25.000 = 397.000.
+  plusIndividual: '25000.00',
+  plusIndividualMotivo: 'Arreglo interno',
+  total: '1064150.00',
   etiquetaNovedades: '',
   datoFaltante: null,
   zona: 'norte' as const,
@@ -289,8 +293,21 @@ describe('DetalleQuincenaPage', () => {
     expect(fila).toHaveTextContent('150.00'); // horas totales
     expect(fila).toHaveTextContent('88.00'); // horas CCT
     expect(fila).toHaveTextContent('62.00'); // horas extra
-    // Monto B: 62 × tarifa, SIN el ×1.5 de jornalizado (que hubiera dado 558.000).
-    expect(fila).toHaveTextContent('372.000,00');
+    // Monto B: 62 × tarifa, SIN el ×1.5 de jornalizado (que hubiera dado
+    // 558.000) = 372.000, MÁS el plus individual de 25.000 (bug 2026-09-17:
+    // el relevador no lo cobraba; el usuario decidió que va a B).
+    expect(fila).toHaveTextContent('397.000,00');
+    expect(fila).not.toHaveTextContent('372.000,00');
+  });
+
+  it('el detalle del relevador muestra el plus individual con su motivo, como el de los demás empleados', async () => {
+    renderPage();
+    const fila = screen.getByRole('cell', { name: 'RELEVADOR PABLO' }).closest('tr')!;
+    expect(screen.queryByText(/Plus individual/)).not.toBeInTheDocument();
+    await userEvent.click(fila);
+    const detalle = screen.getByText(/Plus individual/);
+    expect(detalle.closest('span, div, p')).toHaveTextContent('25.000,00');
+    expect(detalle.closest('span, div, p')).toHaveTextContent('Arreglo interno');
   });
 
   it('la tabla de "por tantos" muestra el bono no remunerativo y separa Monto A (bruto+presentismo+bono) de Monto B', () => {
