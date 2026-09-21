@@ -16,8 +16,14 @@ import { normalizarCifraEsAr } from '@/features/certificaciones/carga/revalidar'
  * la fila se revalida como cualquier otra (puede quedar bloqueada por
  * cuadratura y el usuario la confirma a mano). */
 
+/** `w-full min-w-0` va en TODOS los campos, no solo en los dos selects: el
+ * tamaño mínimo automático de un control nativo es su contenido intrínseco
+ * (la opción más larga en un `<select>`, el `size` en un `<input>`), y sin
+ * `min-w-0` ese mínimo le gana al reparto de la grilla. `w-full` es un no-op
+ * para los que ya se estiran como ítems de grilla, y deja explícito que
+ * ninguno decide su ancho por sí mismo. */
 const inputCls =
-  'rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
+  'w-full min-w-0 rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
 
 /** Regla de cifras es-AR compartida con `page.tsx` y con el espejo de
  * validación: vive UNA sola vez en `revalidar.ts` (`normalizarCifraEsAr`),
@@ -93,9 +99,17 @@ export function FilaManualForm({
         </p>
       </div>
 
-      <div className="grid items-end gap-2.5 sm:grid-cols-2 lg:grid-cols-[2.2fr_1fr_1fr_1.1fr_1.1fr_auto]">
-        <label className="grid gap-1">
-          <span className="text-xs uppercase tracking-wide text-slate">Ítem del maestro (tus contratos)</span>
+      {/* Las pistas van con `minmax(0,Xfr)` y no con `Xfr` a secas: en CSS Grid
+          `Xfr` equivale a `minmax(auto, Xfr)`, y el mínimo `auto` de un
+          `<select>` nativo es el ancho de su opción más larga. Con cientos de
+          ítems rotulados `codigo_k · item_codigo · tarea` (~130 chars) la
+          primera pista se inflaba hasta sacar Provincia / Cantidad /
+          $ Unitario / $ Total / botones fuera del recuadro, con scroll
+          horizontal en toda la página. El `min-w-0` de cada hijo es la otra
+          mitad: sin él, el ítem vuelve a imponer su mínimo intrínseco. */}
+      <div className="grid items-end gap-2.5 sm:grid-cols-2 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_auto]">
+        <label className="grid min-w-0 gap-1">
+          <span className="text-xs uppercase tracking-wide text-slate">Ítem del maestro (contratos de las hojas elegidas)</span>
           <select value={idItem} onChange={(e) => setIdItem(e.target.value)} className={inputCls}>
             <option value="">Elegí un ítem</option>
             {items.map((i) => (
@@ -106,7 +120,7 @@ export function FilaManualForm({
           </select>
         </label>
 
-        <label className="grid gap-1">
+        <label className="grid min-w-0 gap-1">
           <span className="text-xs uppercase tracking-wide text-slate">Provincia</span>
           <select value={provincia} onChange={(e) => setProvincia(e.target.value)} className={inputCls}>
             <option value="">—</option>
@@ -118,7 +132,7 @@ export function FilaManualForm({
           </select>
         </label>
 
-        <label className="grid gap-1">
+        <label className="grid min-w-0 gap-1">
           <span className="text-xs uppercase tracking-wide text-slate">Cantidad</span>
           <input
             value={cantidad}
@@ -128,7 +142,7 @@ export function FilaManualForm({
           />
         </label>
 
-        <label className="grid gap-1">
+        <label className="grid min-w-0 gap-1">
           <span className="text-xs uppercase tracking-wide text-slate">$ Unitario</span>
           <input
             value={unitario}
@@ -140,8 +154,8 @@ export function FilaManualForm({
 
         {/* El hint queda FUERA del <label> a propósito: dentro, su texto se
             sumaría al nombre accesible del input ("$ Total propuesto: …"). */}
-        <div className="grid gap-1">
-          <label className="grid gap-1">
+        <div className="grid min-w-0 gap-1">
+          <label className="grid min-w-0 gap-1">
             <span className="text-xs uppercase tracking-wide text-slate">$ Total</span>
             <input
               value={total}
@@ -156,7 +170,7 @@ export function FilaManualForm({
           <span className="text-xs text-slate">propuesto: cantidad × unitario</span>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex min-w-0 gap-2">
           <Button
             variant="secondary"
             size="sm"

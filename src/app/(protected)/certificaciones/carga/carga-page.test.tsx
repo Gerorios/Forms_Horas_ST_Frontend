@@ -555,10 +555,11 @@ describe('CargaCertificacionesPage', () => {
     expect(screen.getByRole('button', { name: /confirmar carga/i })).toBeEnabled();
   });
 
-  it('avisos de lectura: columna ignorada y período (fuerte) se muestran', async () => {
+  it('solo avisos urgentes: el aviso débil y los errores por fila NO se muestran, el fuerte sí', async () => {
     preview.mockResolvedValue(
       previewBase({
         columnas_ignoradas: ['CUENTA'],
+        errores: [{ hoja: 'CERTIF K12', fila: 9, campo: 'cantidades', mensaje: 'No se pudo leer la cantidad' }],
         avisos: [
           {
             tipo: 'columna_ignorada',
@@ -581,9 +582,78 @@ describe('CargaCertificacionesPage', () => {
     await subirArchivo();
     await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
 
-    expect(screen.getByText(/columna ignorada: cuenta/i)).toBeInTheDocument();
-    expect(screen.getByTestId('avisos-lectura')).toHaveTextContent(/avisos de lectura/i);
-    expect(screen.getByTestId('avisos-fuertes')).toHaveTextContent(/elegiste agosto 2026/i);
+    expect(await screen.findByTestId('avisos-fuertes')).toHaveTextContent(/elegiste agosto 2026/i);
+    expect(screen.queryByTestId('avisos-lectura')).not.toBeInTheDocument();
+    expect(screen.queryByText(/avisos de lectura/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/columna ignorada: cuenta/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no se pudo leer la cantidad/i)).not.toBeInTheDocument();
+  });
+
+  it('una hoja descartada por header sí es urgente: aparece en el panel rojo', async () => {
+    preview.mockResolvedValue(
+      previewBase({
+        errores: [
+          { hoja: 'RESUMEN', fila: 1, campo: 'header', mensaje: 'Hoja RESUMEN: no se encontró el encabezado. Se descartó.' },
+          { hoja: 'CERTIF K12', fila: 9, campo: 'cantidades', mensaje: 'No se pudo leer la cantidad' },
+        ],
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    expect(await screen.findByTestId('avisos-fuertes')).toHaveTextContent(/hoja resumen: no se encontró el encabezado/i);
+    expect(screen.queryByTestId('avisos-lectura')).not.toBeInTheDocument();
+    expect(screen.queryByText(/no se pudo leer la cantidad/i)).not.toBeInTheDocument();
+  });
+
+  it('tarjeta TOTAL A CARGAR: un monto largo entra en el recuadro (clases; jsdom no calcula layout)', async () => {
+    preview.mockResolvedValue(
+      previewBase({
+        resumen: { total: 1, con_error: 0, bloqueadas: 0, total_mes: 7088522, total_declarado: 7088522 },
+        filas: [filaBase({ rowId: 'r1', cantidades: '1', precio_unitario: '7088522', total_mes: '7088522' })],
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    const monto = await screen.findByTestId('metrica-monto');
+    expect(monto).toHaveTextContent('$ 7.088.522,00');
+    // El valor quiebra en vez de empujar la tarjeta, y la tarjeta puede achicarse en la grilla.
+    expect(monto).toHaveClass('break-words');
+    expect(monto).not.toHaveClass('whitespace-nowrap');
+    expect(monto).toHaveClass('text-lg');
+    expect(monto.parentElement).toHaveClass('min-w-0');
+    // Un valor corto conserva la tipografía grande.
+    const aCargar = screen.getByTestId('metrica-a-cargar');
+    expect(aCargar).toHaveClass('text-xl');
+    expect(aCargar).not.toHaveClass('text-lg');
+  });
+
+  it('filas sin provincia: aviso urgente que se va cuando se les asigna una', async () => {
+    preview.mockResolvedValue(
+      previewBase({
+        resumen: { total: 2, con_error: 2, bloqueadas: 2, total_mes: 600, total_declarado: 600 },
+        filas: [
+          filaBase({ rowId: 'r1', provincia: '' }),
+          filaBase({ rowId: 'r2', provincia: '', fila_excel: 6 }),
+        ],
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await userEvent.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    const aviso = await screen.findByTestId('aviso-sin-provincia');
+    expect(aviso).toHaveTextContent('2 filas sin provincia: el archivo no la trae.');
+    expect(aviso).toHaveTextContent(/asigná la provincia en cada fila para poder cargarlas/i);
+
+    await userEvent.selectOptions(screen.getByLabelText('Provincia r1'), 'Salta');
+    expect(await screen.findByTestId('aviso-sin-provincia')).toHaveTextContent('1 fila sin provincia');
+
+    await userEvent.selectOptions(screen.getByLabelText('Provincia r2'), 'Jujuy');
+    await waitFor(() => expect(screen.queryByTestId('aviso-sin-provincia')).not.toBeInTheDocument());
   });
 
   it('meta del archivo: período del archivo (d/m/yyyy) y NP se muestran bajo la línea del archivo', async () => {
@@ -878,5 +948,87 @@ describe('CargaCertificacionesPage', () => {
         ],
       }),
     );
+  });
+
+  /** Maestro de un admin: ítems de varios contratos. El select del formulario
+   * manual tiene que ofrecer solo los de las hojas elegidas en el paso 2. */
+  const ITEMS_VARIOS: ItemMaestroCarga[] = [
+    { id_item: 77, item_codigo: '5', codigo_k: 'K12', tarea: 'Tarea K12', unidad_medida: 'UN' },
+    { id_item: 88, item_codigo: '9', codigo_k: 'K6', tarea: 'Tarea K6', unidad_medida: 'UN' },
+    { id_item: 99, item_codigo: '3', codigo_k: 'K9', tarea: 'Tarea K9', unidad_medida: 'UN' },
+  ];
+
+  /** Abre "+ Agregar fila manual" y devuelve los rótulos del select de ítems
+   * sin el placeholder. */
+  async function opcionesDelSelectManual(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: /agregar fila manual/i }));
+    const form = screen.getByTestId('form-manual');
+    const select = within(form).getByLabelText(/ítem del maestro/i);
+    return within(select)
+      .getAllByRole('option')
+      .map((o) => o.textContent)
+      .filter((t) => t !== 'Elegí un ítem');
+  }
+
+  it('el select de ítems manuales solo ofrece los K de las hojas elegidas (por el nombre de la hoja)', { timeout: 15000 }, async () => {
+    const user = userEvent.setup();
+    useItemsMaestroCarga.mockReturnValue({ data: ITEMS_VARIOS });
+    // La fila NO trae contrato a propósito: así la única vía por la que se
+    // puede reconocer el K es el nombre de la hoja.
+    preview.mockResolvedValue(
+      previewBase({ hojas: ['CERTIF K12'], filas: [filaBase({ rowId: 'r1', contrato: '' })] }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await user.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    expect(await opcionesDelSelectManual(user)).toEqual(['K12 · 5 · Tarea K12']);
+  });
+
+  it('hoja sin K en el nombre: el select se filtra por el contrato de las filas visibles', { timeout: 15000 }, async () => {
+    const user = userEvent.setup();
+    useItemsMaestroCarga.mockReturnValue({ data: ITEMS_VARIOS });
+    preview.mockResolvedValue(
+      previewBase({
+        hojas: ['Resumen general'],
+        filas: [filaBase({ rowId: 'r1', hoja_origen: 'Resumen general', contrato: 'K9' })],
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await user.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    expect(await opcionesDelSelectManual(user)).toEqual(['K9 · 3 · Tarea K9']);
+  });
+
+  it('sin ningún K reconocible (hoja libre y filas sin contrato): el select ofrece todo el maestro', { timeout: 15000 }, async () => {
+    const user = userEvent.setup();
+    useItemsMaestroCarga.mockReturnValue({ data: ITEMS_VARIOS });
+    preview.mockResolvedValue(
+      previewBase({
+        hojas: ['Resumen general'],
+        filas: [filaBase({ rowId: 'r1', hoja_origen: 'Resumen general', contrato: '' })],
+      }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await user.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    expect(await opcionesDelSelectManual(user)).toEqual(['K12 · 5 · Tarea K12', 'K6 · 9 · Tarea K6', 'K9 · 3 · Tarea K9']);
+  });
+
+  it('el K de la hoja no tiene ítems en el maestro: el select ofrece todo el maestro en vez de quedar vacío', { timeout: 15000 }, async () => {
+    const user = userEvent.setup();
+    // Maestro sin ningún ítem K12: el filtro por hoja `CERTIF K12` dejaría
+    // cero opciones y no se podría agregar ninguna fila manual.
+    useItemsMaestroCarga.mockReturnValue({ data: ITEMS_VARIOS.filter((i) => i.codigo_k !== 'K12') });
+    preview.mockResolvedValue(
+      previewBase({ hojas: ['CERTIF K12'], filas: [filaBase({ rowId: 'r1', contrato: 'K12' })] }),
+    );
+    render(<CargaCertificacionesPage />);
+    await subirArchivo();
+    await user.click(await screen.findByRole('button', { name: /ver filas/i }));
+
+    expect(await opcionesDelSelectManual(user)).toEqual(['K6 · 9 · Tarea K6', 'K9 · 3 · Tarea K9']);
   });
 });

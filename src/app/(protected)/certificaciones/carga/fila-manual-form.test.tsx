@@ -23,6 +23,17 @@ function montar() {
   );
 }
 
+/** El caso real que desbordaba: cientos de ítems de todos los contratos con
+ * rótulos `codigo_k · item_codigo · tarea` de ~130 caracteres. */
+const TAREA_LARGA = 'Instalación de servicio en PE Dn 25 mm con rotura y reposición de vereda, cordón y calzada de hormigón armado';
+const ITEMS_LARGOS: ItemMaestroCarga[] = Array.from({ length: 300 }, (_, n) => ({
+  id_item: 1000 + n,
+  item_codigo: String(1100 + n),
+  codigo_k: `K${(n % 20) + 1}`,
+  tarea: TAREA_LARGA,
+  unidad_medida: 'UN',
+}));
+
 describe('FilaManualForm', () => {
   it('solo ofrece los ítems del maestro que llegan por props (ya filtrados por tus contratos)', () => {
     montar();
@@ -147,6 +158,39 @@ describe('FilaManualForm', () => {
     expect(onAgregar).toHaveBeenCalledWith(
       expect.objectContaining({ observaciones: 'Fila que el PDF no dejó leer' }),
     );
+  });
+
+  /** jsdom NO calcula layout (no hay ancho ni scrollWidth de verdad), así que
+   * el desborde no se puede medir acá: lo que este test fija son las CLASES
+   * que lo evitan. En CSS Grid `1fr` es `minmax(auto, 1fr)` y el mínimo
+   * `auto` de un `<select>` nativo es el ancho de su opción más larga, así
+   * que con cientos de opciones de ~130 chars la primera pista se infla y
+   * empuja Provincia / Cantidad / $ Unitario / $ Total / botones fuera del
+   * recuadro. El antídoto es `minmax(0, Xfr)` en cada pista más `min-w-0` en
+   * los hijos y `w-full min-w-0` en los selects. La comprobación visual
+   * (`scrollWidth === clientWidth` a 1280 px) se hace en el navegador. */
+  it('no desborda con cientos de ítems de rótulo largo: pistas minmax(0,…) y selects w-full min-w-0', () => {
+    const { container } = render(
+      <FilaManualForm
+        items={ITEMS_LARGOS}
+        provincias={['Salta', 'Jujuy']}
+        onAgregar={onAgregar}
+        onCancelar={onCancelar}
+      />,
+    );
+    expect(screen.getByLabelText(/ítem del maestro/i).querySelectorAll('option')).toHaveLength(301);
+
+    for (const select of [
+      screen.getByLabelText(/ítem del maestro/i),
+      screen.getByLabelText(/^provincia$/i),
+    ]) {
+      expect(select).toHaveClass('w-full');
+      expect(select).toHaveClass('min-w-0');
+    }
+
+    const grilla = container.querySelector('[class*="lg:grid-cols-["]');
+    expect(grilla).not.toBeNull();
+    expect(grilla!.className).toContain('minmax(0,');
   });
 
   it('Cancelar avisa al caller sin agregar nada', async () => {
