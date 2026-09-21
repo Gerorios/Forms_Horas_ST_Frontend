@@ -6,16 +6,17 @@ import { navPorArea } from './nav';
 import type { Perfil } from '@/types/domain';
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/combustible',
+  usePathname: () => h.pathname,
   useRouter: () => ({ replace: vi.fn() }),
 }));
 
 // El perfil del mock es mutable (vi.hoisted) para montar la consola con otro
 // rol —HyS no ve el área Operación— sin tocar los tests del sidebar plegable.
+// La ruta también: el contenedor del contenido depende de ella (inicio full-bleed).
 type PerfilMock = Pick<Perfil, 'rol' | 'tiposNovedadHabilitados' | 'puedeCargarKmPorTantos' | 'cert'> & {
   empleado: { apellido_nombre: string };
 };
-const h = vi.hoisted(() => ({ perfil: null as PerfilMock | null }));
+const h = vi.hoisted(() => ({ perfil: null as PerfilMock | null, pathname: '/combustible' }));
 
 const PERFIL_ADMIN = {
   cuil: '20123456789',
@@ -47,6 +48,7 @@ vi.mock('@/lib/auth/session', () => ({
 
 beforeEach(() => {
   h.perfil = PERFIL_ADMIN;
+  h.pathname = '/combustible';
   window.localStorage.clear();
 });
 
@@ -159,5 +161,44 @@ describe('AppShell — la barra scrollea sola (R1)', () => {
       expect(nav).toHaveClass('flex-1', 'min-h-0', 'overflow-y-auto');
       expect(within(nav).queryByText('Cerrar sesión')).toBeNull();
     }
+  });
+});
+
+describe('AppShell — el inicio va sin contenedor (2.2)', () => {
+  /** El wrapper del contenido es el único nodo con `data-contenedor`. */
+  function wrapper(container: HTMLElement): HTMLElement {
+    const el = container.querySelector<HTMLElement>('[data-contenedor]');
+    if (!el) throw new Error('no se encontró el wrapper del contenido');
+    return el;
+  }
+
+  it('en "/" el contenido es libre: sin max-w ni padding lateral', () => {
+    h.pathname = '/';
+    const { container } = render(<AppShell><p>contenido</p></AppShell>);
+    const div = wrapper(container);
+    // La franja fotográfica del inicio va de borde a borde; el inicio pone su
+    // propio `max-w-5xl` debajo de la franja (2.3).
+    expect(div).toHaveAttribute('data-contenedor', 'libre');
+    expect(div.className).not.toContain('max-w-5xl');
+    expect(div.className).not.toContain('px-4');
+    expect(div).toContainElement(screen.getByText('contenido'));
+  });
+
+  it('en el resto de las rutas el contenedor sigue igual que siempre', () => {
+    // Coincidencia exacta: "/reporte" no es el inicio aunque empiece con "/".
+    h.pathname = '/reporte';
+    const { container } = render(<AppShell><p>contenido</p></AppShell>);
+    const div = wrapper(container);
+    expect(div).toHaveAttribute('data-contenedor', 'normal');
+    expect(div.className).toContain('max-w-5xl');
+    expect(div.className).toContain('px-4');
+  });
+
+  it('una ruta ancha sigue ancha y con contenedor', () => {
+    h.pathname = '/liquidacion';
+    const { container } = render(<AppShell><p>contenido</p></AppShell>);
+    const div = wrapper(container);
+    expect(div).toHaveAttribute('data-contenedor', 'normal');
+    expect(div.className).toContain('max-w-none');
   });
 });

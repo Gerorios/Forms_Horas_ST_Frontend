@@ -3,8 +3,10 @@
 import { useMemo, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSession } from '@/lib/auth/session';
-import { navForRole } from '@/components/layout/nav';
-import { PageHeader } from '@/components/page-header';
+import { navPorArea } from '@/components/layout/nav';
+import { FondoFoto } from '@/components/layout/fondo-foto';
+import { FOTOS } from '@/lib/fotos';
+import { nombreQuincena } from '@/features/liquidacion/formato';
 import { useResumenOperarios, useSinCarga } from '@/lib/api/panel-general';
 import { useNovedades } from '@/lib/api/novedades';
 import { useAlertasQuincena } from '@/lib/api/liquidacion';
@@ -22,6 +24,8 @@ const DESCRIPCION: Record<string, string> = {
   '/ausencias': 'Aprobar o rechazar las ausencias que requieren Higiene y Seguridad.',
   '/admin': 'Administrar catálogos, usuarios y contratos.',
   '/liquidacion': 'Total a cobrar por empleado y quincena: horas, categoría, extras y plus.',
+  '/certificaciones':
+    'Cargar y seguir las certificaciones por contrato: resumen, analytics, ítems e historial.',
   '/km-por-tantos': 'Cargar los km relevados de cada quincena para el personal "por tantos".',
 };
 
@@ -77,12 +81,23 @@ function FilaIndicadores({ datos }: { datos: DatoIndicador[] }) {
   );
 }
 
+/** Alto de la franja fotográfica (ADR-025): una banda, no un hero. Va en el
+ * contenedor y en el bloque de texto, que se apoya abajo a la izquierda. */
+const ALTO_FRANJA = 'min-h-[150px] sm:min-h-[190px] lg:min-h-[210px]';
+
+/** "Lunes 21 de septiembre" — Intl la devuelve en minúscula en es-AR. */
+function fechaLarga(hoy: Date): string {
+  const texto = new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).format(hoy);
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 export default function HomePage() {
   const { perfil } = useSession();
   const rol = perfil?.rol.nombre;
   const cuil = perfil?.cuil ?? '';
 
   const periodo = useMemo(() => quincenaDeFecha(new Date()), []);
+  const hoyTexto = useMemo(() => fechaLarga(new Date()), []);
   const rangoISO = useMemo(() => rangoQuincenaISO(periodo), [periodo]);
   const diasCierre = useMemo(() => diasParaCierreQuincena(periodo), [periodo]);
 
@@ -97,7 +112,7 @@ export default function HomePage() {
 
   if (!perfil) return null;
 
-  const items = navForRole(perfil);
+  const areas = navPorArea(perfil);
   const nombre = perfil.empleado.apellido_nombre;
 
   const cierreItem: DatoIndicador = {
@@ -154,28 +169,48 @@ export default function HomePage() {
   }
 
   return (
-    <section className="space-y-6">
-      <PageHeader title={`Hola, ${nombre}`} />
+    <>
+      {/* Franja fotográfica a todo el ancho: el inicio va sin contenedor (2.2),
+       * así que el ancho y el padding los pone esta página. Sobre la foto el
+       * texto es blanco (el velo lo pone `FondoFoto`), nunca `text-slate`. */}
+      <FondoFoto src={FOTOS.inicio} alto={ALTO_FRANJA}>
+        <div className={`mx-auto flex ${ALTO_FRANJA} max-w-5xl flex-col justify-end px-4 pb-6 sm:px-6`}>
+          <h1 className="font-display text-2xl font-semibold text-white sm:text-3xl">Hola, {nombre}</h1>
+          <p className="mt-1.5 text-sm text-white/80">
+            {hoyTexto} · {nombreQuincena(periodo.parte, periodo.mes, periodo.anio)} en curso
+          </p>
+        </div>
+      </FondoFoto>
 
-      {indicadores.length > 0 && <FilaIndicadores datos={indicadores} />}
+      <div className="mx-auto max-w-5xl space-y-8 px-4 py-6 sm:px-6 lg:py-8">
+        {indicadores.length > 0 && <FilaIndicadores datos={indicadores} />}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {items.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="group rounded-xl border border-line bg-surface p-5 transition hover:border-brand hover:shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="font-display text-base font-semibold text-ink">{item.label}</span>
-              <span className="text-slate transition group-hover:translate-x-0.5 group-hover:text-brand-deep">
-                →
-              </span>
+        {areas.map(({ area, items }) => (
+          <section key={area.id} className="space-y-3">
+            <h2 className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
+              <span aria-hidden className="h-2 w-2 rounded-[2px] bg-brand" />
+              {area.label}
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="group rounded-xl border border-line bg-surface p-5 transition hover:border-brand hover:shadow-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-display text-base font-semibold text-ink">{item.label}</span>
+                    <span className="text-slate transition group-hover:translate-x-0.5 group-hover:text-brand-deep">
+                      →
+                    </span>
+                  </div>
+                  <p className="mt-1.5 text-sm text-slate">{DESCRIPCION[item.href] ?? ''}</p>
+                </Link>
+              ))}
             </div>
-            <p className="mt-1.5 text-sm text-slate">{DESCRIPCION[item.href] ?? ''}</p>
-          </Link>
+          </section>
         ))}
       </div>
-    </section>
+    </>
   );
 }
