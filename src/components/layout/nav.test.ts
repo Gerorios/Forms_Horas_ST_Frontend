@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { navForRole } from './nav';
+import { AREAS, NAV_ITEMS, navForRole, navPorArea } from './nav';
 import { canAccess } from '@/lib/auth/guards';
 import type { Rol, Perfil } from '@/types/domain';
 
@@ -153,5 +153,56 @@ describe('canAccess', () => {
   });
   it('Supervisor no puede entrar a /ausencias', () => {
     expect(canAccess('Supervisor', '/ausencias')).toBe(false);
+  });
+});
+
+describe('AREAS', () => {
+  it('son las cuatro del ADR-025, en orden y con sus etiquetas', () => {
+    expect(AREAS).toEqual([
+      { id: 'operacion', label: 'Operación' },
+      { id: 'personas', label: 'Personas' },
+      { id: 'resultados', label: 'Resultados operativos' },
+      { id: 'administracion', label: 'Administración' },
+    ]);
+  });
+
+  it('todo ítem de navegación pertenece a un área conocida', () => {
+    const ids = AREAS.map((a) => a.id);
+    for (const item of NAV_ITEMS) {
+      expect(ids, `área inválida en ${item.href}`).toContain(item.area);
+    }
+  });
+});
+
+describe('navPorArea', () => {
+  it('HyS ve solo Personas, con Novedades y Ausencias en ese orden', () => {
+    const grupos = navPorArea(perfil('HyS'));
+    expect(grupos.map((g) => g.area.id)).toEqual(['personas']);
+    expect(grupos[0].items.map((i) => i.href)).toEqual(['/novedades', '/ausencias']);
+  });
+
+  it('Operario ve solo Operación, con Mis registros', () => {
+    const grupos = navPorArea(perfil('Operario'));
+    expect(grupos.map((g) => g.area.id)).toEqual(['operacion']);
+    expect(grupos[0].items.map((i) => i.href)).toEqual(['/mis-registros']);
+  });
+
+  it('Admin con claim cert ve las cuatro áreas, con Liquidación y Certificaciones en Resultados', () => {
+    const grupos = navPorArea(perfil('Admin', [], false, { nivel: 'admin', ks: [], inc: true }));
+    expect(grupos.map((g) => g.area.id)).toEqual(['operacion', 'personas', 'resultados', 'administracion']);
+    const resultados = grupos.find((g) => g.area.id === 'resultados')!;
+    expect(resultados.items.map((i) => i.href)).toEqual(['/liquidacion', '/certificaciones']);
+  });
+
+  it('Combustible va al final de Operación (orden del ADR-025)', () => {
+    const grupos = navPorArea(perfil('Admin'));
+    const operacion = grupos.find((g) => g.area.id === 'operacion')!;
+    expect(operacion.items.at(-1)?.href).toBe('/combustible');
+  });
+
+  it('un área sin ítems visibles no aparece', () => {
+    const grupos = navPorArea(perfil('Supervisor'));
+    expect(grupos.map((g) => g.area.id)).not.toContain('administracion');
+    expect(grupos.every((g) => g.items.length > 0)).toBe(true);
   });
 });

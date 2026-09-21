@@ -17,6 +17,13 @@
   --color-danger: #c0492b;
   --color-warn: #b26a00;
   --color-alert: #c0492b;
+  /* Central Sertec (ADR-025): la consola (barra lateral, topbar y drawer) va
+     en grafito, y el contenido se apoya sobre arena profunda. graphite-2 es
+     el grafito un punto más claro para superficies elevadas dentro de la
+     consola. */
+  --color-graphite: #1b1f24;
+  --color-graphite-2: #242931;
+  --color-sand-deep: #f3f1ec;
   /* Series de gráficos (panel Control general) — validados con el validador
      de dataviz sobre superficie blanca; chart-1 es brand-deep. */
   --color-chart-1: #a97a16;

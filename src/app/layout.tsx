@@ -22,8 +22,9 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Registro de Horas",
-  description: "Reporte y aprobación de horas de trabajo",
+  title: "Central Sertec",
+  description:
+    "Sistema interno de Sertec: horas, novedades, liquidación, certificaciones y combustible",
 };
 
 export default function RootLayout({
