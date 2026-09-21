@@ -35,6 +35,12 @@ describe('LoginPage', () => {
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/'));
   });
 
+  it('muestra el nombre "Central Sertec" y no el viejo', () => {
+    render(<LoginPage />);
+    expect(screen.getByRole('heading', { name: 'Central Sertec' })).toBeInTheDocument();
+    expect(screen.queryByText(/Registro de Horas/)).not.toBeInTheDocument();
+  });
+
   it('muestra "Credenciales inválidas" si signIn rechaza', async () => {
     signInMock.mockRejectedValue(new Error('401'));
     render(<LoginPage />);

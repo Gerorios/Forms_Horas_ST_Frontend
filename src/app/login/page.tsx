@@ -33,8 +33,8 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
           <Image src="/logo.png" alt="" width={72} height={72} priority className="rounded-full" />
-          <h1 className="mt-4 font-display text-2xl font-semibold text-ink">Registro de Horas</h1>
-          <p className="mt-1 text-sm text-slate">Ingresá para reportar o aprobar horas</p>
+          <h1 className="mt-4 font-display text-2xl font-semibold text-ink">Central Sertec</h1>
+          <p className="mt-1 text-sm text-slate">Sistema interno de Sertec</p>
         </div>
 
         <form
