@@ -306,13 +306,20 @@ function StatTile({
           : tone === 'manual'
             ? 'text-[#3b6fc4]'
             : 'text-ink';
+  /** Un monto largo ("$ 7.088.522,00") se salía del recuadro: la tarjeta no
+   * podía achicarse en la grilla (`min-w-0`) y el valor iba `whitespace-nowrap`.
+   * Ahora quiebra y, si es largo, baja un escalón de tipografía (2026-09-21). */
+  const tamanio = value.length > 12 ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl';
   return (
-    <div className="rounded-xl border border-line bg-surface px-4 py-4">
+    <div className="min-w-0 rounded-xl border border-line bg-surface px-4 py-4">
       <p className="text-xs font-medium uppercase tracking-wide text-slate">{label}</p>
-      <p className={`mt-1.5 whitespace-nowrap font-display text-xl font-semibold tabular-nums sm:text-2xl ${color}`} data-testid={testId}>
+      <p
+        className={`mt-1.5 break-words font-display font-semibold tabular-nums ${tamanio} ${color}`}
+        data-testid={testId}
+      >
         {value}
       </p>
-      {sub && <p className="mt-0.5 text-xs tabular-nums text-slate">{sub}</p>}
+      {sub && <p className="mt-0.5 break-words text-xs tabular-nums text-slate">{sub}</p>}
     </div>
   );
 }
@@ -441,6 +448,38 @@ export default function CargaCertificacionesPage() {
   const [bloqueosServidor, setBloqueosServidor] = useState<Map<string, string>>(new Map());
   const inputRef = useRef<HTMLInputElement>(null);
   const { data: itemsMaestro } = useItemsMaestroCarga(puedeCargar && step === 3);
+
+  /** Ítems que ofrece el formulario de fila manual: los del maestro cuyo K
+   * esté entre los contratos de las hojas elegidas en el paso 2. El maestro
+   * de un admin trae CIENTOS de ítems de todos los contratos, así que el
+   * select quedaba inusable (y con rótulos de ~130 chars desbordaba la
+   * grilla del formulario). Los K salen de dos lados: el nombre de la hoja
+   * (`hojaCoincideConKs`, el mismo match por token que preselecciona los
+   * chips del paso 2) y el contrato que trae cada fila visible — hay hojas
+   * con nombre libre cuyas filas sí dicen el contrato. Si no se reconoce
+   * ningún K —o si el K reconocido no tiene NINGÚN ítem en el maestro— se
+   * ofrece TODO el maestro: mejor un select largo que uno vacío (con el
+   * select vacío no se podría agregar ninguna fila manual).
+   *
+   * Va ACÁ ARRIBA, antes del `return null` del gate: más abajo sería un hook
+   * condicional. Por eso recalcula las filas de las hojas elegidas en vez de
+   * reusar `filasEnHojas`, que se arma después del gate. */
+  const itemsParaManual = useMemo(() => {
+    const items = itemsMaestro ?? [];
+    // Los K se comparan normalizados (el maestro dice 'K12' y el archivo
+    // podría traer ' k12'): si no matchearan, el select quedaría vacío.
+    const norm = (k: string) => k.trim().toUpperCase();
+    const ks = new Set<string>();
+    for (const k of contratosDisponibles ?? []) {
+      for (const hoja of hojasSel) if (hojaCoincideConKs(hoja, [k])) ks.add(norm(k));
+    }
+    for (const f of preview?.filas ?? []) {
+      if (hojasSel.has(f.hoja_origen) && f.contrato.trim() !== '') ks.add(norm(f.contrato));
+    }
+    if (ks.size === 0) return items;
+    const filtrados = items.filter((i) => ks.has(norm(i.codigo_k)));
+    return filtrados.length ? filtrados : items;
+  }, [itemsMaestro, contratosDisponibles, hojasSel, preview]);
 
   if (!puedeCargar) return null;
 
@@ -682,7 +721,20 @@ export default function CargaCertificacionesPage() {
   const npArchivo = preview?.filas.find((f) => (f.nro_np ?? '') !== '')?.nro_np ?? null;
 
   const avisosFuertes = preview?.avisos.filter((a) => a.fuerte) ?? [];
-  const avisosSuaves = preview?.avisos.filter((a) => !a.fuerte) ?? [];
+  /** Solo avisos URGENTES (2026-09-21, decisión del usuario): los avisos
+   * débiles (columna ignorada, K del nombre del archivo…) y los errores de
+   * parseo por fila ya no se muestran — esos errores se ven en la propia fila
+   * bloqueada. La excepción es el error de `header`: una hoja descartada
+   * entera sí es urgente y va al panel rojo. */
+  const erroresHeader = preview?.errores.filter((e) => e.campo === 'header') ?? [];
+  /** Filas visibles (hojas elegidas, no excluidas) cuya provincia efectiva
+   * quedó vacía: el Excel no trae la columna PROVINCIA (caso K12) y sin ella
+   * la fila no se puede cargar. Se cuenta en el cliente, con las ediciones
+   * aplicadas, y el aviso se va solo cuando todas tienen provincia
+   * (2026-09-21: que el usuario no tenga que adivinar por qué no cargan). */
+  const filasSinProvincia = filasCalculadas.filter(
+    (r) => !r.vista.excluida && (r.vista.provincia ?? '').trim() === '',
+  ).length;
 
   const filasVisibles = filasCalculadas.filter(
     (r) => (filtroHoja === '' || r.original.hoja_origen === filtroHoja) && (!soloProblemas || (!r.vista.excluida && r.tieneError)),
@@ -1067,9 +1119,10 @@ export default function CargaCertificacionesPage() {
             </div>
           )}
 
-          {/* Avisos FUERTES del parser (período distinto al elegido, sin total
-              declarado): mismo rojo, uno por línea. */}
-          {avisosFuertes.length > 0 && (
+          {/* Avisos URGENTES: avisos fuertes del parser (período distinto al
+              elegido, sin total declarado) y hojas descartadas por header.
+              Mismo rojo, uno por línea. */}
+          {(avisosFuertes.length > 0 || erroresHeader.length > 0 || filasSinProvincia > 0) && (
             <div
               className="flex items-start gap-3 rounded-xl border border-danger/45 bg-danger/5 px-4 py-3.5 text-danger"
               role="status"
@@ -1080,34 +1133,22 @@ export default function CargaCertificacionesPage() {
               </span>
               <div className="min-w-0 flex-1 space-y-1">
                 {avisosFuertes.map((a, i) => (
-                  <p key={i} className="text-sm font-medium">
+                  <p key={`aviso-${i}`} className="text-sm font-medium">
                     {a.mensaje}
                   </p>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* Panel ÁMBAR "Avisos de lectura": columnas ignoradas, líneas que no
-              se pudieron leer como fila, K del nombre del archivo… más los
-              errores de parseo que ya se listaban. Ninguno bloquea. */}
-          {(avisosSuaves.length > 0 || preview.errores.length > 0) && (
-            <div className="flex items-start gap-3 rounded-xl border border-warn/40 bg-warn/5 px-4 py-3.5" data-testid="avisos-lectura">
-              <span className="mt-0.5 text-warn">
-                <IconoAviso />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-warn">Avisos de lectura</p>
-                <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[13px] text-ink">
-                  {avisosSuaves.map((a, i) => (
-                    <li key={`aviso-${i}`}>{a.mensaje}</li>
-                  ))}
-                  {preview.errores.map((err, i) => (
-                    <li key={`error-${i}`}>
-                      Hoja {err.hoja}, fila {err.fila} ({err.campo}): {err.mensaje}
-                    </li>
-                  ))}
-                </ul>
+                {erroresHeader.map((err, i) => (
+                  <p key={`header-${i}`} className="text-sm font-medium">
+                    {err.mensaje}
+                  </p>
+                ))}
+                {filasSinProvincia > 0 && (
+                  <p className="text-sm font-medium" data-testid="aviso-sin-provincia">
+                    {filasSinProvincia} {plural(filasSinProvincia, 'fila sin provincia', 'filas sin provincia')}: el archivo no
+                    la trae. Asigná la provincia en cada fila para poder{' '}
+                    {plural(filasSinProvincia, 'cargarla', 'cargarlas')}.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -1532,7 +1573,7 @@ export default function CargaCertificacionesPage() {
             {mostrarFormManual && (
               <div className="border-t border-line px-4 py-3.5">
                 <FilaManualForm
-                  items={itemsMaestro ?? []}
+                  items={itemsParaManual}
                   provincias={provinciasValidas}
                   onAgregar={agregarManual}
                   onCancelar={() => setMostrarFormManual(false)}
