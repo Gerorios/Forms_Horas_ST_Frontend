@@ -12,6 +12,14 @@ import { NavIcon } from '@/components/layout/nav-icons';
 const RUTAS_ANCHAS = ['/liquidacion', '/control-general', '/combustible', '/admin/usuarios'];
 
 /**
+ * Rutas que se dibujan a sangre: el shell no les pone margen, ancho máximo ni
+ * padding, porque la página arranca con una franja fotográfica de borde a
+ * borde y acomoda su propio ancho debajo (ADR-025). Coincidencia EXACTA de
+ * `pathname`: con `startsWith` entraría todo el sitio.
+ */
+const RUTAS_SIN_CONTENEDOR = ['/'];
+
+/**
  * Foco visible sobre la consola grafito: el anillo dorado necesita el offset
  * del mismo grafito para leerse (ADR-025).
  */
@@ -157,6 +165,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   // decidiendo qué se ve; el área es solo cómo se ordena y se titula.
   const grupos = navPorArea(perfil);
   const nombre = perfil.empleado.apellido_nombre;
+  const libre = RUTAS_SIN_CONTENEDOR.includes(pathname);
 
   function salir() {
     signOut();
@@ -274,9 +283,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Contenido — las vistas con tablas anchas usan todo el ancho disponible */}
       <main className={`bg-sand-deep transition-[padding] duration-200 ${plegado ? 'md:pl-14' : 'md:pl-60'}`}>
         <div
-          className={`mx-auto px-4 py-6 sm:px-6 lg:py-8 ${
-            RUTAS_ANCHAS.some((r) => pathname.startsWith(r)) ? 'max-w-none 2xl:max-w-[1600px]' : 'max-w-5xl'
-          }`}
+          data-contenedor={libre ? 'libre' : 'normal'}
+          className={
+            libre
+              ? ''
+              : `mx-auto px-4 py-6 sm:px-6 lg:py-8 ${
+                  RUTAS_ANCHAS.some((r) => pathname.startsWith(r)) ? 'max-w-none 2xl:max-w-[1600px]' : 'max-w-5xl'
+                }`
+          }
         >
           {children}
         </div>

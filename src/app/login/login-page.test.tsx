@@ -41,6 +41,19 @@ describe('LoginPage', () => {
     expect(screen.queryByText(/Registro de Horas/)).not.toBeInTheDocument();
   });
 
+  it('presenta la marca: título nivel 1 y el copy del sistema', () => {
+    render(<LoginPage />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Central Sertec' })).toBeInTheDocument();
+    expect(screen.getByText('Sistema interno de Sertec')).toBeInTheDocument();
+  });
+
+  it('el formulario es la tarjeta oscura sobre la foto', () => {
+    const { container } = render(<LoginPage />);
+    const form = container.querySelector('form');
+    expect(form).not.toBeNull();
+    expect(form).toHaveClass('bg-graphite/90');
+  });
+
   it('muestra "Credenciales inválidas" si signIn rechaza', async () => {
     signInMock.mockRejectedValue(new Error('401'));
     render(<LoginPage />);
