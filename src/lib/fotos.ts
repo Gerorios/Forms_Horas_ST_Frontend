@@ -1,6 +1,7 @@
 // Fotos de fondo (ADR-025); en null se ve el marcador grafito + luz dorada.
-// Encenderlas: copiar a `public/fotos/` (≤ 400 KB; inicio ~1920×700, login 1920×1080) y poner acá la ruta.
+// Viven en `public/fotos/`, ≤ 400 KB cada una (`fotos.test.ts` lo exige):
+// inicio 1920×700 (franja panorámica), login 1440×1920 (vertical, a pantalla completa).
 export const FOTOS: { inicio: string | null; login: string | null } = {
-  inicio: null,
-  login: null,
+  inicio: '/fotos/inicio.jpg',
+  login: '/fotos/login.jpg',
 };
