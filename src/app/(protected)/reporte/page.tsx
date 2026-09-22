@@ -120,7 +120,7 @@ export default function ReportePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Carga de horas" title="Reporte diario" />
+      <PageHeader area="operacion" title="Reporte diario" />
 
       <Card title="Datos de la jornada">
         <div className="grid gap-4 sm:grid-cols-2">

@@ -187,7 +187,7 @@ export default function AprobacionesPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Jefe de contrato" title="Aprobaciones" />
+      <PageHeader area="operacion" title="Aprobaciones" />
 
       <div className="flex gap-1 border-b border-line">
         {TABS.map((t) => (

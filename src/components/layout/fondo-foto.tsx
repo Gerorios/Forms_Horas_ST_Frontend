@@ -15,6 +15,11 @@ type FondoFotoProps = {
    * formulario en móviles.
    */
   prioridad?: boolean;
+  /**
+   * Clase de `object-position` para elegir qué parte de la foto sobrevive al
+   * recorte de `object-cover` (ej. `'object-[center_38%]'`). Sin ella, centrada.
+   */
+  posicion?: string;
   children?: ReactNode;
 };
 
@@ -27,11 +32,25 @@ type FondoFotoProps = {
  * El velo grafito es opaco abajo a la izquierda (donde va el texto blanco:
  * velo ≥ 55 %, ADR-025) y se abre hasta el 40 % arriba a la derecha.
  */
-export function FondoFoto({ src, className, alto, prioridad = true, children }: FondoFotoProps) {
+export function FondoFoto({
+  src,
+  className,
+  alto,
+  prioridad = true,
+  posicion,
+  children,
+}: FondoFotoProps) {
   return (
     <div className={cn('relative overflow-hidden bg-graphite text-white', alto, className)}>
       {src ? (
-        <Image src={src} alt="" fill priority={prioridad} sizes="100vw" className="object-cover" />
+        <Image
+          src={src}
+          alt=""
+          fill
+          priority={prioridad}
+          sizes="100vw"
+          className={cn('object-cover', posicion)}
+        />
       ) : null}
       <div
         aria-hidden

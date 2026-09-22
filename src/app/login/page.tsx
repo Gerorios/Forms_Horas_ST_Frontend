@@ -38,6 +38,9 @@ export default function LoginPage() {
       <FondoFoto
         src={FOTOS.login}
         prioridad={false}
+        // Foto vertical: anclada al 38 % para que el casco del operario quede a la
+        // altura del título, arriba de la tarjeta (elección del usuario, 2026-09-22).
+        posicion="object-[center_38%]"
         className="flex min-h-screen items-center justify-center p-4"
       >
         {/* `w-96 max-w-full` (24rem = max-w-sm) porque el contenedor de FondoFoto

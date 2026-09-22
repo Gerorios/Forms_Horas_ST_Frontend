@@ -242,4 +242,9 @@ describe('NuevaCargaCombustiblePage — sugerencias v2', () => {
     expect(screen.queryByText(/Tipo leído del ticket/)).not.toBeInTheDocument();
     expect(screen.queryByText(/CUIT leído/)).not.toBeInTheDocument();
   });
+
+  it('muestra el área Operación en el encabezado', () => {
+    render(<NuevaCargaCombustiblePage />);
+    expect(screen.getAllByText('Operación')[0]).toBeInTheDocument();
+  });
 });

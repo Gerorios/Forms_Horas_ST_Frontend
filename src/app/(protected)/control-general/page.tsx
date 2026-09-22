@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useRef, useState, type ReactNode } from 'react';
-import Link from 'next/link';
+import { useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { PageHeader } from '@/components/page-header';
+import { StatTile } from '@/components/stat-tile';
 import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
 import { MultiFiltro } from '@/components/ui/barra-filtros';
 import { opcionesFacetadas } from '@/lib/facetado';
@@ -97,64 +97,6 @@ const ESTILO_ESTADO: Record<string, string> = {
   aprobado: 'text-approved',
   desaprobado: 'text-danger',
 };
-
-const CHIP_TONO: Record<'warn' | 'danger' | 'neutral', string> = {
-  warn: 'bg-warn/15 text-warn',
-  danger: 'bg-danger/15 text-danger',
-  neutral: 'bg-brand/20 text-brand-deep',
-};
-
-function StatTile({
-  label,
-  value,
-  tono,
-  icon,
-  onClick,
-  sub,
-}: {
-  label: string;
-  value: number;
-  /** Colorea el número solo cuando hay algo que atender (value > 0) — un 0 no es una alerta. */
-  tono?: 'warn' | 'danger';
-  icon: ReactNode;
-  onClick?: () => void;
-  /** Línea chica debajo del número (p. ej. "incluye 12 hs en otros contratos"). */
-  sub?: string;
-}) {
-  const colorValor =
-    tono === 'warn' && value > 0
-      ? 'text-warn'
-      : tono === 'danger' && value > 0
-        ? 'text-danger'
-        : 'text-ink';
-  const contenido = (
-    <>
-      <div className="flex items-center gap-2">
-        <span className={`flex h-7 w-7 flex-none items-center justify-center rounded-lg ${CHIP_TONO[tono ?? 'neutral']}`}>
-          {icon}
-        </span>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate">{label}</p>
-      </div>
-      <p className={`mt-1.5 text-3xl font-semibold tabular-nums ${colorValor}`}>{value}</p>
-      {sub && <p className="mt-0.5 text-xs tabular-nums text-slate">{sub}</p>}
-    </>
-  );
-  if (onClick)
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="animate-in fade-in-0 slide-in-from-bottom-1 rounded-xl border border-line bg-surface p-4 text-left transition duration-300 hover:-translate-y-0.5 hover:border-brand/40"
-      >
-        {contenido}
-      </button>
-    );
-  return (
-    <div className="animate-in fade-in-0 slide-in-from-bottom-1 rounded-xl border border-line bg-surface p-4 transition duration-300">
-      {contenido}
-    </div>
-  );
-}
 
 /** Fila de la zona de revisión (>13hs/día): compacta, expandible al detalle
  * de cada carga del día — tareas y observación completas (acá es el lugar
@@ -457,7 +399,7 @@ export default function ControlGeneralPage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader eyebrow="Jefe de contrato" title="Control general" />
+      <PageHeader area="operacion" title="Control general" />
       <QuincenaSelect value={quincena} onChange={setQuincena}>
         <MultiFiltro
           label="Contrato"
@@ -487,17 +429,34 @@ export default function ControlGeneralPage() {
           label="Horas de la quincena"
           value={horasQuincena}
           icon={<ClockIcon />}
+          animar
           sub={horasOtrosContratos > 0 ? `incluye ${horasOtrosContratos} hs en otros contratos` : undefined}
         />
-        <StatTile label="Operarios con carga" value={resumenFiltrado.length} icon={<UsersIcon />} />
-        <StatTile label="Con horas extra (+88hs)" value={conHorasExtra} tono="warn" icon={<TrendIcon />} />
-        <StatTile label="Filas pendientes de revisar" value={filasPendientes} tono="warn" icon={<ClipboardIcon />} />
+        <StatTile label="Operarios con carga" value={resumenFiltrado.length} icon={<UsersIcon />} animar />
+        <StatTile
+          label="Con horas extra (+88hs)"
+          value={conHorasExtra}
+          tone="warn"
+          colorearSoloSiPositivo
+          icon={<TrendIcon />}
+          animar
+        />
+        <StatTile
+          label="Filas pendientes de revisar"
+          value={filasPendientes}
+          tone="warn"
+          colorearSoloSiPositivo
+          icon={<ClipboardIcon />}
+          animar
+        />
         <StatTile
           label="Sin carga"
           value={(sinCarga ?? []).length}
-          tono="danger"
+          tone="danger"
+          colorearSoloSiPositivo
           icon={<AlertUserIcon />}
           onClick={irASinCarga}
+          animar
         />
       </div>
 

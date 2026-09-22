@@ -357,7 +357,7 @@ export default function NuevaCargaCombustiblePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Combustible" title="Nueva carga" />
+      <PageHeader area="operacion" title="Nueva carga" />
 
       <Card title="Foto del ticket">
         <FotoTicket onFoto={elegirFoto} cargando={extraerTicket.isPending} />

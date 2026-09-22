@@ -1,10 +1,9 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useSession } from '@/lib/auth/session';
 import { CERTIFICACIONES_NAV } from '@/features/certificaciones/certificaciones-nav';
+import { SubNav } from '@/components/sub-nav';
 
 /** Sub-nav Resumen/Analytics/Cargar/Ítems del módulo Certificaciones — mismo
  * patrón que `liquidacion/layout.tsx`. Sin guard de rol propio para el
@@ -15,7 +14,6 @@ import { CERTIFICACIONES_NAV } from '@/features/certificaciones/certificaciones-
  * "Cargar": admin y carga, no lectura) — la página de destino re-gatea por
  * su cuenta en ambos casos. */
 export default function CertificacionesLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
   const { perfil } = useSession();
   const nivel = perfil?.cert?.nivel ?? null;
   const esAdmin = nivel === 'admin';
@@ -27,22 +25,7 @@ export default function CertificacionesLayout({ children }: { children: ReactNod
 
   return (
     <div className="space-y-5">
-      <nav className="flex flex-wrap gap-1 border-b border-line">
-        {nav.map((item) => {
-          const active = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`-mb-px border-b-2 px-3 py-2 text-sm transition ${
-                active ? 'border-brand font-medium text-ink' : 'border-transparent text-slate hover:text-ink'
-              }`}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <SubNav items={nav} ariaLabel="Secciones de certificaciones" />
       {children}
     </div>
   );

@@ -6,6 +6,7 @@ import { useSession } from '@/lib/auth/session';
 import { navPorArea } from '@/components/layout/nav';
 import { FondoFoto } from '@/components/layout/fondo-foto';
 import { FOTOS } from '@/lib/fotos';
+import { StatTile, type StatTone } from '@/components/stat-tile';
 import { nombreQuincena } from '@/features/liquidacion/formato';
 import { useResumenOperarios, useSinCarga } from '@/lib/api/panel-general';
 import { useNovedades } from '@/lib/api/novedades';
@@ -29,53 +30,22 @@ const DESCRIPCION: Record<string, string> = {
   '/km-por-tantos': 'Cargar los km relevados de cada quincena para el personal "por tantos".',
 };
 
-type Tono = 'warn' | 'danger' | 'neutral';
-
-const TONO_BG: Record<Tono, string> = {
-  warn: 'bg-warn/15 text-warn',
-  danger: 'bg-danger/15 text-danger',
-  neutral: 'bg-brand/20 text-brand-deep',
-};
-
+/** Un tile del inicio: el mismo dato que ya se calcula en su módulo — nada de
+ * backend nuevo, solo se trae acá y se hace accesible de un vistazo. */
 interface DatoIndicador {
   label: string;
-  valor: string | number;
-  tono: Tono;
+  value: string | number;
+  tone: StatTone;
   icon: ReactNode;
   href?: string;
-}
-
-/** Tile clickeable (si trae href) con el mismo dato que ya se calcula en el
- * módulo correspondiente — nada de backend nuevo, solo se trae acá y se hace
- * accesible de un vistazo desde el Inicio. */
-function Indicador({ label, valor, tono, icon, href }: DatoIndicador) {
-  const clases =
-    'group flex items-center gap-3 rounded-xl border border-line bg-surface p-3.5 shadow-sm transition ' +
-    (href ? 'hover:-translate-y-0.5 hover:border-brand' : '');
-  const contenido = (
-    <>
-      <span className={`flex h-9 w-9 flex-none items-center justify-center rounded-lg ${TONO_BG[tono]}`}>{icon}</span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-slate">{label}</p>
-        <p className="text-xl font-semibold tabular-nums text-ink">{valor}</p>
-      </div>
-    </>
-  );
-  if (href) {
-    return (
-      <Link href={href} className={clases}>
-        {contenido}
-      </Link>
-    );
-  }
-  return <div className={clases}>{contenido}</div>;
 }
 
 function FilaIndicadores({ datos }: { datos: DatoIndicador[] }) {
   return (
     <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {datos.map((d) => (
-        <Indicador key={d.label} {...d} />
+        // Como en control general: un 0 no es una alerta, se muestra en tinta.
+        <StatTile key={d.label} {...d} colorearSoloSiPositivo />
       ))}
     </div>
   );
@@ -117,8 +87,8 @@ export default function HomePage() {
 
   const cierreItem: DatoIndicador = {
     label: 'Cierre de quincena',
-    valor: diasCierre === 0 ? 'Hoy' : `${diasCierre} día${diasCierre === 1 ? '' : 's'}`,
-    tono: 'neutral',
+    value: diasCierre === 0 ? 'Hoy' : `${diasCierre} día${diasCierre === 1 ? '' : 's'}`,
+    tone: 'neutral',
     icon: <CalendarIcon />,
   };
 
@@ -127,9 +97,9 @@ export default function HomePage() {
     const pendientes = (resumen ?? []).reduce((s, r) => s + r.pendiente, 0);
     const conHorasExtra = (resumen ?? []).filter((r) => r.superaHorasExtra).length;
     indicadores = [
-      { label: 'Pendientes de aprobar', valor: pendientes, tono: 'warn', icon: <ClipboardIcon />, href: '/aprobaciones' },
-      { label: 'Sin carga', valor: (sinCarga ?? []).length, tono: 'danger', icon: <AlertUserIcon />, href: '/control-general' },
-      { label: 'Con horas extra', valor: conHorasExtra, tono: 'warn', icon: <TrendIcon />, href: '/control-general' },
+      { label: 'Pendientes de aprobar', value: pendientes, tone: 'warn', icon: <ClipboardIcon />, href: '/aprobaciones' },
+      { label: 'Sin carga', value: (sinCarga ?? []).length, tone: 'danger', icon: <AlertUserIcon />, href: '/control-general' },
+      { label: 'Con horas extra', value: conHorasExtra, tone: 'warn', icon: <TrendIcon />, href: '/control-general' },
       cierreItem,
     ];
   } else if (rol === 'HyS') {
@@ -137,22 +107,22 @@ export default function HomePage() {
       (n) => n.tipoNovedad.nombre === 'Ausencia' && n.estado === 'activa' && n.estadoHys === 'pendiente',
     ).length;
     indicadores = [
-      { label: 'Ausencias pendientes', valor: pendientes, tono: 'warn', icon: <BellIcon />, href: '/ausencias' },
+      { label: 'Ausencias pendientes', value: pendientes, tone: 'warn', icon: <BellIcon />, href: '/ausencias' },
       cierreItem,
     ];
   } else if (rol === 'Liquidador') {
     indicadores = [
       {
         label: 'Perfiles incompletos',
-        valor: (alertas?.perfilIncompleto ?? []).length,
-        tono: 'danger',
+        value: (alertas?.perfilIncompleto ?? []).length,
+        tone: 'danger',
         icon: <WarnTriIcon />,
         href: '/liquidacion',
       },
       {
         label: 'Sin horas aprobadas',
-        valor: (alertas?.sinHorasAprobadas ?? []).length,
-        tono: 'warn',
+        value: (alertas?.sinHorasAprobadas ?? []).length,
+        tone: 'warn',
         icon: <AlertUserIcon />,
         href: '/liquidacion',
       },
@@ -162,8 +132,8 @@ export default function HomePage() {
     const horas = (misRegistros ?? []).reduce((s, r) => (r.estado !== 'desaprobado' ? s + Number(r.horas) : s), 0);
     const pendientes = (misRegistros ?? []).filter((r) => r.estado === 'pendiente').length;
     indicadores = [
-      { label: 'Horas cargadas', valor: Math.round(horas * 10) / 10, tono: 'neutral', icon: <ClockIcon />, href: '/mis-registros' },
-      { label: 'Pendientes de aprobación', valor: pendientes, tono: 'warn', icon: <ClipboardIcon />, href: '/mis-registros' },
+      { label: 'Horas cargadas', value: Math.round(horas * 10) / 10, tone: 'neutral', icon: <ClockIcon />, href: '/mis-registros' },
+      { label: 'Pendientes de aprobación', value: pendientes, tone: 'warn', icon: <ClipboardIcon />, href: '/mis-registros' },
       cierreItem,
     ];
   }

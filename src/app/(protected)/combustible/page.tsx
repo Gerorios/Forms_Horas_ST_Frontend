@@ -86,7 +86,7 @@ export default function CombustiblePage() {
   return (
     <section className="space-y-5">
       <PageHeader
-        eyebrow="Combustible"
+        area="operacion"
         title="Cargas de combustible"
         action={
           puedeCargar && (

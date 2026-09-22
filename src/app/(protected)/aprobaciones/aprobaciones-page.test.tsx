@@ -160,4 +160,9 @@ describe('AprobacionesPage', () => {
     // Solo lote-a tiene una fila con contrato K8; lote-b (K5) desaparece.
     expect(screen.getAllByRole('button', { name: /^aprobar todo/i })).toHaveLength(1);
   });
+
+  it('muestra el área Operación en el encabezado', () => {
+    render(<AprobacionesPage />);
+    expect(screen.getAllByText('Operación')[0]).toBeInTheDocument();
+  });
 });
