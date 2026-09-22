@@ -40,4 +40,16 @@ describe('FondoFoto', () => {
     expect(img).not.toBeNull();
     expect(img).toHaveAttribute('loading', 'lazy');
   });
+
+  it('por defecto la foto va centrada (sin clase de posición)', () => {
+    const { container } = render(<FondoFoto src="/fotos/x.jpg" />);
+    const img = container.querySelector('img');
+    expect(img?.className).not.toMatch(/object-\[/);
+  });
+
+  it('con posicion la foto se ancla con esa clase de object-position (login)', () => {
+    const { container } = render(<FondoFoto src="/fotos/x.jpg" posicion="object-[center_38%]" />);
+    const img = container.querySelector('img');
+    expect(img).toHaveClass('object-cover', 'object-[center_38%]');
+  });
 });
