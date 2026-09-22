@@ -382,4 +382,19 @@ describe('DetalleQuincenaPage', () => {
       searchParamsMock.set('mes', '8');
     }
   });
+
+  it('muestra el área Resultados operativos en el encabezado', () => {
+    renderPage();
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
+
+  it('el encabezado de período inválido también muestra el área', () => {
+    searchParamsMock.set('mes', '13');
+    try {
+      renderPage();
+      expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+    } finally {
+      searchParamsMock.set('mes', '8');
+    }
+  });
 });

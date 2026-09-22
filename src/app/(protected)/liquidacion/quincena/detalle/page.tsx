@@ -221,7 +221,7 @@ export default function DetalleQuincenaPage() {
   if (!periodoValido) {
     return (
       <section className="space-y-5">
-        <PageHeader eyebrow="Liquidador" title="Período inválido" />
+        <PageHeader area="resultados" title="Período inválido" />
         <p className="text-slate">
           Período inválido —{' '}
           <Link href="/liquidacion/quincena" className="underline">
@@ -235,7 +235,7 @@ export default function DetalleQuincenaPage() {
   return (
     <section className="space-y-5">
       <PageHeader
-        eyebrow="Liquidador"
+        area="resultados"
         title={nombreQuincena(quincena, mes, anio)}
         action={
           <Button variant="primary" onClick={() => setCerrando(true)} disabled={isLoading}>

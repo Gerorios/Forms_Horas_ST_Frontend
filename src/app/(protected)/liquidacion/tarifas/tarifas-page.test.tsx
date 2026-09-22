@@ -156,4 +156,16 @@ describe('TarifasPage — Precios (ADR-018, secciones independientes)', () => {
     expect(screen.getByText(/\$150,00/)).toBeInTheDocument();
     expect(guardarCategorias).not.toHaveBeenCalled();
   });
+
+  it('la pestaña Precios muestra el área Resultados operativos en el encabezado', async () => {
+    render(<TarifasPage />);
+    await waitFor(() => expect(screen.getByText(/\$150,00/)).toBeInTheDocument());
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
+
+  it('la pestaña Sueldos mensualizados muestra el área Resultados operativos en el encabezado', async () => {
+    render(<TarifasPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Sueldos mensualizados' }));
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
 });

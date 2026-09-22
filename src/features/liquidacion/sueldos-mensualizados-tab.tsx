@@ -77,6 +77,7 @@ export function SueldosMensualizadosTab() {
   return (
     <section className="space-y-5">
       <PageHeader
+        area="resultados"
         title={`Sueldos mensualizados de ${etiquetaMes(mes, anio)}`}
         action={
           <Button variant="primary" onClick={guardarTodos} disabled={guardar.isPending || (data ?? []).length === 0}>

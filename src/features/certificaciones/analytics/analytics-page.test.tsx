@@ -104,6 +104,10 @@ beforeEach(() => {
 });
 
 describe('AnalyticsPage', () => {
+  it('muestra el área Resultados operativos en el encabezado', () => {
+    render(<AnalyticsPage />);
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
   it('renderiza las 4 secciones exigidas por el brief con sus aria-label', () => {
     render(<AnalyticsPage />);
     expect(screen.getByRole('region', { name: 'Evolución mensual' })).toBeInTheDocument();

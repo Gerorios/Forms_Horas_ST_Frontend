@@ -28,4 +28,9 @@ describe('QuincenasPage', () => {
     expect(links[0]).toHaveAttribute('href', '/liquidacion/quincena/detalle?anio=2026&mes=8&q=1');
     expect(links[1]).toHaveAttribute('href', '/liquidacion/quincena/detalle?anio=2026&mes=7&q=2');
   });
+
+  it('muestra el área Resultados operativos en el encabezado', () => {
+    render(<QuincenasPage />);
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
 });

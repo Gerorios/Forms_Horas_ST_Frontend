@@ -329,4 +329,9 @@ describe('PerfilesLiquidacionPage', () => {
     expect(screen.getByText('Fijo (88 + 17,5)')).toBeInTheDocument();
     expect(screen.getByText('Fijo (faltan las horas pactadas)')).toBeInTheDocument();
   });
+
+  it('muestra el área Resultados operativos en el encabezado', () => {
+    render(<PerfilesLiquidacionPage />);
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
 });

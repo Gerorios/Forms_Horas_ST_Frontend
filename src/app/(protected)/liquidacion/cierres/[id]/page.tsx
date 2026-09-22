@@ -45,7 +45,7 @@ export default function CierreDetallePage() {
   if (!idValido) {
     return (
       <section className="space-y-5">
-        <PageHeader eyebrow="Liquidador" title="Cierre inválido" />
+        <PageHeader area="resultados" title="Cierre inválido" />
         <p className="text-slate">
           Cierre inválido —{' '}
           <Link href="/liquidacion/cierres" className="underline">
@@ -59,7 +59,7 @@ export default function CierreDetallePage() {
   return (
     <section className="space-y-5">
       <PageHeader
-        eyebrow="Liquidador"
+        area="resultados"
         title={data ? `${nombreQuincena(data.quincena, data.mes, data.anio)} — v${data.version}` : 'Detalle del cierre'}
         action={
           <div className="flex gap-2">

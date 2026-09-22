@@ -204,7 +204,7 @@ export default function CierresPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Liquidador" title="Cierres" />
+      <PageHeader area="resultados" title="Cierres" />
 
       {isLoading ? (
         <p className="text-slate">Cargando…</p>

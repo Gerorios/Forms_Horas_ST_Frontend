@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { useSession } from '@/lib/auth/session';
 import { PageHeader } from '@/components/page-header';
+import { StatTile } from '@/components/stat-tile';
 import { FiltroNumero, FiltroSelect } from '@/components/ui/barra-filtros';
 import { BlockSkeleton, TilesSkeleton } from '@/components/skeleton';
 import {
@@ -53,16 +54,6 @@ function periodoAnterior(anio: number, mes: number): string {
   const m = mes === 1 ? 12 : mes - 1;
   const a = mes === 1 ? anio - 1 : anio;
   return `${a}-${String(m).padStart(2, '0')}`;
-}
-
-function StatTile({ label, value, sub }: { label: string; value: string; sub?: ReactNode }) {
-  return (
-    <div className="rounded-xl border border-line bg-surface p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{value}</p>
-      {sub && <p className="mt-0.5 text-xs tabular-nums">{sub}</p>}
-    </div>
-  );
 }
 
 /** Delta del total certificado vs el mes anterior. A diferencia de un KPI de
@@ -167,7 +158,7 @@ export default function CertificacionesPage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader eyebrow="Certificaciones" title="Resumen de certificaciones" />
+      <PageHeader area="resultados" title="Resumen de certificaciones" />
 
       <div className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-4">
         <FiltroSelect

@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { useSession } from '@/lib/auth/session';
 import { PageHeader } from '@/components/page-header';
+import { StatTile } from '@/components/stat-tile';
 import { BarraFiltros, FiltroFecha, FiltroSelect, MultiFiltro } from '@/components/ui/barra-filtros';
 import { BlockSkeleton, TableSkeleton, TilesSkeleton } from '@/components/skeleton';
 import {
@@ -47,16 +48,6 @@ const EstadoOperativo = dynamic(
   () => import('@/features/certificaciones/analytics/estado-operativo').then((m) => m.EstadoOperativo),
   { ssr: false },
 );
-
-function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-xl border border-line bg-surface p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{value}</p>
-      {sub && <p className="mt-0.5 text-xs tabular-nums text-slate">{sub}</p>}
-    </div>
-  );
-}
 
 /** Sección con `<section aria-label>` — unidad accesible de cada bloque
  * (Evolución mensual / Por contrato / Desagregado / Operativo). */
@@ -152,7 +143,7 @@ export default function AnalyticsPage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader eyebrow="Certificaciones" title="Analytics" />
+      <PageHeader area="resultados" title="Analytics" />
 
       <BarraFiltros hayFiltros={hayFiltros} onLimpiar={limpiarFiltros}>
         <MultiFiltro

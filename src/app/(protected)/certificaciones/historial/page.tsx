@@ -89,7 +89,7 @@ export default function HistorialCargasPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Certificaciones" title="Historial" />
+      <PageHeader area="resultados" title="Historial" />
 
       {isLoading ? (
         <p className="text-slate">Cargando…</p>

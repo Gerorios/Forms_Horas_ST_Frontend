@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useSession } from '@/lib/auth/session';
 import { PageHeader } from '@/components/page-header';
+import { StatTile } from '@/components/stat-tile';
 import { Button } from '@/components/button';
 import {
   usePreviewCarga,
@@ -279,47 +280,6 @@ function TarjetaGuia({ icono, titulo, texto }: { icono: ReactNode; titulo: strin
         <p className="font-display text-sm font-semibold text-ink">{titulo}</p>
         <p className="mt-1 text-[13px] text-slate">{texto}</p>
       </div>
-    </div>
-  );
-}
-
-function StatTile({
-  label,
-  value,
-  sub,
-  tone = 'ink',
-  testId,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: 'ink' | 'ok' | 'warn' | 'danger' | 'manual';
-  testId: string;
-}) {
-  const color =
-    tone === 'ok'
-      ? 'text-approved'
-      : tone === 'warn'
-        ? 'text-warn'
-        : tone === 'danger'
-          ? 'text-danger'
-          : tone === 'manual'
-            ? 'text-[#3b6fc4]'
-            : 'text-ink';
-  /** Un monto largo ("$ 7.088.522,00") se salía del recuadro: la tarjeta no
-   * podía achicarse en la grilla (`min-w-0`) y el valor iba `whitespace-nowrap`.
-   * Ahora quiebra y, si es largo, baja un escalón de tipografía (2026-09-21). */
-  const tamanio = value.length > 12 ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl';
-  return (
-    <div className="min-w-0 rounded-xl border border-line bg-surface px-4 py-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate">{label}</p>
-      <p
-        className={`mt-1.5 break-words font-display font-semibold tabular-nums ${tamanio} ${color}`}
-        data-testid={testId}
-      >
-        {value}
-      </p>
-      {sub && <p className="mt-0.5 break-words text-xs tabular-nums text-slate">{sub}</p>}
     </div>
   );
 }
@@ -852,7 +812,7 @@ export default function CargaCertificacionesPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Certificaciones" title="Cargar certificación" />
+      <PageHeader area="resultados" title="Cargar certificación" />
       <Stepper actual={step} />
 
       {step === 1 && (

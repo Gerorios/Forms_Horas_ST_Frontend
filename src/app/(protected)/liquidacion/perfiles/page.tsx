@@ -296,7 +296,7 @@ export default function PerfilesLiquidacionPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader title="Perfiles de empleados" />
+      <PageHeader area="resultados" title="Perfiles de empleados" />
       <p className="text-sm text-slate">
         Solo los empleados con un perfil asignado acá aparecen en el panel de liquidación. Un
         empleado sin perfil todavía no fue revisado; uno con régimen &quot;Administrativo&quot; ya
