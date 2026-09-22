@@ -152,4 +152,11 @@ describe('Inicio — tile "Horas cargadas" (par E)', () => {
     const valor = screen.getByText('0.6');
     expect(valor.parentElement).toHaveTextContent('Horas cargadas');
   });
+
+  it('aclara que el total incluye pendientes de aprobación (rótulos 2026-09-22)', () => {
+    h.perfil = PERFIL_OPERARIO;
+    h.registros = [{ estado: 'pendiente', horas: '2' }];
+    render(<HomePage />);
+    expect(screen.getByText('Incluye pendientes de aprobación')).toBeInTheDocument();
+  });
 });

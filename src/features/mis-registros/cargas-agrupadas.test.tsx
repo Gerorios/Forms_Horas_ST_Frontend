@@ -160,4 +160,9 @@ describe('CargasAgrupadas', () => {
     render(<CargasAgrupadas registros={undefined} quincena={QUINCENA_1} isLoading />);
     expect(screen.getByRole('status', { name: 'Cargando…' })).toBeInTheDocument();
   });
+
+  it('la tarjeta grande aclara que incluye pendientes de aprobación (rótulos 2026-09-22)', () => {
+    render(<CargasAgrupadas registros={[reg(1, 'lote-a', '2026-07-05', '8')]} quincena={QUINCENA_1} isLoading={false} />);
+    expect(screen.getByText('Incluye pendientes de aprobación')).toBeInTheDocument();
+  });
 });

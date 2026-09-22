@@ -145,4 +145,9 @@ describe('RegistrosCards', () => {
     render(<RegistrosCards registros={undefined} quincena={QUINCENA_1} isLoading />);
     expect(screen.getByRole('status', { name: 'Cargando…' })).toBeInTheDocument();
   });
+
+  it('el rótulo de la tarjeta grande dice que son horas aprobadas (rótulos 2026-09-22)', () => {
+    render(<RegistrosCards registros={[reg(1, '2026-07-05', '8')]} quincena={QUINCENA_1} isLoading={false} />);
+    expect(screen.getByText(/Horas aprobadas · 1ª quincena/)).toBeInTheDocument();
+  });
 });

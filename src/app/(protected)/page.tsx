@@ -35,6 +35,8 @@ const DESCRIPCION: Record<string, string> = {
  * backend nuevo, solo se trae acá y se hace accesible de un vistazo. */
 interface DatoIndicador {
   label: string;
+  /** Línea chica bajo el valor (p. ej. qué estados incluye la suma). */
+  sub?: string;
   value: string | number;
   tone: StatTone;
   icon: ReactNode;
@@ -133,7 +135,15 @@ export default function HomePage() {
     const horas = (misRegistros ?? []).reduce((s, r) => (r.estado !== 'desaprobado' ? s + Number(r.horas) : s), 0);
     const pendientes = (misRegistros ?? []).filter((r) => r.estado === 'pendiente').length;
     indicadores = [
-      { label: 'Horas cargadas', value: redondearHoras(horas), tone: 'neutral', icon: <ClockIcon />, href: '/mis-registros' },
+      {
+        label: 'Horas cargadas',
+        value: redondearHoras(horas),
+        // Suma todo lo no desaprobado; en Mis registros el operario ve solo lo aprobado.
+        sub: 'Incluye pendientes de aprobación',
+        tone: 'neutral',
+        icon: <ClockIcon />,
+        href: '/mis-registros',
+      },
       { label: 'Pendientes de aprobación', value: pendientes, tone: 'warn', icon: <ClipboardIcon />, href: '/mis-registros' },
       cierreItem,
     ];
