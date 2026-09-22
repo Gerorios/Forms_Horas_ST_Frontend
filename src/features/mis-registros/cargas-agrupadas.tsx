@@ -108,6 +108,9 @@ export function CargasAgrupadas({
           Total {quincena.parte === 1 ? '1ª' : '2ª'} quincena
         </div>
         <div className="text-4xl font-extrabold tabular-nums text-ink">{total} hs</div>
+        {/* Suma todo lo no desaprobado (mismo criterio que el inicio); la tarjeta
+           del operario en cambio cuenta solo lo aprobado. */}
+        <p className="mt-1 text-xs text-ink/70">Incluye pendientes de aprobación</p>
       </div>
 
       <div className="space-y-4">
