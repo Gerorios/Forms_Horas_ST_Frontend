@@ -117,4 +117,15 @@ describe('CierreDetallePage', () => {
       '/liquidacion/cierres',
     );
   });
+
+  it('muestra el área Resultados operativos en el encabezado', () => {
+    render(<CierreDetallePage />);
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
+
+  it('el encabezado de cierre inválido también muestra el área', () => {
+    paramsMock = { id: 'abc' };
+    render(<CierreDetallePage />);
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
 });

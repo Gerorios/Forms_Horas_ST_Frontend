@@ -136,4 +136,9 @@ describe('AnalisisPage', () => {
     render(<AnalisisPage />);
     expect(screen.getByText('Sin liquidación calculada para esta quincena.')).toBeInTheDocument();
   });
+
+  it('muestra el área Resultados operativos en el encabezado', () => {
+    render(<AnalisisPage />);
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
 });

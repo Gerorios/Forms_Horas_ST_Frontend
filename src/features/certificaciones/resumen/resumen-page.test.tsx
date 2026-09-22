@@ -95,6 +95,10 @@ afterEach(() => {
 });
 
 describe('CertificacionesPage — Resumen', () => {
+  it('muestra el área Resultados operativos en el encabezado', () => {
+    render(<CertificacionesPage />);
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
   it('muestra los 3 KPIs (certificado del mes, certificados X/Y, aún sin subir)', () => {
     render(<CertificacionesPage />);
 

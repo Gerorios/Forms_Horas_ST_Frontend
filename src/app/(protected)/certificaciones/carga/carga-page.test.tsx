@@ -131,6 +131,10 @@ async function subirArchivo(nombre = 'archivo.xlsx') {
 }
 
 describe('CargaCertificacionesPage', () => {
+  it('muestra el área Resultados operativos en el encabezado', () => {
+    render(<CargaCertificacionesPage />);
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
   it('nivel lectura no ve la pantalla (gate)', () => {
     useSession.mockReturnValue({ perfil: { cert: { nivel: 'lectura', ks: [], inc: false } } });
     const { container } = render(<CargaCertificacionesPage />);

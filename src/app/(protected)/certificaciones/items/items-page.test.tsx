@@ -78,6 +78,10 @@ afterEach(() => {
 });
 
 describe('ItemsCertPage', () => {
+  it('muestra el área Resultados operativos en el encabezado', () => {
+    render(<ItemsCertPage />);
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
   it('renderiza filas con código, chip de contrato y tipo; ptos_gasnor 0 se muestra como "0"', () => {
     render(<ItemsCertPage />);
     const fila = screen.getByText('ITEM-01').closest('tr')!;

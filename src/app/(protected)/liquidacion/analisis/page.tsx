@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { PageHeader } from '@/components/page-header';
+import { StatTile } from '@/components/stat-tile';
 import { FiltroNumero, FiltroSelect } from '@/components/ui/barra-filtros';
 import { useAnalisisQuincena } from '@/lib/api/liquidacion';
 import { quincenaDeFecha } from '@/lib/quincena';
@@ -36,18 +37,6 @@ const QUINCENA_OPCIONES = [
   { value: 1, label: '1ª quincena' },
   { value: 2, label: '2ª quincena' },
 ];
-
-/** Variante del StatTile de control-general para KPIs monetarios: valor ya
- * formateado + sub-línea de contexto (Δ vs quincena anterior). No clickeable. */
-function StatTile({ label, value, sub }: { label: string; value: string; sub?: ReactNode }) {
-  return (
-    <div className="rounded-xl border border-line bg-surface p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{value}</p>
-      {sub && <p className="mt-0.5 text-xs tabular-nums">{sub}</p>}
-    </div>
-  );
-}
 
 /** Sub-línea de delta contra la quincena anterior. Acá SUBIR es costo: la
  * suba va en rojo y la baja en verde (al revés de un KPI de ventas). */
@@ -92,7 +81,7 @@ export default function AnalisisQuincenaPage() {
 
   return (
     <section className="space-y-6">
-      <PageHeader eyebrow="Liquidación" title="Análisis de la quincena" />
+      <PageHeader area="resultados" title="Análisis de la quincena" />
 
       <div className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-4">
         <FiltroSelect

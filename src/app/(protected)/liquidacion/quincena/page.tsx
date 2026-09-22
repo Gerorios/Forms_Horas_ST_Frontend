@@ -35,7 +35,7 @@ export default function QuincenasPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Liquidador" title="Quincenas" />
+      <PageHeader area="resultados" title="Quincenas" />
 
       {isLoading ? (
         <p className="text-slate">Cargando…</p>

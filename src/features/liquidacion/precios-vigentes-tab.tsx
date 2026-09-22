@@ -57,7 +57,7 @@ export function PreciosVigentesTab() {
 
   return (
     <section className="space-y-5">
-      <PageHeader title={`Precios de ${etiquetaPeriodo(anio, mes)}`} />
+      <PageHeader area="resultados" title={`Precios de ${etiquetaPeriodo(anio, mes)}`} />
       <p className="text-sm text-slate">
         Cada sección se resuelve y se guarda por separado, para el período elegido. Un campo sin
         resolver para este mes muestra el último precio conocido (de un mes anterior) solo como

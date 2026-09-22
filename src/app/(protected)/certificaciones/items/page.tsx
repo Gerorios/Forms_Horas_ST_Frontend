@@ -398,7 +398,7 @@ export default function ItemsCertPage() {
   return (
     <section className="space-y-5">
       <PageHeader
-        eyebrow="Certificaciones"
+        area="resultados"
         title="Ítems"
         action={
           <Button variant="primary" onClick={abrirAlta}>

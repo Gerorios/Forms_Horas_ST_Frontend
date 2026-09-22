@@ -208,4 +208,9 @@ describe('CierresPage', () => {
     const link = within(fila as HTMLElement).getByRole('link', { name: /ver detalle/i });
     expect(link).toHaveAttribute('href', '/liquidacion/cierres/20');
   });
+
+  it('muestra el área Resultados operativos en el encabezado', () => {
+    renderPage();
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
 });

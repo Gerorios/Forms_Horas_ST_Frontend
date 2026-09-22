@@ -56,6 +56,10 @@ beforeEach(() => {
 });
 
 describe('HistorialCargasPage', () => {
+  it('muestra el área Resultados operativos en el encabezado', () => {
+    render(<HistorialCargasPage />);
+    expect(screen.getAllByText('Resultados operativos')[0]).toBeInTheDocument();
+  });
   it('renderiza chips de contrato, filas con error y estado', () => {
     render(<HistorialCargasPage />);
 
