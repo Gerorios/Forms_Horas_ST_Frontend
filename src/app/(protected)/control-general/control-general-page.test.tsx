@@ -398,4 +398,9 @@ describe('ControlGeneralPage', () => {
     await userEvent.click(screen.getByText('Sin carga'));
     expect(screen.getByText('Sin carga en esta quincena')).toBeInTheDocument();
   });
+
+  it('muestra el área Operación en el encabezado', () => {
+    render(<ControlGeneralPage />);
+    expect(screen.getAllByText('Operación')[0]).toBeInTheDocument();
+  });
 });

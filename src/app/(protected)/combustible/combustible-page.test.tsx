@@ -105,4 +105,9 @@ describe('CombustiblePage', () => {
     expect(screen.queryByRole('button', { name: /limpiar filtros/i })).not.toBeInTheDocument();
     expect(filasTabla(container)).toHaveLength(2);
   });
+
+  it('muestra el área Operación en el encabezado', () => {
+    render(<CombustiblePage />);
+    expect(screen.getAllByText('Operación')[0]).toBeInTheDocument();
+  });
 });

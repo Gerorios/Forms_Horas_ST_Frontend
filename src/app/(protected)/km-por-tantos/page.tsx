@@ -58,6 +58,7 @@ export default function KmPorTantosPage() {
   return (
     <section className="space-y-5">
       <PageHeader
+        area="operacion"
         title="Km por tantos"
         action={
           <Button variant="primary" onClick={guardarTodos} disabled={cargarKms.isPending || (data ?? []).length === 0}>

@@ -27,7 +27,7 @@ export default function MisRegistrosPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Historial" title="Mis registros" />
+      <PageHeader area="operacion" title="Mis registros" />
 
       {esJdC && (
         <div className="flex gap-1 border-b border-line">

@@ -58,4 +58,9 @@ describe('MisRegistrosPage', () => {
     await irAJulio1ra2026();
     expect(screen.getByText('GOMEZ SEGUNDO ALBERTO')).toBeInTheDocument();
   });
+
+  it('muestra el área Operación en el encabezado', () => {
+    render(<MisRegistrosPage />);
+    expect(screen.getAllByText('Operación')[0]).toBeInTheDocument();
+  });
 });

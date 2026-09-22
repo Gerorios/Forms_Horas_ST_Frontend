@@ -43,4 +43,9 @@ describe('KmPorTantosPage', () => {
       }),
     );
   });
+
+  it('muestra el área Operación en el encabezado', () => {
+    render(<KmPorTantosPage />);
+    expect(screen.getAllByText('Operación')[0]).toBeInTheDocument();
+  });
 });

@@ -121,4 +121,9 @@ describe('ReportePage', () => {
     expect(screen.getByPlaceholderText(/buscar por identificador/i)).toBeInTheDocument();
     expect(screen.getByText('M-01')).toBeInTheDocument();
   });
+
+  it('muestra el área Operación en el encabezado', () => {
+    render(<ReportePage />);
+    expect(screen.getAllByText('Operación')[0]).toBeInTheDocument();
+  });
 });
