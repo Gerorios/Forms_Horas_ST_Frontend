@@ -50,7 +50,7 @@ export default function MovilesAdminPage() {
   return (
     <section className="space-y-5">
       <PageHeader
-        eyebrow="Admin"
+        area="administracion"
         title="Móviles"
         action={
           <Button variant="primary" onClick={() => setCreando(true)}>

@@ -22,6 +22,11 @@ import EstacionesServicioAdminPage from './page';
 describe('EstacionesServicioAdminPage', () => {
   beforeEach(() => { crear.mockClear(); actualizar.mockClear(); toggle.mockClear(); });
 
+  it('muestra el área Administración en el encabezado', () => {
+    render(<EstacionesServicioAdminPage />);
+    expect(screen.getAllByText('Administración')[0]).toBeInTheDocument();
+  });
+
   it('lista las estaciones existentes', () => {
     render(<EstacionesServicioAdminPage />);
     expect(screen.getByText('YPF Ruta 3')).toBeInTheDocument();

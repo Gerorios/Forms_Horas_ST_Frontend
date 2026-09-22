@@ -17,6 +17,11 @@ import ProvinciasAdminPage from './page';
 describe('ProvinciasAdminPage', () => {
   beforeEach(() => { crear.mockClear(); editar.mockClear(); });
 
+  it('muestra el área Administración en el encabezado', () => {
+    render(<ProvinciasAdminPage />);
+    expect(screen.getAllByText('Administración')[0]).toBeInTheDocument();
+  });
+
   it('editar el nombre de una provincia llama al mutate', async () => {
     render(<ProvinciasAdminPage />);
     await userEvent.click(screen.getByRole('button', { name: /editar/i }));

@@ -54,6 +54,11 @@ describe('AccesosCertificacionesPage', () => {
     eliminar.mockClear();
   });
 
+  it('muestra el área Administración en el encabezado', () => {
+    render(<AccesosCertificacionesPage />);
+    expect(screen.getAllByText('Administración')[0]).toBeInTheDocument();
+  });
+
   it('lista cada acceso con nombre, nivel y sus contratos K', () => {
     render(<AccesosCertificacionesPage />);
     const fila = screen.getByText('PEREZ JUAN').closest('li')!;

@@ -40,7 +40,7 @@ export default function TiposCombustibleAdminPage() {
   return (
     <section className="space-y-5">
       <PageHeader
-        eyebrow="Admin"
+        area="administracion"
         title="Tipos de combustible"
         action={
           !mostrarForm && (

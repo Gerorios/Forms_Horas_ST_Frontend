@@ -72,7 +72,7 @@ export default function UsuariosAdminPage() {
   return (
     <section className="space-y-5">
       <PageHeader
-        eyebrow="Admin"
+        area="administracion"
         title="Usuarios"
         action={
           <div className="flex gap-2">

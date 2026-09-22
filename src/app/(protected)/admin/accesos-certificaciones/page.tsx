@@ -247,7 +247,7 @@ export default function AccesosCertificacionesPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Admin" title="Accesos a Certificaciones" />
+      <PageHeader area="administracion" title="Accesos a Certificaciones" />
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface p-4">
         <select
           aria-label="Usuario"

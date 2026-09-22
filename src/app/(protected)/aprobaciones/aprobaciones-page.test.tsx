@@ -165,4 +165,10 @@ describe('AprobacionesPage', () => {
     render(<AprobacionesPage />);
     expect(screen.getAllByText('Operación')[0]).toBeInTheDocument();
   });
+
+  it('las pestañas envuelven en pantallas angostas: el contenedor es flex-wrap', () => {
+    render(<AprobacionesPage />);
+    const contenedor = screen.getByRole('button', { name: /pendientes/i }).parentElement;
+    expect(contenedor).toHaveClass('flex-wrap');
+  });
 });

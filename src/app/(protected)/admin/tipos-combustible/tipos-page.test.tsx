@@ -24,6 +24,11 @@ import TiposCombustibleAdminPage from './page';
 describe('TiposCombustibleAdminPage', () => {
   beforeEach(() => { crear.mockClear(); actualizar.mockClear(); toggle.mockClear(); guardarAlias.mockClear(); });
 
+  it('muestra el área Administración en el encabezado', () => {
+    render(<TiposCombustibleAdminPage />);
+    expect(screen.getAllByText('Administración')[0]).toBeInTheDocument();
+  });
+
   it('lista los tipos existentes', () => {
     render(<TiposCombustibleAdminPage />);
     expect(screen.getByText('Diésel')).toBeInTheDocument();

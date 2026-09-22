@@ -55,7 +55,7 @@ export default function EstacionesServicioAdminPage() {
   return (
     <section className="space-y-5">
       <PageHeader
-        eyebrow="Admin"
+        area="administracion"
         title="Estaciones de servicio"
         action={
           !mostrarForm && (

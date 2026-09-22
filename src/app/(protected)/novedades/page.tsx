@@ -212,6 +212,7 @@ export default function NovedadesPage() {
   return (
     <section className="space-y-5">
       <PageHeader
+        area="personas"
         title="Novedades"
         eyebrow={esJefeCuadrilla ? 'Las que cargaste vos' : undefined}
         action={

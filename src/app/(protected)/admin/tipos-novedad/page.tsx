@@ -29,7 +29,7 @@ export default function TiposNovedadAdminPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Admin" title="Tipos de novedad" />
+      <PageHeader area="administracion" title="Tipos de novedad" />
       <div className="space-y-3 rounded-xl border border-line bg-surface p-4">
         <input
           aria-label="Nombre"

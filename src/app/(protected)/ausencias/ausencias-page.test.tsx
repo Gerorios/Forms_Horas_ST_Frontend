@@ -89,6 +89,11 @@ describe('AusenciasPage', () => {
     useResumenAusenciasMock.mockReturnValue({ data: [], isLoading: false });
   });
 
+  it('muestra el área Personas en el encabezado', () => {
+    render(<AusenciasPage />);
+    expect(screen.getAllByText('Personas')[0]).toBeInTheDocument();
+  });
+
   describe('paginación (20 por página, pedido 2026-09-03)', () => {
     const muchas = (n: number) =>
       Array.from({ length: n }, (_, i) =>
@@ -426,5 +431,11 @@ describe('AusenciasPage', () => {
       expect(screen.getByText('GOMEZ ANA')).toBeInTheDocument();
       expect(screen.getByText('Motivo: duplicada')).toBeInTheDocument();
     });
+  });
+
+  it('las pestañas envuelven en pantallas angostas: el contenedor es flex-wrap (3b.R3)', () => {
+    render(<AusenciasPage />);
+    const contenedor = screen.getByRole('button', { name: /^Justificadas/ }).parentElement;
+    expect(contenedor).toHaveClass('flex-wrap');
   });
 });
