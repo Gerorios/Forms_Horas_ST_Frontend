@@ -180,4 +180,11 @@ describe('LoteCard', () => {
     await userEvent.click(screen.getByRole('button', { name: /corregir horas/i }));
     expect(screen.getByRole('button', { name: /confirmar corrección/i })).toBeDisabled();
   });
+
+  it('redondea a un decimal la cola flotante del total del día, sin apagar la alerta', async () => {
+    const conCola = { ...fila(1, 'PEREZ'), totalHorasDia: 16.000000000000004 };
+    render(<LoteCard grupo={grupo([conCola, fila(2, 'GOMEZ')])} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.getByText('16hs ese día')).toBeInTheDocument();
+  });
 });

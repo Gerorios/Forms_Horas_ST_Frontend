@@ -89,6 +89,9 @@ export function agruparPorLote(filas: RegistroPorAprobar[]): GrupoLote[] {
     }
   }
   for (const grupo of mapa.values()) {
+    // Suma cruda a propósito: redondear acá y volver a redondear la suma de
+    // varios lotes daba doble redondeo (dos lotes de 8.25 → 8.3 + 8.3 = 16.6 en
+    // vez de 16.5). El redondeo a un decimal es del render (`resumen-carga`).
     grupo.totalHoras = grupo.contratos.reduce((s, c) => s + c.subtotalHoras, 0);
   }
   return [...mapa.values()];

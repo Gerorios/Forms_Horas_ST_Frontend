@@ -1,4 +1,5 @@
 import type { GrupoLote } from '@/lib/agrupar';
+import { redondearHoras } from '@/lib/horas';
 
 export function ResumenCarga({ grupo }: { grupo: GrupoLote }) {
   const esCorreccion = grupo.filas.some((f) => f.loteIdOrigen);
@@ -22,7 +23,7 @@ export function ResumenCarga({ grupo }: { grupo: GrupoLote }) {
             </span>
           )}
         </h2>
-        <span className="text-sm tabular-nums text-ink">{grupo.totalHoras} hs totales</span>
+        <span className="text-sm tabular-nums text-ink">{redondearHoras(grupo.totalHoras)} hs totales</span>
       </div>
       {grupo.cargadoPor.nombre && (
         <p className="text-xs text-slate">

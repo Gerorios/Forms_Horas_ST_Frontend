@@ -7,6 +7,7 @@ import { DesaprobarDialog } from './desaprobar-dialog';
 import { CorregirHorasDialog } from './corregir-horas-dialog';
 import { ResumenCarga } from '@/components/resumen-carga';
 import { Button } from '@/components/button';
+import { redondearHoras } from '@/lib/horas';
 import type { GrupoContrato, GrupoLote } from '@/lib/agrupar';
 
 export function LoteCard({ grupo }: { grupo: GrupoLote }) {
@@ -144,7 +145,7 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
                           className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn"
                           title="Total real de horas de este operario ese día, sumando todos los contratos"
                         >
-                          {f.totalHorasDia}hs ese día
+                          {redondearHoras(f.totalHorasDia)}hs ese día
                         </span>
                       )}
                       {f.duplicadoCruzado && (

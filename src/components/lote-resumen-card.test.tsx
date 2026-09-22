@@ -201,4 +201,24 @@ describe('LoteResumenCard', () => {
     await userEvent.click(botones[0]);
     expect(onReabrir).toHaveBeenCalledWith(1, 'PEREZ');
   });
+
+  it('redondea a un decimal la cola flotante del total del día, sin apagar la alerta', async () => {
+    render(<LoteResumenCard grupo={grupo([fila(1, 'PEREZ', { totalHorasDia: 16.000000000000004 })])} />);
+    await userEvent.click(screen.getByRole('button', { name: /ver detalle/i }));
+    expect(screen.getByText('16hs ese día')).toBeInTheDocument();
+  });
+
+  it('redondea a un decimal el total del lote al mostrarlo (la suma viene cruda)', () => {
+    render(
+      <LoteResumenCard
+        grupo={grupo([
+          fila(1, 'PEREZ', { horas: '0.1', contrato: { id: 1, codigo: 'K5', nombre: 'K5' } }),
+          fila(2, 'PEREZ', { horas: '0.2', contrato: { id: 2, codigo: 'K8', nombre: 'K8' } }),
+          fila(3, 'PEREZ', { horas: '0.3', contrato: { id: 3, codigo: 'K12', nombre: 'K12' } }),
+        ])}
+      />,
+    );
+    // 0.1 + 0.2 + 0.3 da 0.6000000000000001: el redondeo vive en el render.
+    expect(screen.getByText('0.6 hs totales')).toBeInTheDocument();
+  });
 });

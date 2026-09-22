@@ -9,7 +9,13 @@ type PerfilMock = Pick<
   Perfil,
   'cuil' | 'rol' | 'tiposNovedadHabilitados' | 'puedeCargarKmPorTantos' | 'cert'
 > & { empleado: { apellido_nombre: string } };
-const h = vi.hoisted(() => ({ perfil: null as PerfilMock | null }));
+/** Registros de "Mis registros" del operario, también mutables: el tile
+ * "Horas cargadas" los suma en el inicio. */
+type RegistroMock = { estado: string; horas: string };
+const h = vi.hoisted(() => ({
+  perfil: null as PerfilMock | null,
+  registros: null as RegistroMock[] | null,
+}));
 
 const PERFIL_ADMIN = {
   cuil: '20123456789',
@@ -40,6 +46,18 @@ const PERFIL_HYS = {
   cert: null,
 };
 
+const PERFIL_OPERARIO = {
+  cuil: '20111111111',
+  email: 'operario@empresa.com',
+  activo: true,
+  rol: { nombre: 'Operario' as const },
+  empleado: { apellido_nombre: 'LOPEZ CARLOS', legajo: 30, cargo: 'Oficial' },
+  contratosHabilitados: [],
+  tiposNovedadHabilitados: [],
+  puedeCargarKmPorTantos: false,
+  cert: null,
+};
+
 vi.mock('@/lib/auth/session', () => ({
   useSession: () => ({ perfil: h.perfil, signOut: vi.fn() }),
 }));
@@ -50,14 +68,17 @@ vi.mock('next/navigation', () => ({
 }));
 
 // Los datos de los indicadores no son lo que se prueba acá (cada módulo tiene
-// su test): los 5 hooks devuelven vacío para que el inicio no pegue a la API.
+// su test): los hooks devuelven vacío para que el inicio no pegue a la API.
+// La excepción es `useMisRegistros`, que alimenta el tile "Horas cargadas".
 vi.mock('@/lib/api/panel-general', () => ({
   useResumenOperarios: vi.fn(() => ({ data: undefined })),
   useSinCarga: vi.fn(() => ({ data: undefined })),
 }));
 vi.mock('@/lib/api/novedades', () => ({ useNovedades: vi.fn(() => ({ data: undefined })) }));
 vi.mock('@/lib/api/liquidacion', () => ({ useAlertasQuincena: vi.fn(() => ({ data: undefined })) }));
-vi.mock('@/lib/api/registros', () => ({ useMisRegistros: vi.fn(() => ({ data: undefined })) }));
+vi.mock('@/lib/api/registros', () => ({
+  useMisRegistros: vi.fn(() => ({ data: h.registros ?? undefined })),
+}));
 
 import HomePage from './page';
 
@@ -112,5 +133,23 @@ describe('Inicio — módulos por área (2.3)', () => {
       'Cargar y seguir las certificaciones por contrato: resumen, analytics, ítems e historial.',
     );
     expect(desc.closest('a')).toHaveAttribute('href', '/certificaciones');
+  });
+});
+
+describe('Inicio — tile "Horas cargadas" (par E)', () => {
+  // Guarda del refactor a `redondearHoras`: nace verde (el inline
+  // `Math.round(horas * 10) / 10` hacía lo mismo) y deja fijado que la suma
+  // en coma flotante 0.1 + 0.2 + 0.3 se muestra "0.6" y no
+  // "0.6000000000000001".
+  it('redondea a un decimal el total del operario', () => {
+    h.perfil = PERFIL_OPERARIO;
+    h.registros = [
+      { estado: 'aprobado', horas: '0.1' },
+      { estado: 'aprobado', horas: '0.2' },
+      { estado: 'aprobado', horas: '0.3' },
+    ];
+    render(<HomePage />);
+    const valor = screen.getByText('0.6');
+    expect(valor.parentElement).toHaveTextContent('Horas cargadas');
   });
 });

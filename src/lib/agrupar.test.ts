@@ -66,6 +66,19 @@ describe('agruparPorLote', () => {
     expect(grupos[0].totalHoras).toBe(12);
   });
 
+  it('suma el total sin redondear: el redondeo a un decimal es del render', () => {
+    const grupos = agruparPorLote([
+      fila(1, 'lote-a', '2026-07-10', { horas: '0.1', contrato: { id: 1, codigo: 'K5', nombre: 'K5' } }),
+      fila(2, 'lote-a', '2026-07-10', { horas: '0.2', contrato: { id: 2, codigo: 'K8', nombre: 'K8' } }),
+      fila(3, 'lote-a', '2026-07-10', { horas: '0.3', contrato: { id: 3, codigo: 'K12', nombre: 'K12' } }),
+    ]);
+    // El reduce da 0.6000000000000001 y así queda: redondear acá provocaba
+    // doble redondeo cuando alguien vuelve a sumar los totales de varios lotes
+    // (8.25 + 8.25 → 8.3 + 8.3 = 16.6). Redondear es responsabilidad del
+    // render, `resumen-carga` muestra "0.6 hs totales".
+    expect(grupos[0].totalHoras).toBeCloseTo(0.6);
+  });
+
   it('no multiplica las horas por operario: una línea se repite en una fila por cada operario de la cuadrilla', () => {
     const grupos = agruparPorLote([
       fila(1, 'lote-a', '2026-07-10', {

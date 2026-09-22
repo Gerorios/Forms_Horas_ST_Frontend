@@ -123,6 +123,24 @@ describe('RegistrosCards', () => {
     expect(screen.queryByText('+16h')).not.toBeInTheDocument();
   });
 
+  it('redondea a un decimal el total de la quincena (suma flotante)', () => {
+    render(
+      <RegistrosCards
+        registros={[
+          reg(1, '2026-07-05', '0.1'),
+          reg(2, '2026-07-06', '0.2'),
+          reg(3, '2026-07-07', '0.3'),
+        ]}
+        quincena={QUINCENA_1}
+        isLoading={false}
+      />,
+    );
+    // 0.1 + 0.2 + 0.3 da 0.6000000000000001 en coma flotante: el total grande
+    // se muestra redondeado a un decimal.
+    const total = screen.getByText('0.6 hs');
+    expect(total.className).toContain('text-4xl');
+  });
+
   it('isLoading muestra el estado de carga', () => {
     render(<RegistrosCards registros={undefined} quincena={QUINCENA_1} isLoading />);
     expect(screen.getByRole('status', { name: 'Cargando…' })).toBeInTheDocument();

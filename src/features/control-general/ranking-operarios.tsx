@@ -11,6 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { ResumenOperario } from '@/lib/api/panel-general';
+import { redondearHoras } from '@/lib/horas';
 import { COLOR_SERIE_1 } from './chart-colors';
 
 type FilaRanking = { cuil: string; nombre: string; horas: number; mias: number; otras: number };
@@ -58,8 +59,8 @@ export function RankingOperarios({ resumen }: { resumen: ResumenOperario[] }) {
       cuil: r.cuil,
       nombre: r.apellido_nombre,
       horas: r.totalHoras,
-      mias: Math.round(r.horasMisContratos * 10) / 10,
-      otras: Math.round((r.totalHoras - r.horasMisContratos) * 10) / 10,
+      mias: redondearHoras(r.horasMisContratos),
+      otras: redondearHoras(r.totalHoras - r.horasMisContratos),
     }));
   const max = Math.max(...top.map((r) => r.horas), 0);
   if (top.length === 0 || max === 0)

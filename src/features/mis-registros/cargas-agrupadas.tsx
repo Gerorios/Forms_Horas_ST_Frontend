@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { agruparPorLote } from '@/lib/agrupar';
+import { redondearHoras } from '@/lib/horas';
 import { enQuincena, type Quincena } from '@/lib/quincena';
 import { infoCorreccion, type CorreccionInput, type InfoCorreccion } from '@/lib/correccion';
 import { LoteResumenCard } from '@/components/lote-resumen-card';
@@ -42,7 +43,12 @@ export function CargasAgrupadas({
     );
   }, [registros, quincena]);
 
-  const total = useMemo(() => grupos.reduce((s, g) => s + g.totalHoras, 0), [grupos]);
+  // Sumar totales por lote en coma flotante arrastra cola binaria
+  // (0.1 + 0.2 + 0.3 = 0.6000000000000001): el total grande va a un decimal.
+  const total = useMemo(
+    () => redondearHoras(grupos.reduce((s, g) => s + g.totalHoras, 0)),
+    [grupos],
+  );
 
   // Para detectar corrección (ADR-006) hace falta ver todos los lotes de la
   // quincena a la vez: la carga rechazada y la que la corrige son lotes
