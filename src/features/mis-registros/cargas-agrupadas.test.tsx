@@ -121,6 +121,41 @@ describe('CargasAgrupadas', () => {
     expect(screen.queryByText('⚠ Revisar')).not.toBeInTheDocument();
   });
 
+  it('redondea a un decimal el total de la quincena (suma flotante de varios lotes)', () => {
+    render(
+      <CargasAgrupadas
+        registros={[
+          reg(1, 'lote-a', '2026-07-05', '0.1', 'PEREZ'),
+          reg(2, 'lote-b', '2026-07-06', '0.2', 'PEREZ'),
+          reg(3, 'lote-c', '2026-07-07', '0.3', 'PEREZ'),
+        ]}
+        quincena={QUINCENA_1}
+        isLoading={false}
+      />,
+    );
+    // 0.1 + 0.2 + 0.3 da 0.6000000000000001 en coma flotante: el total grande
+    // se muestra redondeado a un decimal.
+    const total = screen.getByText('0.6 hs');
+    expect(total.className).toContain('text-4xl');
+  });
+
+  it('no redondea dos veces: suma los totales crudos de cada lote y redondea una sola vez', () => {
+    render(
+      <CargasAgrupadas
+        registros={[
+          reg(1, 'lote-a', '2026-07-05', '8.25', 'PEREZ'),
+          reg(2, 'lote-b', '2026-07-06', '8.25', 'PEREZ'),
+        ]}
+        quincena={QUINCENA_1}
+        isLoading={false}
+      />,
+    );
+    // 8.25 + 8.25 = 16.5. Si cada lote se redondeara antes (8.3 + 8.3) el
+    // total grande mostraría 16.6: el error crece 0.05 por lote.
+    const total = screen.getByText('16.5 hs');
+    expect(total.className).toContain('text-4xl');
+  });
+
   it('isLoading muestra el estado de carga', () => {
     render(<CargasAgrupadas registros={undefined} quincena={QUINCENA_1} isLoading />);
     expect(screen.getByRole('status', { name: 'Cargando…' })).toBeInTheDocument();

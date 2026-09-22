@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { enQuincena, type Quincena } from '@/lib/quincena';
 import { infoCorreccion, type CorreccionInput } from '@/lib/correccion';
+import { redondearHoras } from '@/lib/horas';
 import { StatusBadge } from '@/components/status-badge';
 import { CardsSkeleton } from '@/components/skeleton';
 import { ClockIcon } from '@/components/stat-icons';
@@ -84,10 +85,14 @@ export function RegistrosCards({
   const total = useMemo(
     // Solo lo aprobado cuenta como hora a cobrar: lo pendiente todavía no
     // está confirmado y lo desaprobado fue rechazado.
+    // Sumar horas en coma flotante arrastra cola binaria
+    // (0.1 + 0.2 + 0.3 = 0.6000000000000001): el total grande va a un decimal.
     () =>
-      filtrados
-        .filter((r) => r.estado === 'aprobado')
-        .reduce((s, r) => s + Number(r.horas), 0),
+      redondearHoras(
+        filtrados
+          .filter((r) => r.estado === 'aprobado')
+          .reduce((s, r) => s + Number(r.horas), 0),
+      ),
     [filtrados],
   );
   const paraCorreccion: CorreccionInput[] = useMemo(

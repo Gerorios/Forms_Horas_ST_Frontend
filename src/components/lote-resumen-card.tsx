@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ResumenCarga } from './resumen-carga';
 import { StatusBadge } from './status-badge';
 import { Button } from './button';
+import { redondearHoras } from '@/lib/horas';
 import type { GrupoLote } from '@/lib/agrupar';
 import type { InfoCorreccion } from '@/lib/correccion';
 
@@ -105,7 +106,7 @@ export function LoteResumenCard({
                           className="ml-1 rounded bg-warn/10 px-1 text-xs font-medium text-warn"
                           title="Total real de horas de este operario ese día, sumando todos los contratos"
                         >
-                          {f.totalHorasDia}hs ese día
+                          {redondearHoras(f.totalHorasDia)}hs ese día
                         </span>
                       )}
                       {f.duplicadoCruzado && (

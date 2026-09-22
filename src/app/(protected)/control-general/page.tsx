@@ -7,6 +7,7 @@ import { StatTile } from '@/components/stat-tile';
 import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
 import { MultiFiltro } from '@/components/ui/barra-filtros';
 import { opcionesFacetadas } from '@/lib/facetado';
+import { redondearHoras } from '@/lib/horas';
 
 // Recharts (~100kb+) no hace falta en el bundle inicial de la página — cada
 // gráfico se carga recién cuando se renderiza, sin bloquear KPIs/tablas.
@@ -391,9 +392,9 @@ export default function ControlGeneralPage() {
   // 2026-09-03 totalHoras son las HORAS COMPLETAS de cada operario (todos
   // los contratos, igual que el Detalle diario); la parte ajena se muestra
   // discreta debajo para que el jefe sepa de dónde sale el total.
-  const horasQuincena = Math.round(resumenFiltrado.reduce((s, r) => s + r.totalHoras, 0) * 10) / 10;
+  const horasQuincena = redondearHoras(resumenFiltrado.reduce((s, r) => s + r.totalHoras, 0));
   const horasOtrosContratos =
-    Math.round(resumenFiltrado.reduce((s, r) => s + (r.totalHoras - r.horasMisContratos), 0) * 10) / 10;
+    redondearHoras(resumenFiltrado.reduce((s, r) => s + (r.totalHoras - r.horasMisContratos), 0));
 
   const detalleVisible = (detalle ?? []).slice(0, visiblesDetalle);
 

@@ -13,6 +13,7 @@ import { useNovedades } from '@/lib/api/novedades';
 import { useAlertasQuincena } from '@/lib/api/liquidacion';
 import { useMisRegistros } from '@/lib/api/registros';
 import { quincenaDeFecha, rangoQuincenaISO, diasParaCierreQuincena } from '@/lib/quincena';
+import { redondearHoras } from '@/lib/horas';
 import { ClockIcon, ClipboardIcon, AlertUserIcon, TrendIcon, CalendarIcon, BellIcon, WarnTriIcon } from '@/components/stat-icons';
 
 const DESCRIPCION: Record<string, string> = {
@@ -132,7 +133,7 @@ export default function HomePage() {
     const horas = (misRegistros ?? []).reduce((s, r) => (r.estado !== 'desaprobado' ? s + Number(r.horas) : s), 0);
     const pendientes = (misRegistros ?? []).filter((r) => r.estado === 'pendiente').length;
     indicadores = [
-      { label: 'Horas cargadas', value: Math.round(horas * 10) / 10, tone: 'neutral', icon: <ClockIcon />, href: '/mis-registros' },
+      { label: 'Horas cargadas', value: redondearHoras(horas), tone: 'neutral', icon: <ClockIcon />, href: '/mis-registros' },
       { label: 'Pendientes de aprobación', value: pendientes, tone: 'warn', icon: <ClipboardIcon />, href: '/mis-registros' },
       cierreItem,
     ];
