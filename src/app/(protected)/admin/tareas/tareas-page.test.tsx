@@ -20,6 +20,11 @@ import TareasAdminPage from './page';
 describe('TareasAdminPage', () => {
   beforeEach(() => { crear.mockClear(); toggle.mockClear(); editar.mockClear(); });
 
+  it('muestra el área Administración en el encabezado', () => {
+    render(<TareasAdminPage />);
+    expect(screen.getAllByText('Administración')[0]).toBeInTheDocument();
+  });
+
   it('editar el nombre de una tarea llama al mutate', async () => {
     render(<TareasAdminPage />);
     await userEvent.selectOptions(screen.getByLabelText('Contrato'), '10');

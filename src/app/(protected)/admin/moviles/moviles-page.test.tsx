@@ -29,6 +29,11 @@ describe('MovilesAdminPage', () => {
     useMovilesAdminMock.mockReturnValue({ data: UN_MOVIL, isLoading: false });
   });
 
+  it('muestra el área Administración en el encabezado', () => {
+    render(<MovilesAdminPage />);
+    expect(screen.getAllByText('Administración')[0]).toBeInTheDocument();
+  });
+
   it('el alta no ocupa lugar hasta que se pide: "Añadir móvil" abre el modal y crea', async () => {
     render(<MovilesAdminPage />);
     expect(screen.queryByLabelText('Patente')).not.toBeInTheDocument();

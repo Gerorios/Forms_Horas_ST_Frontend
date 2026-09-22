@@ -34,6 +34,11 @@ import UsuariosAdminPage from './page';
 describe('UsuariosAdminPage — filtro', () => {
   beforeEach(() => { editar.mockClear(); resetear.mockClear(); });
 
+  it('muestra el área Administración en el encabezado', () => {
+    render(<UsuariosAdminPage />);
+    expect(screen.getAllByText('Administración')[0]).toBeInTheDocument();
+  });
+
   it('muestra todos los usuarios sin filtro', () => {
     render(<UsuariosAdminPage />);
     expect(screen.getByText('JOSÉ TORRES')).toBeInTheDocument();

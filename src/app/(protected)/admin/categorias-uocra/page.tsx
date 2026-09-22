@@ -28,7 +28,7 @@ export default function CategoriasUocraAdminPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Admin" title="Categorías UOCRA" />
+      <PageHeader area="administracion" title="Categorías UOCRA" />
       <p className="text-sm text-slate">
         Solo el catálogo de categorías. Los precios los carga el Liquidador desde{' '}
         <span className="font-medium text-ink">Liquidación → Tarifas</span>, en la ronda mensual.

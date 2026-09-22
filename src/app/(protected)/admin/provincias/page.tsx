@@ -24,7 +24,7 @@ export default function ProvinciasAdminPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Admin" title="Provincias" />
+      <PageHeader area="administracion" title="Provincias" />
       <div className="flex gap-2">
         <input
           aria-label="Nombre"

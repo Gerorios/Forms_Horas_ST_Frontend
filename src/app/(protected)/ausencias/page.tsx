@@ -308,10 +308,10 @@ export default function AusenciasPage() {
 
   return (
     <section className="space-y-4">
-      <PageHeader eyebrow="Higiene y Seguridad" title="Ausencias" />
+      <PageHeader area="personas" title="Ausencias" />
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line">
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {TABS.map((t) => (
             <button
               key={t.value}

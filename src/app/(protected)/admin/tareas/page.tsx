@@ -28,7 +28,7 @@ export default function TareasAdminPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Admin" title="Tareas" />
+      <PageHeader area="administracion" title="Tareas" />
       <label className="flex flex-col text-sm font-medium text-ink sm:max-w-xs">
         Contrato
         <select

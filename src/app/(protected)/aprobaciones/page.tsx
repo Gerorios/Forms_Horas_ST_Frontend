@@ -189,7 +189,7 @@ export default function AprobacionesPage() {
     <section className="space-y-5">
       <PageHeader area="operacion" title="Aprobaciones" />
 
-      <div className="flex gap-1 border-b border-line">
+      <div className="flex flex-wrap gap-1 border-b border-line">
         {TABS.map((t) => (
           <button
             key={t.value}

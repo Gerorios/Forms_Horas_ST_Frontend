@@ -34,6 +34,11 @@ import ContratosAdminPage from './page';
 describe('ContratosAdminPage', () => {
   beforeEach(() => { crear.mockClear(); editar.mockClear(); });
 
+  it('muestra el área Administración en el encabezado', () => {
+    render(<ContratosAdminPage />);
+    expect(screen.getAllByText('Administración')[0]).toBeInTheDocument();
+  });
+
   it('los chips de jefes solo listan usuarios con rol JefeContrato', async () => {
     render(<ContratosAdminPage />);
     await userEvent.click(screen.getByRole('button', { name: /editar/i }));

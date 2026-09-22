@@ -100,6 +100,11 @@ describe('NovedadesPage', () => {
     useNovedadesMock.mockReturnValue({ data: [], isLoading: false });
   });
 
+  it('muestra el área Personas en el encabezado', () => {
+    render(<NovedadesPage />);
+    expect(screen.getAllByText('Personas')[0]).toBeInTheDocument();
+  });
+
   it('crea una novedad con operario, tipo y fecha inicio (envía FormData multipart)', async () => {
     render(<NovedadesPage />);
     await userEvent.click(screen.getByRole('button', { name: /nueva novedad/i }));
@@ -135,15 +140,15 @@ describe('NovedadesPage', () => {
     expect(screen.queryByRole('option', { name: 'Ausencia' })).not.toBeInTheDocument();
   });
 
-  it('JefeCuadrilla ve la aclaración de que solo se listan las que cargó', () => {
+  it('JefeCuadrilla ve la aclaración de que solo se listan las que cargó, junto al área', () => {
     h.perfil = { cuil: '20999999999', rol: { nombre: 'JefeCuadrilla' }, tiposNovedadHabilitados: [] };
     render(<NovedadesPage />);
-    expect(screen.getByText('Las que cargaste vos')).toBeInTheDocument();
+    expect(screen.getByText('Personas · Las que cargaste vos')).toBeInTheDocument();
   });
 
   it('Supervisor NO ve la aclaración (ve el listado completo)', () => {
     render(<NovedadesPage />);
-    expect(screen.queryByText('Las que cargaste vos')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Las que cargaste vos/)).not.toBeInTheDocument();
   });
 
   it('filtra la tabla por tipo, operario y estado (MultiFiltro)', async () => {

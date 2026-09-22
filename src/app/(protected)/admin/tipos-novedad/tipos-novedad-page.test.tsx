@@ -19,6 +19,11 @@ import TiposNovedadAdminPage from './page';
 describe('TiposNovedadAdminPage', () => {
   beforeEach(() => { crear.mockClear(); toggle.mockClear(); editar.mockClear(); });
 
+  it('muestra el área Administración en el encabezado', () => {
+    render(<TiposNovedadAdminPage />);
+    expect(screen.getAllByText('Administración')[0]).toBeInTheDocument();
+  });
+
   it('editar el nombre de un tipo de novedad llama al mutate', async () => {
     render(<TiposNovedadAdminPage />);
     await userEvent.click(screen.getByRole('button', { name: /editar/i }));

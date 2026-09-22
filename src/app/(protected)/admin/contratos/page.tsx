@@ -39,7 +39,7 @@ export default function ContratosAdminPage() {
 
   return (
     <section className="space-y-5">
-      <PageHeader eyebrow="Admin" title="Contratos" />
+      <PageHeader area="administracion" title="Contratos" />
       <div className="flex flex-wrap gap-2">
         <input
           aria-label="Código"
