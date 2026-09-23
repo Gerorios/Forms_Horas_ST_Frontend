@@ -48,8 +48,8 @@ export default function LoginPage() {
         <div className="w-96 max-w-full">
           <div className="mb-6 flex flex-col items-center text-center">
             <Image src="/logo.png" alt="" width={72} height={72} priority className="rounded-full" />
-            <h1 className="mt-4 font-display text-2xl font-semibold text-white">Central Sertec</h1>
-            <p className="mt-1 text-sm text-white/70">Sistema interno de Sertec</p>
+            <h1 className="mt-4 font-display text-2xl font-semibold text-white">Central SER&amp;TEC</h1>
+            <p className="mt-1 text-sm text-white/70">Sistema Interno</p>
           </div>
 
           <form

@@ -35,8 +35,8 @@ function Brand({ onNavigate }: { onNavigate?: () => void }) {
     >
       <Image src="/logo.png" alt="" width={34} height={34} className="rounded-full" />
       <div className="leading-tight">
-        <p className="font-display text-sm font-semibold text-white">Central Sertec</p>
-        <p className="text-[11px] text-white/60">Sistema interno</p>
+        <p className="font-display text-sm font-semibold text-white">Central SER&amp;TEC</p>
+        <p className="text-[11px] text-white/60">Sistema Interno</p>
       </div>
     </Link>
   );
@@ -51,8 +51,8 @@ function Monograma() {
   return (
     <Link
       href="/"
-      aria-label="Central Sertec"
-      title="Central Sertec"
+      aria-label="Central SER&TEC"
+      title="Central SER&TEC"
       className={`flex h-9 w-9 items-center justify-center rounded-lg bg-white/6 font-display text-sm font-semibold text-brand transition hover:bg-white/10 ${FOCO}`}
     >
       CS

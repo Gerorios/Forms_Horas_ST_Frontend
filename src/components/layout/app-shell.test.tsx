@@ -108,8 +108,8 @@ describe('AppShell — consola Central Sertec (ADR-025)', () => {
   it('muestra el nombre nuevo y ya no los textos viejos', () => {
     render(<AppShell><p>contenido</p></AppShell>);
     // Aparece dos veces: barra de escritorio y topbar móvil (jsdom monta las dos).
-    expect(screen.getAllByText('Central Sertec')).toHaveLength(2);
-    expect(screen.getAllByText('Sistema interno')).toHaveLength(2);
+    expect(screen.getAllByText('Central SER&TEC')).toHaveLength(2);
+    expect(screen.getAllByText('Sistema Interno')).toHaveLength(2);
     expect(screen.queryByText('Registro de Horas')).not.toBeInTheDocument();
     expect(screen.queryByText('Gestión de cuadrillas')).not.toBeInTheDocument();
   });
@@ -126,7 +126,7 @@ describe('AppShell — consola Central Sertec (ADR-025)', () => {
   it('plegado: muestra el monograma "CS" y ningún título de área', async () => {
     render(<AppShell><p>contenido</p></AppShell>);
     await userEvent.click(screen.getByRole('button', { name: 'Plegar menú' }));
-    expect(screen.getByRole('link', { name: 'Central Sertec' })).toHaveTextContent('CS');
+    expect(screen.getByRole('link', { name: 'Central SER&TEC' })).toHaveTextContent('CS');
     for (const { area } of navPorArea(PERFIL_ADMIN)) {
       expect(screen.queryByText(area.label)).not.toBeInTheDocument();
     }
