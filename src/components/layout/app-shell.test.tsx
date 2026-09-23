@@ -102,6 +102,33 @@ describe('AppShell — sidebar plegable (escritorio)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Desplegar menú' }));
     expect(window.localStorage.getItem('sidebar-plegado')).toBe('0');
   });
+
+  // Almacenamiento bloqueado (modo privado estricto, políticas del navegador):
+  // localStorage tira en vez de devolver null. La barra no puede caerse por eso.
+  it('si leer localStorage tira, la barra se muestra desplegada igual (2026-09-23)', () => {
+    const leer = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('bloqueado', 'SecurityError');
+    });
+    try {
+      render(<AppShell><p>contenido</p></AppShell>);
+      expect(screen.getByRole('button', { name: 'Plegar menú' })).toBeInTheDocument();
+    } finally {
+      leer.mockRestore();
+    }
+  });
+
+  it('si guardar en localStorage tira, "Plegar menú" pliega igual sin persistir (2026-09-23)', async () => {
+    const guardar = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('bloqueado', 'SecurityError');
+    });
+    try {
+      render(<AppShell><p>contenido</p></AppShell>);
+      await userEvent.click(screen.getByRole('button', { name: 'Plegar menú' }));
+      expect(screen.getByRole('button', { name: 'Desplegar menú' })).toBeInTheDocument();
+    } finally {
+      guardar.mockRestore();
+    }
+  });
 });
 
 describe('AppShell — consola Central Sertec (ADR-025)', () => {

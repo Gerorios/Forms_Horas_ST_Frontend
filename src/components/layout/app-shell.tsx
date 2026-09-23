@@ -151,6 +151,27 @@ function UserFooter({
   );
 }
 
+// Preferencia "barra plegada". Con el almacenamiento bloqueado localStorage tira
+// en vez de devolver null (2026-09-23): se trata como "no plegado" y, al plegar,
+// la barra se pliega igual en la sesión aunque no se recuerde.
+const CLAVE_PLEGADO = 'sidebar-plegado';
+
+function leerPlegado(): boolean {
+  try {
+    return window.localStorage.getItem(CLAVE_PLEGADO) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function guardarPlegado(plegado: boolean) {
+  try {
+    window.localStorage.setItem(CLAVE_PLEGADO, plegado ? '1' : '0');
+  } catch {
+    // Sin persistencia: la preferencia vale solo para esta sesión.
+  }
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { perfil, signOut } = useSession();
   const router = useRouter();
@@ -158,7 +179,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [drawerAbierto, setDrawerAbierto] = useState(false);
   const [plegado, setPlegado] = useState(false);
   useEffect(() => {
-    setPlegado(window.localStorage.getItem('sidebar-plegado') === '1');
+    // La preferencia se lee recién al montar: leerla en el render inicial daría
+    // distinto en server y cliente (hydration mismatch, mismo criterio que
+    // session.tsx). Es un solo render extra al entrar, a propósito.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPlegado(leerPlegado());
   }, []);
   if (!perfil) return null;
 
@@ -176,7 +201,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   function togglePlegado() {
     const next = !plegado;
     setPlegado(next);
-    window.localStorage.setItem('sidebar-plegado', next ? '1' : '0');
+    guardarPlegado(next);
   }
 
   return (
