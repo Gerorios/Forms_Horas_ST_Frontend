@@ -22,9 +22,9 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Central Sertec",
+  title: "Central SER&TEC",
   description:
-    "Sistema interno de Sertec: horas, novedades, liquidación, certificaciones y combustible",
+    "Sistema interno de SER&TEC: horas, novedades, liquidación, certificaciones y combustible",
 };
 
 export default function RootLayout({

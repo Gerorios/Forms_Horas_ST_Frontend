@@ -35,16 +35,17 @@ describe('LoginPage', () => {
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/'));
   });
 
-  it('muestra el nombre "Central Sertec" y no el viejo', () => {
+  it('muestra el nombre "Central SER&TEC" y no los viejos', () => {
     render(<LoginPage />);
-    expect(screen.getByRole('heading', { name: 'Central Sertec' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Central SER&TEC' })).toBeInTheDocument();
     expect(screen.queryByText(/Registro de Horas/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sertec/)).not.toBeInTheDocument();
   });
 
-  it('presenta la marca: título nivel 1 y el copy del sistema', () => {
+  it('presenta la marca: título nivel 1 y el copy "Sistema Interno" (2026-09-23)', () => {
     render(<LoginPage />);
-    expect(screen.getByRole('heading', { level: 1, name: 'Central Sertec' })).toBeInTheDocument();
-    expect(screen.getByText('Sistema interno de Sertec')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Central SER&TEC' })).toBeInTheDocument();
+    expect(screen.getByText('Sistema Interno')).toBeInTheDocument();
   });
 
   it('el formulario es la tarjeta oscura sobre la foto', () => {
