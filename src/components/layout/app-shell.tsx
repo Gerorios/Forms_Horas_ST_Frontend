@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { useSession } from '@/lib/auth/session';
+import { NOMBRE_APP } from '@/lib/marca';
 import { navPorArea, type Area, type NavItem } from '@/components/layout/nav';
 import { NavIcon } from '@/components/layout/nav-icons';
 
@@ -35,7 +36,7 @@ function Brand({ onNavigate }: { onNavigate?: () => void }) {
     >
       <Image src="/logo.png" alt="" width={34} height={34} className="rounded-full" />
       <div className="leading-tight">
-        <p className="font-display text-sm font-semibold text-white">Central SER&amp;TEC</p>
+        <p className="font-display text-sm font-semibold text-white">{NOMBRE_APP}</p>
         <p className="text-[11px] text-white/60">Sistema Interno</p>
       </div>
     </Link>
@@ -51,8 +52,8 @@ function Monograma() {
   return (
     <Link
       href="/"
-      aria-label="Central SER&TEC"
-      title="Central SER&TEC"
+      aria-label={NOMBRE_APP}
+      title={NOMBRE_APP}
       className={`flex h-9 w-9 items-center justify-center rounded-lg bg-white/6 font-display text-sm font-semibold text-brand transition hover:bg-white/10 ${FOCO}`}
     >
       CS
