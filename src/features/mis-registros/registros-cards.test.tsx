@@ -113,6 +113,44 @@ describe('RegistrosCards', () => {
     expect(screen.getByText(/según recorrido son 8hs/)).toBeInTheDocument();
   });
 
+  it('la tarjeta corregida muestra el estado REAL de la corrección, no "Aprobado" fijo (caso Urueña 2026-09-22)', () => {
+    const rechazada = { ...reg(1, '2026-07-05', '13.5', 'desaprobado'), loteId: 'lote-viejo' };
+    const correccionRechazada = {
+      ...reg(2, '2026-07-05', '10.5', 'desaprobado'),
+      loteId: 'lote-nuevo',
+      loteIdOrigen: 'lote-viejo',
+      motivoDesaprobacion: 'fecha mal informada',
+    };
+    render(<RegistrosCards registros={[rechazada, correccionRechazada]} quincena={QUINCENA_1} isLoading={false} />);
+
+    expect(screen.getByText('Desaprobado')).toBeInTheDocument();
+    expect(screen.queryByText('Aprobado')).not.toBeInTheDocument();
+    expect(screen.getByText('0 hs')).toBeInTheDocument();
+    // Sin verde de "aprobado" en la línea de corrección.
+    expect(screen.getByText(porTexto(/corregido de 13.5 a 10.5 hs/i))).not.toHaveClass('text-approved');
+    // El motivo del SEGUNDO rechazo también se ve, no solo el del original.
+    expect(screen.getByText('Corrección rechazada: fecha mal informada')).toHaveClass('text-danger');
+  });
+
+  it('corrección pendiente: badge "Pendiente" y la línea en gris; aprobada: verde', () => {
+    const rechazada = { ...reg(1, '2026-07-05', '12', 'desaprobado'), loteId: 'lote-viejo' };
+    const pendiente = { ...reg(2, '2026-07-05', '8', 'pendiente'), loteId: 'lote-nuevo', loteIdOrigen: 'lote-viejo' };
+    const { unmount } = render(<RegistrosCards registros={[rechazada, pendiente]} quincena={QUINCENA_1} isLoading={false} />);
+    expect(screen.getByText('Pendiente')).toBeInTheDocument();
+    expect(screen.getByText(porTexto(/corregido de 12 a 8 hs/i))).toHaveClass('text-slate');
+    unmount();
+
+    render(
+      <RegistrosCards
+        registros={[rechazada, { ...pendiente, estado: 'aprobado' }]}
+        quincena={QUINCENA_1}
+        isLoading={false}
+      />,
+    );
+    expect(screen.getByText('Aprobado')).toBeInTheDocument();
+    expect(screen.getByText(porTexto(/corregido de 12 a 8 hs/i))).toHaveClass('text-approved');
+  });
+
   it('no muestra el chip "+16h" al operario aunque el registro traiga alertaHoras (pedido 2026-09-18: los confundía)', () => {
     const larga = { ...reg(1, '2026-07-05', '17', 'aprobado'), alertaHoras: true };
     const rechazada = { ...reg(2, '2026-07-06', '18', 'desaprobado'), loteId: 'lote-viejo', alertaHoras: true };

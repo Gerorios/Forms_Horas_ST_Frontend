@@ -48,22 +48,30 @@ function TarjetaSimple({ r }: { r: RegistroHoras }) {
 /** Una sola tarjeta para el par rechazo→corrección: se ve de un vistazo qué
  * se declaró, qué se rechazó y en qué quedó — no dos tarjetas sueltas. */
 function TarjetaCorregida({ original, corregida }: { original: RegistroHoras; corregida: RegistroHoras }) {
+  // La corrección también pasa por aprobación: puede estar pendiente o volver
+  // a rechazarse (caso Urueña 2026-09-22). El verde queda solo para aprobada.
+  const aprobada = corregida.estado === 'aprobado';
   return (
-    <div className="rounded-xl border border-approved/40 bg-surface p-4">
+    <div className={`rounded-xl border bg-surface p-4 ${aprobada ? 'border-approved/40' : 'border-line'}`}>
       <div className="flex items-start justify-between gap-3">
         <Encabezado r={corregida} />
         <div className="text-right">
           <div className="text-sm text-slate/60 line-through tabular-nums">{original.horas} hs</div>
           <div className="text-lg font-bold tabular-nums text-ink">{corregida.horas} hs</div>
-          <StatusBadge estado="aprobado" />
+          <StatusBadge estado={corregida.estado} />
         </div>
       </div>
-      <p className="mt-2 text-xs font-medium text-approved">
+      <p className={`mt-2 text-xs font-medium ${aprobada ? 'text-approved' : 'text-slate'}`}>
         Corregido de <span className="tabular-nums">{original.horas}</span> a{' '}
         <span className="tabular-nums">{corregida.horas}</span> hs
       </p>
       {original.motivoDesaprobacion && (
         <p className="mt-1 text-xs text-slate">Motivo: {original.motivoDesaprobacion}</p>
+      )}
+      {corregida.estado === 'desaprobado' && corregida.motivoDesaprobacion && (
+        <p className="mt-1 text-xs font-medium text-danger">
+          Corrección rechazada: {corregida.motivoDesaprobacion}
+        </p>
       )}
     </div>
   );
