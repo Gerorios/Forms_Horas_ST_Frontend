@@ -9,6 +9,7 @@ import { loginSchema, type LoginInput } from '@/lib/auth/login-schema';
 import { useSession } from '@/lib/auth/session';
 import { FondoFoto } from '@/components/layout/fondo-foto';
 import { FOTOS } from '@/lib/fotos';
+import { NOMBRE_APP } from '@/lib/marca';
 
 const CLASE_INPUT =
   'w-full rounded-md border border-white/15 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30';
@@ -48,7 +49,7 @@ export default function LoginPage() {
         <div className="w-96 max-w-full">
           <div className="mb-6 flex flex-col items-center text-center">
             <Image src="/logo.png" alt="" width={72} height={72} priority className="rounded-full" />
-            <h1 className="mt-4 font-display text-2xl font-semibold text-white">Central SER&amp;TEC</h1>
+            <h1 className="mt-4 font-display text-2xl font-semibold text-white">{NOMBRE_APP}</h1>
             <p className="mt-1 text-sm text-white/70">Sistema Interno</p>
           </div>
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { MARCA, NOMBRE_APP } from "@/lib/marca";
 import "./globals.css";
 
 const display = Space_Grotesk({
@@ -22,9 +23,8 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Central SER&TEC",
-  description:
-    "Sistema interno de SER&TEC: horas, novedades, liquidación, certificaciones y combustible",
+  title: NOMBRE_APP,
+  description: `Sistema interno de ${MARCA}: horas, novedades, liquidación, certificaciones y combustible`,
 };
 
 export default function RootLayout({
