@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -16,7 +16,7 @@ const CLASE_INPUT =
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn } = useSession();
+  const { perfil, loading, signIn } = useSession();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const {
     register,
@@ -24,11 +24,23 @@ export default function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
 
+  // Con sesión vigente no se ofrece loguearse encima (B pisaría a A sin
+  // logout): se rebota a la app. `replace` para que /login no quede en el
+  // historial y "atrás" no vuelva acá.
+  useEffect(() => {
+    if (!loading && perfil) router.replace('/');
+  }, [loading, perfil, router]);
+
+  // Mientras se resuelve la sesión, o si ya hay una, no se muestra el
+  // formulario: evita el parpadeo del login antes del rebote.
+  if (loading || perfil) return null;
+
   async function onSubmit(values: LoginInput) {
     setErrorMsg(null);
     try {
+      // No navega acá: signIn carga el perfil y el effect de arriba hace el
+      // rebote. Una sola vía de salida, sin push + replace duplicados.
       await signIn(values.email, values.password);
-      router.push('/');
     } catch {
       setErrorMsg('Credenciales inválidas');
     }
