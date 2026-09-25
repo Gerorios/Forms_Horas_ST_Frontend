@@ -3,17 +3,49 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const pushMock = vi.fn();
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: pushMock }) }));
+const replaceMock = vi.fn();
+// Instancia estable, como el router real de Next: si cambiara en cada render
+// el effect de rebote se re-dispararía.
+const router = { push: pushMock, replace: replaceMock };
+vi.mock('next/navigation', () => ({ useRouter: () => router }));
 
 const signInMock = vi.fn();
-vi.mock('@/lib/auth/session', () => ({ useSession: () => ({ signIn: signInMock }) }));
+// Por defecto: sin sesión y ya cargada. Cada test puede pisarlo.
+let sesion: { perfil: unknown; loading: boolean } = { perfil: null, loading: false };
+vi.mock('@/lib/auth/session', () => ({
+  useSession: () => ({ ...sesion, signIn: signInMock }),
+}));
 
 import LoginPage from './page';
 
 describe('LoginPage', () => {
   beforeEach(() => {
     pushMock.mockReset();
+    replaceMock.mockReset();
     signInMock.mockReset();
+    sesion = { perfil: null, loading: false };
+  });
+
+  describe('con sesión vigente', () => {
+    it('redirige a / con replace y no muestra el formulario', async () => {
+      sesion = { perfil: { id: 1 }, loading: false };
+      const { container } = render(<LoginPage />);
+      await waitFor(() => expect(replaceMock).toHaveBeenCalledWith('/'));
+      expect(container.querySelector('form')).toBeNull();
+    });
+
+    it('mientras la sesión carga no redirige ni muestra el formulario', () => {
+      sesion = { perfil: null, loading: true };
+      const { container } = render(<LoginPage />);
+      expect(replaceMock).not.toHaveBeenCalled();
+      expect(container.querySelector('form')).toBeNull();
+    });
+
+    it('sin sesión muestra el formulario y no redirige', () => {
+      const { container } = render(<LoginPage />);
+      expect(container.querySelector('form')).not.toBeNull();
+      expect(replaceMock).not.toHaveBeenCalled();
+    });
   });
 
   it('muestra error de validación con email inválido', async () => {
@@ -25,14 +57,20 @@ describe('LoginPage', () => {
     expect(signInMock).not.toHaveBeenCalled();
   });
 
-  it('con datos válidos llama signIn y redirige a /', async () => {
-    signInMock.mockResolvedValue(undefined);
-    render(<LoginPage />);
+  it('con datos válidos llama signIn y, al cargar el perfil, redirige a / una sola vez', async () => {
+    // signIn real carga el perfil en el contexto; acá se simula y se re-renderiza.
+    signInMock.mockImplementation(async () => {
+      sesion = { perfil: { id: 1 }, loading: false };
+    });
+    const { rerender } = render(<LoginPage />);
     await userEvent.type(screen.getByLabelText(/email/i), 'op@empresa.com');
     await userEvent.type(screen.getByLabelText(/contraseña/i), 'secret12');
     await userEvent.click(screen.getByRole('button', { name: /ingresar/i }));
     await waitFor(() => expect(signInMock).toHaveBeenCalledWith('op@empresa.com', 'secret12'));
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/'));
+    rerender(<LoginPage />);
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith('/'));
+    expect(replaceMock).toHaveBeenCalledTimes(1);
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
   it('muestra el nombre "Central SER&TEC" y no los viejos', () => {
