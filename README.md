@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Central SER&TEC — Frontend
 
-## Getting Started
+Interfaz web del sistema interno de Sertec: carga y aprobación de horas del personal
+de obra, novedades y ausencias, liquidación, combustible, km por tantos y
+certificaciones por contrato. Se usa desde escritorio y desde el celular en campo.
 
-First, run the development server:
+Stack: Next.js 16 (App Router), React 19, TanStack Query, shadcn/base-ui, Tailwind 4,
+Recharts, react-hook-form + Zod. Tests con Vitest y Testing Library.
+
+El backend (NestJS + Prisma) vive en el repo `Backend`. **Toda la documentación del
+sistema está ahí**: glosario (`CONTEXT.md`), bitácora
+(`.claude/Contexto/contexto-proyecto.md`), ADRs, planes y documentos de deploy en `docs/`.
+
+## Levantar en local
+
+Necesita el backend corriendo (por defecto en `http://localhost:3001`).
 
 ```bash
+cp .env.example .env.local   # ajustar NEXT_PUBLIC_API_URL si hace falta
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre en [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`NEXT_PUBLIC_API_URL` se hornea en el bundle del cliente en el build: si cambia, hay
+que volver a buildear.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts
 
-## Learn More
+| Comando | Qué hace |
+|---|---|
+| `npm run dev` | Servidor de desarrollo |
+| `npm run build` / `npm start` | Build y servidor de producción |
+| `npm test` | Suite completa con Vitest (`npm run test:watch` en modo watch) |
+| `npm run lint` | ESLint |
 
-To learn more about Next.js, take a look at the following resources:
+## Estructura
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `src/app/` — rutas. Las protegidas van bajo `(protected)/`, agrupadas por área
+  (Operación, Personas, Resultados operativos, Administración). `login/` y `403/` afuera.
+- `src/features/` — componentes y hooks por módulo (reporte, aprobaciones, liquidación,
+  combustible, certificaciones, admin, etc.).
+- `src/components/` — layout y componentes de UI compartidos (shadcn).
+- `src/lib/` — cliente HTTP (`api/`), sesión (`auth/`) y utilidades.
+- `src/types/` — tipos compartidos con la API.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Reglas de trabajo
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Están en `CLAUDE.local.md`: mostrar un mockup antes de tocar UI, mostrar el cambio antes
+de commitear, nunca deployar sin pedido explícito, y los dos repos van juntos (un cambio
+de API se deploya con su par en el Backend).
