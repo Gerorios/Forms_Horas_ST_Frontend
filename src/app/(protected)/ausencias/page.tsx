@@ -13,6 +13,7 @@ import { QuincenaCampos } from '@/features/mis-registros/quincena-select';
 import { EditarNovedadDialog } from '@/features/novedades/editar-novedad-dialog';
 import { AnularNovedadDialog } from '@/features/novedades/anular-novedad-dialog';
 import { DetalleNovedadDialog } from '@/features/novedades/detalle-novedad-dialog';
+import { TIPO_BAJA, fechaLegible } from '@/features/novedades/baja';
 import {
   useActualizarNovedad,
   useAnularNovedad,
@@ -23,6 +24,7 @@ import {
   type EditarNovedadInput,
 } from '@/lib/api/novedades';
 import { useSession } from '@/lib/auth/session';
+import { mensajeDeError } from '@/lib/api/liquidacion';
 import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
 import type { EstadoHys, Novedad, ResumenAusenciaOperario } from '@/types/domain';
 
@@ -34,10 +36,29 @@ const TABS: { value: EstadoHys; label: string; tono: 'warn' | 'approved' | 'dang
   { value: 'desaprobada', label: 'Injustificadas', tono: 'danger' },
 ];
 
-const ACCION: Record<
-  'aprobada' | 'desaprobada',
-  { titulo: string; boton: string; cargando: string; exito: string }
-> = {
+type InfoAccion = { titulo: string; boton: string; cargando: string; exito: string };
+
+/** Tipos que resuelve HyS en esta pantalla: las Ausencias y, desde el
+ * ADR-026 del backend, la Baja de Operario (HyS es quien se entera de las
+ * bajas; confirmada, bloquea horas y liquida $0 las quincenas siguientes). */
+const TIPOS_HYS = new Set(['Ausencia', TIPO_BAJA]);
+
+const ACCION_BAJA: Record<'aprobada' | 'desaprobada', InfoAccion> = {
+  aprobada: {
+    titulo: 'Confirmar baja de operario',
+    boton: 'Confirmar baja',
+    cargando: 'Confirmando baja…',
+    exito: 'Baja confirmada',
+  },
+  desaprobada: {
+    titulo: 'Rechazar baja de operario',
+    boton: 'Rechazar baja',
+    cargando: 'Rechazando baja…',
+    exito: 'Baja rechazada',
+  },
+};
+
+const ACCION: Record<'aprobada' | 'desaprobada', InfoAccion> = {
   aprobada: {
     titulo: 'Justificar ausencia',
     boton: 'Justificar',
@@ -59,24 +80,33 @@ const ACCION: Record<
  * justificar no lo pregunta — esa siempre pierde presentismo, sin excepción. */
 function ResolverDialog({
   estadoHys,
+  esBaja,
   onConfirm,
   onCancel,
   confirmando,
 }: {
   estadoHys: 'aprobada' | 'desaprobada';
+  esBaja: boolean;
   onConfirm: (descargoHys: string, pierdePresentismoHys?: boolean) => void;
   onCancel: () => void;
   confirmando: boolean;
 }) {
   const [descargo, setDescargo] = useState('');
   const [pierdePresentismo, setPierdePresentismo] = useState<boolean | null>(null);
-  const info = ACCION[estadoHys];
-  const requierePresentismo = estadoHys === 'aprobada';
+  const info = (esBaja ? ACCION_BAJA : ACCION)[estadoHys];
+  // Presentismo solo al justificar una Ausencia: una baja no lo lleva.
+  const requierePresentismo = estadoHys === 'aprobada' && !esBaja;
   const puedeConfirmar = !requierePresentismo || pierdePresentismo !== null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
       <div className="w-full max-w-sm space-y-3 rounded-xl border border-line bg-surface p-6 shadow-lg">
         <h3 className="font-display font-semibold text-ink">{info.titulo}</h3>
+        {esBaja && estadoHys === 'aprobada' && (
+          <p className="text-sm text-slate">
+            Desde el día siguiente a la fecha de baja no se van a poder cargar horas de esta persona en ningún contrato,
+            y las quincenas siguientes se liquidan en $0.
+          </p>
+        )}
         {requierePresentismo && (
           <div className="flex flex-col gap-1 text-sm text-ink">
             <span>¿Esta ausencia hace perder el presentismo?</span>
@@ -190,7 +220,11 @@ export default function AusenciasPage() {
   const puedeGestionar = perfil?.rol.nombre === 'HyS' || perfil?.rol.nombre === 'Admin';
   const resumen = useResumenAusencias(periodo);
 
-  const [dialogo, setDialogo] = useState<{ id: number; estadoHys: 'aprobada' | 'desaprobada' } | null>(null);
+  const [dialogo, setDialogo] = useState<{
+    id: number;
+    estadoHys: 'aprobada' | 'desaprobada';
+    esBaja: boolean;
+  } | null>(null);
   const [editando, setEditando] = useState<Novedad | null>(null);
   const [anulando, setAnulando] = useState<Novedad | null>(null);
   /** Se guarda el ID, no el objeto: el modal tiene que reflejar los cambios
@@ -218,7 +252,7 @@ export default function AusenciasPage() {
   // acá: vigencia (`estado`) es un eje distinto de la resolución de HyS
   // (`estadoHys`, usado para las pestañas) y se manejan aparte, ver abajo.
   const ausencias = useMemo(
-    () => (data ?? []).filter((n) => n.tipoNovedad.nombre === 'Ausencia' && n.estado === 'activa'),
+    () => (data ?? []).filter((n) => TIPOS_HYS.has(n.tipoNovedad.nombre) && n.estado === 'activa'),
     [data],
   );
   const filtradas = useMemo(() => ausencias.filter((n) => n.estadoHys === estado), [ausencias, estado]);
@@ -234,15 +268,15 @@ export default function AusenciasPage() {
   }, [data, ausencias]);
 
   const ausenciasAnuladas = useMemo(
-    () => (data ?? []).filter((n) => n.tipoNovedad.nombre === 'Ausencia' && n.estado === 'anulada'),
+    () => (data ?? []).filter((n) => TIPOS_HYS.has(n.tipoNovedad.nombre) && n.estado === 'anulada'),
     [data],
   );
   const anuladasPag = paginar(ausenciasAnuladas, paginaAnuladas, POR_PAGINA);
 
   function confirmarResolucion(descargoHys: string, pierdePresentismoHys?: boolean) {
     if (!dialogo) return;
-    const { id, estadoHys } = dialogo;
-    const info = ACCION[estadoHys];
+    const { id, estadoHys, esBaja } = dialogo;
+    const info = (esBaja ? ACCION_BAJA : ACCION)[estadoHys];
     const promesa = resolver.mutateAsync({
       id,
       estadoHys,
@@ -252,7 +286,7 @@ export default function AusenciasPage() {
     toast.promise(promesa, {
       loading: info.cargando,
       success: info.exito,
-      error: 'No se pudo resolver',
+      error: (e) => mensajeDeError(e, 'No se pudo resolver'),
     });
     promesa.then(() => setDialogo(null)).catch(() => {});
   }
@@ -271,12 +305,12 @@ export default function AusenciasPage() {
   function abrirJustificar() {
     if (!detalle) return;
     setDetalle(null);
-    setDialogo({ id: detalle.id, estadoHys: 'aprobada' });
+    setDialogo({ id: detalle.id, estadoHys: 'aprobada', esBaja: detalle.tipoNovedad.nombre === TIPO_BAJA });
   }
   function abrirNoJustificar() {
     if (!detalle) return;
     setDetalle(null);
-    setDialogo({ id: detalle.id, estadoHys: 'desaprobada' });
+    setDialogo({ id: detalle.id, estadoHys: 'desaprobada', esBaja: detalle.tipoNovedad.nombre === TIPO_BAJA });
   }
   function reabrirDesdeDetalle() {
     if (!detalle) return;
@@ -395,12 +429,25 @@ export default function AusenciasPage() {
                   className="cursor-pointer border-b border-line text-ink transition last:border-0 hover:bg-accent/30"
                 >
                   <td className="px-4 py-2.5">
-                    <div className="font-medium">{n.operario.apellido_nombre}</div>
+                    <div className="font-medium">
+                      {n.operario.apellido_nombre}
+                      {n.tipoNovedad.nombre === TIPO_BAJA && (
+                        <span className="ml-2 rounded-full bg-danger/10 px-2 py-0.5 text-[11px] font-medium text-danger">
+                          Baja de operario
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs tabular-nums text-slate">Legajo {n.operario.legajo}</div>
                   </td>
                   <td className="px-4 py-2.5 tabular-nums text-slate">
-                    {n.fechaInicio.slice(0, 10)}
-                    {n.fechaFin ? ` → ${n.fechaFin.slice(0, 10)}` : ''}
+                    {n.tipoNovedad.nombre === TIPO_BAJA ? (
+                      <>Último día trabajado: {fechaLegible(n.fechaInicio)}</>
+                    ) : (
+                      <>
+                        {n.fechaInicio.slice(0, 10)}
+                        {n.fechaFin ? ` → ${n.fechaFin.slice(0, 10)}` : ''}
+                      </>
+                    )}
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex flex-wrap items-center gap-2">
@@ -498,6 +545,10 @@ export default function AusenciasPage() {
           }}
           accionesHys={{
             puedeGestionar,
+            etiquetas:
+              detalle.tipoNovedad.nombre === TIPO_BAJA
+                ? { aprobar: 'Confirmar baja', desaprobar: 'Rechazar baja' }
+                : undefined,
             onJustificar: abrirJustificar,
             onNoJustificar: abrirNoJustificar,
             onReabrir: reabrirDesdeDetalle,
@@ -529,6 +580,7 @@ export default function AusenciasPage() {
       {dialogo && (
         <ResolverDialog
           estadoHys={dialogo.estadoHys}
+          esBaja={dialogo.esBaja}
           confirmando={resolver.isPending}
           onConfirm={confirmarResolucion}
           onCancel={() => setDialogo(null)}

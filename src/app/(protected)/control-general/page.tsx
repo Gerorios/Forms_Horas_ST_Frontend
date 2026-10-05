@@ -44,6 +44,7 @@ import {
   ChevronIcon,
 } from '@/components/stat-icons';
 import { Skeleton, TableSkeleton } from '@/components/skeleton';
+import { ChipPosteriorABaja } from '@/features/novedades/chip-posterior-baja';
 
 function pasaPersona(cuil: string, seleccionados: string[]) {
   return seleccionados.length === 0 || seleccionados.includes(cuil);
@@ -136,6 +137,7 @@ function FragmentoDetalleDiario({
         <td className="tabular-nums px-4 py-2.5 font-medium">{dia.totalHoras}</td>
         <td className="px-4 py-2.5 text-slate">
           {dia.contratos.join(', ')}
+          {dia.posteriorABaja && <ChipPosteriorABaja fecha={dia.posteriorABaja} />}
           {tieneAjenos && (
             <span
               className="ml-1.5 rounded-full bg-slate/10 px-1.5 py-0.5 text-[10px] font-medium"
@@ -220,7 +222,10 @@ function FragmentoControlDiario({
           </button>
         </td>
         <td className="tabular-nums px-4 py-2.5 font-medium">{dia.totalHoras}</td>
-        <td className="px-4 py-2.5 text-slate">{dia.contratos.join(', ')}</td>
+        <td className="px-4 py-2.5 text-slate">
+          {dia.contratos.join(', ')}
+          {dia.posteriorABaja && <ChipPosteriorABaja fecha={dia.posteriorABaja} />}
+        </td>
         <td className="px-4 py-2.5 text-slate">
           <span className={`inline-block transition-transform duration-200 ${abierto ? 'rotate-90' : ''}`}>
             <ChevronIcon />

@@ -9,6 +9,7 @@ import { ResumenCarga } from '@/components/resumen-carga';
 import { Button } from '@/components/button';
 import { redondearHoras } from '@/lib/horas';
 import type { GrupoContrato, GrupoLote } from '@/lib/agrupar';
+import { ChipPosteriorABaja } from '@/features/novedades/chip-posterior-baja';
 
 export function LoteCard({ grupo }: { grupo: GrupoLote }) {
   const resolverLote = useResolverLote();
@@ -156,6 +157,7 @@ export function LoteCard({ grupo }: { grupo: GrupoLote }) {
                           ⚠ posible duplicado
                         </span>
                       )}
+                      {f.posteriorABaja && <ChipPosteriorABaja fecha={f.posteriorABaja} />}
                     </span>
                   </div>
                 ))}

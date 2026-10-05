@@ -3,6 +3,7 @@
 import { memo, useState } from 'react';
 import type { FilaDetalleEmpleado } from '@/lib/api/liquidacion';
 import { formatMoney } from './fila-empleado';
+import { estiloBaja } from './baja-fila';
 
 const COLUMNAS = 14;
 
@@ -60,14 +61,15 @@ export function TablaPorTantos({
 // Memoizado por el mismo motivo que FilaEmpleado (ver ese archivo).
 const FilaPorTantos = memo(function FilaPorTantos({ fila: f, km }: { fila: FilaDetalleEmpleado; km: string | null }) {
   const [expandido, setExpandido] = useState(false);
+  const baja = estiloBaja(f);
 
   return (
     <>
       <tr
-        className="cursor-pointer border-b border-line text-ink last:border-0 hover:bg-accent/30"
+        className={`cursor-pointer border-b border-line text-ink last:border-0 ${baja?.claseFila || 'hover:bg-accent/30'}`}
         onClick={() => setExpandido((v) => !v)}
       >
-        <td className="px-2 py-2.5">{f.nombre}</td>
+        <td className={`px-2 py-2.5 ${baja?.claseAcento ?? ''}`}>{f.nombre}</td>
         <td className="px-2 py-2.5">{f.categoria ?? '—'}</td>
         <td className="px-2 py-2.5 tabular-nums">{km ?? '—'}</td>
         <td className="px-2 py-2.5 tabular-nums">
@@ -96,11 +98,18 @@ const FilaPorTantos = memo(function FilaPorTantos({ fila: f, km }: { fila: FilaD
           {formatMoney(String(Number(f.montoExtra) + Number(f.plusIndividual ?? 0)))}
         </td>
         <td className="px-2 py-2.5">
-          {f.datoFaltante && (
-            <span className="rounded bg-danger/10 px-1 text-xs font-medium text-danger" title={f.datoFaltante}>
-              falta dato
-            </span>
-          )}
+          <div className="flex flex-col items-start gap-0.5">
+            {baja && (
+              <span className={`rounded px-1 text-xs font-medium ${baja.chip.clase}`} title={baja.chip.title}>
+                {baja.chip.texto}
+              </span>
+            )}
+            {f.datoFaltante && (
+              <span className="rounded bg-danger/10 px-1 text-xs font-medium text-danger" title={f.datoFaltante}>
+                falta dato
+              </span>
+            )}
+          </div>
         </td>
         <td className="px-2 py-2.5 text-right text-xs text-slate" title={expandido ? 'Cerrar' : 'Ver detalle'}>
           {expandido ? '▴' : '▾'}

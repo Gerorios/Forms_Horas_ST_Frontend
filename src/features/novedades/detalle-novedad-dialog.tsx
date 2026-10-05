@@ -30,6 +30,9 @@ function Fila({ label, valor }: { label: string; valor: ReactNode }) {
  * pasa, el diálogo se comporta como en /novedades (solo Editar/Anular). */
 export interface AccionesHys {
   puedeGestionar: boolean;
+  /** Rótulos de los botones de resolución; por defecto los de una Ausencia.
+   * Una Baja de Operario se "confirma" / "rechaza" (ADR-026). */
+  etiquetas?: { aprobar: string; desaprobar: string };
   onJustificar: () => void;
   onNoJustificar: () => void;
   onReabrir: () => void;
@@ -129,10 +132,10 @@ export function DetalleNovedadDialog({
                 (novedad.estadoHys === 'pendiente' ? (
                   <>
                     <Button variant="primary" disabled={accionesHys.resolviendo} onClick={accionesHys.onJustificar}>
-                      Justificar
+                      {accionesHys.etiquetas?.aprobar ?? 'Justificar'}
                     </Button>
                     <Button variant="secondary" disabled={accionesHys.resolviendo} onClick={accionesHys.onNoJustificar}>
-                      No justificar
+                      {accionesHys.etiquetas?.desaprobar ?? 'No justificar'}
                     </Button>
                   </>
                 ) : (

@@ -215,6 +215,25 @@ export default function DetalleQuincenaPage() {
     if (sinZonaCount > 0) {
       items.push(`${sinZonaCount} empleado${sinZonaCount === 1 ? '' : 's'} sin zona (provincia no mapeada)`);
     }
+    // Baja de Operario (ADR-026), mismas salvedades que graba el backend.
+    const bajasPrevias = todasLasFilas.filter((f) => f.estadoBaja === 'previa').length;
+    const bajasSinConfirmar = todasLasFilas.filter((f) => f.estadoBaja === 'sin_confirmar').length;
+    const ausenciasSinResolver = todasLasFilas.filter((f) => f.diasAusenciaSinResolver > 0).length;
+    if (bajasPrevias > 0) {
+      items.push(
+        `${bajasPrevias} persona${bajasPrevias === 1 ? '' : 's'} con baja anterior a la quincena, liquidada${bajasPrevias === 1 ? '' : 's'} en $0`,
+      );
+    }
+    if (bajasSinConfirmar > 0) {
+      items.push(
+        `${bajasSinConfirmar} baja${bajasSinConfirmar === 1 ? '' : 's'} informada${bajasSinConfirmar === 1 ? '' : 's'} sin confirmar por HyS`,
+      );
+    }
+    if (ausenciasSinResolver > 0) {
+      items.push(
+        `${ausenciasSinResolver} persona${ausenciasSinResolver === 1 ? '' : 's'} con ausencias sin resolver por HyS`,
+      );
+    }
     return items;
   }, [data]);
 
@@ -290,9 +309,12 @@ export default function DetalleQuincenaPage() {
             />
           </BarraFiltros>
 
-          <p className="text-xs text-slate">
-            Mostrando {filasVisibles.length + sinPerfilVisibles.length} de {filas.length + sinPerfil.length} empleados
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-slate">
+              Mostrando {filasVisibles.length + sinPerfilVisibles.length} de {filas.length + sinPerfil.length} empleados
+            </p>
+            {filas.some((f) => f.estadoBaja === 'previa' || f.estadoBaja === 'en_quincena') && <LeyendaBajas />}
+          </div>
 
           <div className="overflow-x-auto rounded-xl border border-line bg-surface">
             {/* Sin min-width grande: la tabla debe entrar en pantalla sin
@@ -362,5 +384,23 @@ export default function DetalleQuincenaPage() {
         </>
       )}
     </section>
+  );
+}
+
+/** Leyenda de colores de la Baja de Operario (ADR-026 del backend). Solo se
+ * muestra cuando hay alguna fila pintada. */
+function LeyendaBajas() {
+  const item = (clase: string, texto: string) => (
+    <span className="inline-flex items-center gap-1.5">
+      <span className={`inline-block h-3 w-3 rounded-sm border border-line ${clase}`} />
+      {texto}
+    </span>
+  );
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate" aria-label="Leyenda de bajas">
+      {item('bg-danger/40', 'Baja previa, sigue activo en sueldos ($0)')}
+      {item('bg-slate/30', 'Baja previa, ya inactivo ($0)')}
+      {item('bg-yellow-200', 'Baja en la quincena (liquidación final)')}
+    </div>
   );
 }

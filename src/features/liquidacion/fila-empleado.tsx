@@ -4,6 +4,7 @@ import { memo, useState } from 'react';
 import type { FilaDetalleEmpleado, RegimenLiquidacion } from '@/lib/api/liquidacion';
 import { DetalleEmpleado } from './detalle-empleado';
 import { formatMoney } from './formato';
+import { estiloBaja } from './baja-fila';
 
 export const REGIMEN_LABEL: Record<RegimenLiquidacion, string> = {
   jornalizado: 'Jornalizado',
@@ -32,14 +33,15 @@ export const FilaEmpleado = memo(function FilaEmpleado({
   contratosDestacados?: string[];
 }) {
   const [expandido, setExpandido] = useState(false);
+  const baja = estiloBaja(fila);
 
   return (
     <>
       <tr
-        className="cursor-pointer border-b border-line text-ink last:border-0 hover:bg-accent/30"
+        className={`cursor-pointer border-b border-line text-ink last:border-0 ${baja?.claseFila || 'hover:bg-accent/30'}`}
         onClick={() => setExpandido((v) => !v)}
       >
-        <td className="px-2 py-2.5">{fila.nombre}</td>
+        <td className={`px-2 py-2.5 ${baja?.claseAcento ?? ''}`}>{fila.nombre}</td>
         <td className="px-2 py-2.5">{REGIMEN_LABEL[fila.regimen] ?? fila.regimen}</td>
         <td className="px-2 py-2.5">{fila.categoria ?? '—'}</td>
         <td className="px-2 py-2.5 tabular-nums">
@@ -54,13 +56,34 @@ export const FilaEmpleado = memo(function FilaEmpleado({
         <td className="px-2 py-2.5 tabular-nums">{formatMoney(fila.basico)}</td>
         <td className="px-2 py-2.5 tabular-nums">{formatMoney(fila.montoExtra)}</td>
         <td className="px-2 py-2.5 tabular-nums">{formatMoney(fila.presentismo)}</td>
-        <td className="px-2 py-2.5 tabular-nums">{formatMoney(fila.totalPlus)}</td>
+        {/* Plus = novedades con plus + plus individual (cargado en Tarifas). El
+            TOTAL ya sumaba el individual, pero la columna no lo mostraba y la
+            fila no cerraba a la vista. Mismo criterio que la columna
+            PRODUCTIVIDAD del Excel del cierre. */}
+        <td
+          className="px-2 py-2.5 tabular-nums"
+          title={
+            fila.plusIndividual != null
+              ? `Novedades ${formatMoney(fila.totalPlus)} + individual ${formatMoney(fila.plusIndividual)}${
+                  fila.plusIndividualMotivo ? ` (${fila.plusIndividualMotivo})` : ''
+                }`
+              : undefined
+          }
+        >
+          {formatMoney(String(Number(fila.totalPlus) + Number(fila.plusIndividual ?? 0)))}
+          {fila.plusIndividual != null && <span className="ml-0.5 text-xs text-slate">*</span>}
+        </td>
         <td className="px-2 py-2.5 tabular-nums">{formatMoney(fila.noRemunerativo)}</td>
         <td className="px-2 py-2.5 font-medium tabular-nums">{formatMoney(fila.total)}</td>
         <td className="px-2 py-2.5">
           {/* Chips apilados en columna: la celda queda angosta (ancho del chip
               más largo) en vez de estirar la tabla a lo ancho. */}
           <div className="flex flex-col items-start gap-0.5">
+            {baja && (
+              <span className={`rounded px-1 text-xs font-medium ${baja.chip.clase}`} title={baja.chip.title}>
+                {baja.chip.texto}
+              </span>
+            )}
             {fila.pendientesAprobacion > 0 && (
               <span
                 className="rounded bg-warn/10 px-1 text-xs font-medium text-warn"

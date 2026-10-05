@@ -438,4 +438,28 @@ describe('AusenciasPage', () => {
     const contenedor = screen.getByRole('button', { name: /^Justificadas/ }).parentElement;
     expect(contenedor).toHaveClass('flex-wrap');
   });
+
+  // ADR-026 del backend: HyS confirma o rechaza la Baja de Operario en esta
+  // misma pantalla, sin la pregunta de presentismo.
+  it('Baja de Operario: aparece con su chip y se confirma sin preguntar presentismo', async () => {
+    const baja = nov({
+      id: 2,
+      tipoNovedadId: 9,
+      fechaInicio: '2026-08-10',
+      tipoNovedad: { id: 9, nombre: 'Baja de Operario', requiereAprobacionHys: true },
+    });
+    useNovedadesMock.mockReturnValue({ data: [baja], isLoading: false });
+    render(<AusenciasPage />);
+
+    expect(screen.getByText('Baja de operario')).toBeInTheDocument();
+    expect(screen.getByText(/Último día trabajado: 10\/08\/2026/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ver' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar baja' }));
+    expect(screen.queryByText(/pierde el presentismo/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar baja' }));
+
+    await waitFor(() => expect(resolver).toHaveBeenCalledTimes(1));
+    expect(resolver.mock.calls[0][0]).toMatchObject({ id: 2, estadoHys: 'aprobada', pierdePresentismoHys: undefined });
+  });
 });
