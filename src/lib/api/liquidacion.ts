@@ -463,7 +463,12 @@ export interface DiaAprobado {
   cargadoPor: string;
   /** horas × tarifa vigente de su categoría; null si no hay categoría/tarifa. */
   importeEstimado: string | null;
+  /** Día posterior a la baja confirmada: no se liquida (ADR-026). */
+  posteriorABaja?: boolean;
 }
+
+/** Cómo pega una Baja de Operario en la quincena (ADR-026 del backend). */
+export type EstadoBaja = 'previa' | 'en_quincena' | 'sin_confirmar';
 
 export interface NovedadDetalle {
   tipo: string;
@@ -494,6 +499,15 @@ export interface FilaDetalleEmpleado {
   datoFaltante: string | null;
   /** spec §6.4: provincia no mapeada (ver zonaDeProvincia en el backend) → null. */
   zona: 'norte' | 'sur' | null;
+  /** Baja de Operario (ADR-026): fecha 'YYYY-MM-DD' del último día trabajado. */
+  fechaBaja: string | null;
+  estadoBaja: EstadoBaja | null;
+  /** snuempleados.activo === 'S' (distingue rojo de gris en la baja previa). */
+  activo: boolean;
+  /** Días corridos de Ausencia en la quincena (hasta la baja), por estado HyS. */
+  diasAusenciaInjustificada: number;
+  diasAusenciaJustificada: number;
+  diasAusenciaSinResolver: number;
   pendientesAprobacion: number;
   duplicadoCruzado: boolean;
   dias: DiaAprobado[];
@@ -611,6 +625,12 @@ export interface CierreDetalleFila {
   novedadesTexto: string | null;
   salvedad: string | null;
   total: number | string;
+  /** ADR-026; null en cierres anteriores (no se registró). */
+  fechaBaja?: string | null;
+  estadoBaja?: EstadoBaja | null;
+  diasAusenciaInjustificada?: number | null;
+  diasAusenciaJustificada?: number | null;
+  diasAusenciaSinResolver?: number | null;
 }
 
 export interface CierreDetalle extends CierreResumen {

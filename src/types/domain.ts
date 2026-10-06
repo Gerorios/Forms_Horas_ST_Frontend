@@ -117,6 +117,9 @@ export type RegistroPorAprobar = RegistroHoras & {
   /** true si este registro tiene un clon EXACTO (mismo operario, fecha, horas,
    * contrato, tareas y móviles — regla 2026-08-14; el lote no participa). */
   duplicadoCruzado: boolean;
+  /** Fecha ('YYYY-MM-DD') de la baja confirmada del operario si este registro
+   * es posterior a ella: no se liquida, conviene desaprobarlo (ADR-026). */
+  posteriorABaja?: string | null;
 };
 
 export type EstadoHys = 'pendiente' | 'aprobada' | 'desaprobada' | 'no_aplica';

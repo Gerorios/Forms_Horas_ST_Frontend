@@ -15,6 +15,7 @@ vi.mock('@/lib/api/novedades', () => ({
     data: [
       { id: 5, nombre: 'Ausencia', requiereAprobacionHys: true },
       { id: 4, nombre: 'Guardia Pasiva', requiereAprobacionHys: false },
+      { id: 9, nombre: 'Baja de Operario', requiereAprobacionHys: true },
     ],
   }),
   useCrearNovedad: () => ({ mutateAsync: crear, isPending: false }),
@@ -134,6 +135,50 @@ describe('NuevaNovedadForm', () => {
       await userEvent.selectOptions(screen.getByLabelText('Tipo'), '5');
       expect(screen.getAllByRole('button', { name: /^Quitar /i })).toHaveLength(1);
       expect(screen.getByText(/PEREZ/)).toBeInTheDocument();
+    });
+  });
+
+  // ADR-026 del backend: la fecha de la baja es el último día trabajado.
+  describe('Baja de Operario', () => {
+    async function elegirBaja() {
+      render(<NuevaNovedadForm onCreada={vi.fn()} />);
+      await userEvent.type(screen.getByPlaceholderText(/buscar operario/i), 'gomez');
+      await userEvent.click(await screen.findByText(/GOMEZ/));
+      await userEvent.selectOptions(screen.getByLabelText('Tipo'), '9');
+    }
+
+    it('pide el último día trabajado con el hint y sin fecha fin', async () => {
+      await elegirBaja();
+      expect(screen.getByText('Último día trabajado')).toBeInTheDocument();
+      expect(screen.getByText(/¿Cuál fue el último día trabajado\?/)).toBeInTheDocument();
+      expect(screen.queryByLabelText('Fecha fin')).not.toBeInTheDocument();
+    });
+
+    it('confirma con nombre, legajo, CUIL y fecha antes de enviar', async () => {
+      await elegirBaja();
+      await userEvent.type(screen.getByLabelText('Fecha inicio'), '2026-10-10');
+      await userEvent.click(screen.getByRole('button', { name: /cargar novedad/i }));
+
+      const dialogo = screen.getByRole('dialog', { name: 'Confirmar baja de operario' });
+      expect(dialogo).toHaveTextContent('GOMEZ');
+      expect(dialogo).toHaveTextContent('20169');
+      expect(dialogo).toHaveTextContent('10/10/2026');
+      expect(crear).not.toHaveBeenCalled();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Informar baja' }));
+      await waitFor(() => expect(crear).toHaveBeenCalledTimes(1));
+      const form = crear.mock.calls[0][0] as FormData;
+      expect(form.get('tipoNovedadId')).toBe('9');
+      expect(form.has('fechaFin')).toBe(false);
+    });
+
+    it('cancelar la confirmación no envía nada', async () => {
+      await elegirBaja();
+      await userEvent.type(screen.getByLabelText('Fecha inicio'), '2026-10-10');
+      await userEvent.click(screen.getByRole('button', { name: /cargar novedad/i }));
+      await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(crear).not.toHaveBeenCalled();
     });
   });
 });

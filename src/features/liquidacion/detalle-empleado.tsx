@@ -2,6 +2,7 @@
 
 import type { FilaDetalleEmpleado } from '@/lib/api/liquidacion';
 import { formatMoney } from './fila-empleado';
+import { estiloBaja } from './baja-fila';
 
 export function DetalleEmpleado({
   fila,
@@ -10,12 +11,25 @@ export function DetalleEmpleado({
   fila: FilaDetalleEmpleado;
   contratosDestacados?: string[];
 }) {
+  const baja = estiloBaja(fila);
   return (
     <div className="space-y-4 text-sm text-ink" onClick={(e) => e.stopPropagation()}>
+      {baja && <p className={`rounded-md border px-3 py-2 text-xs font-medium ${baja.claseDetalle}`}>{baja.detalle}</p>}
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate">
         <span>
           Novedades: <span className="text-ink">{fila.etiquetaNovedades || '—'}</span>
         </span>
+        {(fila.diasAusenciaInjustificada > 0 ||
+          fila.diasAusenciaJustificada > 0 ||
+          fila.diasAusenciaSinResolver > 0) && (
+          <span>
+            Días de ausencia:{' '}
+            <span className="text-ink">
+              {fila.diasAusenciaInjustificada} injustificados · {fila.diasAusenciaJustificada} justificados ·{' '}
+              {fila.diasAusenciaSinResolver} sin resolver
+            </span>
+          </span>
+        )}
         {fila.plusIndividual != null && (
           <span>
             Plus individual:{' '}
@@ -53,8 +67,13 @@ export function DetalleEmpleado({
                   <tr
                     key={`${d.fecha}-${d.contratoCodigo}-${i}`}
                     className={`border-b border-line/60 last:border-0 ${
-                      contratosDestacados.includes(d.contratoCodigo) ? 'bg-brand/10' : ''
+                      d.posteriorABaja
+                        ? 'bg-danger/10 text-slate line-through'
+                        : contratosDestacados.includes(d.contratoCodigo)
+                          ? 'bg-brand/10'
+                          : ''
                     }`}
+                    title={d.posteriorABaja ? 'Posterior a la baja: no se liquida' : undefined}
                   >
                     <td className="px-2 py-1.5">{d.fecha}</td>
                     <td className="px-2 py-1.5">{d.contratoCodigo}</td>

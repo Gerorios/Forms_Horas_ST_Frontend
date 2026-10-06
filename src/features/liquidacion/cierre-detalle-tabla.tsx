@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { CierreDetalleFila, RegimenLiquidacion } from '@/lib/api/liquidacion';
 import { REGIMEN_LABEL } from '@/features/liquidacion/fila-empleado';
 import { formatMoney } from '@/features/liquidacion/formato';
+import { fechaLegible } from '@/features/novedades/baja';
 
 const COLUMNAS = 13;
 
@@ -90,6 +91,15 @@ function FilaCierre({ fila }: { fila: CierreDetalleFila }) {
                   <Dato label="Monto B">{formatMoney(fila.montoB)}</Dato>
                 </>
               )}
+              {/* ADR-026: null en cierres anteriores (no se registró) → no se muestra. */}
+              {fila.diasAusenciaInjustificada != null && (
+                <>
+                  <Dato label="Aus. injustificadas">{fila.diasAusenciaInjustificada} días</Dato>
+                  <Dato label="Aus. justificadas">{fila.diasAusenciaJustificada ?? 0} días</Dato>
+                  <Dato label="Aus. sin resolver">{fila.diasAusenciaSinResolver ?? 0} días</Dato>
+                </>
+              )}
+              {fila.fechaBaja && <Dato label="Fecha de baja">{fechaLegible(fila.fechaBaja)}</Dato>}
               {fila.novedadesTexto && <Dato label="Novedades">{fila.novedadesTexto}</Dato>}
               {fila.salvedad && <Dato label="Salvedad">{fila.salvedad}</Dato>}
             </dl>

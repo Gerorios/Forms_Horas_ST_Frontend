@@ -94,6 +94,8 @@ export interface DiaDetalleDiario {
   fecha: string;
   totalHoras: number;
   contratos: string[];
+  /** Fecha de la baja confirmada si este día es posterior a ella (ADR-026). */
+  posteriorABaja?: string | null;
   registros: FilaDetalleDiario[];
 }
 
@@ -160,6 +162,8 @@ export interface DiaControlDiario {
   fecha: string;
   totalHoras: number;
   contratos: string[];
+  /** Fecha de la baja confirmada si este día es posterior a ella (ADR-026). */
+  posteriorABaja?: string | null;
   registros: RegistroControlDiario[];
 }
 
