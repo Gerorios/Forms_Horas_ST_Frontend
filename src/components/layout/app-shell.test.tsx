@@ -143,7 +143,7 @@ describe('AppShell — consola Central Sertec (ADR-025)', () => {
 
   it('desplegado: muestra el título de cada área visible del perfil', () => {
     const titulos = navPorArea(PERFIL_ADMIN).map((g) => g.area.label);
-    expect(titulos).toEqual(['Operación', 'Personas', 'Resultados operativos', 'Administración']);
+    expect(titulos).toEqual(['Operación', 'Personas', 'Seguridad', 'Resultados operativos', 'Administración']);
     render(<AppShell><p>contenido</p></AppShell>);
     for (const titulo of titulos) {
       expect(screen.getByText(titulo)).toBeInTheDocument();
@@ -161,7 +161,7 @@ describe('AppShell — consola Central Sertec (ADR-025)', () => {
 
   it('un perfil de HyS no ve el área Operación', () => {
     h.perfil = PERFIL_HYS;
-    expect(navPorArea(PERFIL_HYS).map((g) => g.area.label)).toEqual(['Personas']);
+    expect(navPorArea(PERFIL_HYS).map((g) => g.area.label)).toEqual(['Personas', 'Seguridad']);
     render(<AppShell><p>contenido</p></AppShell>);
     expect(screen.getByText('Personas')).toBeInTheDocument();
     expect(screen.queryByText('Operación')).not.toBeInTheDocument();

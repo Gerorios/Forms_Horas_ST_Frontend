@@ -29,6 +29,8 @@ const DESCRIPCION: Record<string, string> = {
   '/certificaciones':
     'Cargar y seguir las certificaciones por contrato: resumen, analytics, ítems e historial.',
   '/km-por-tantos': 'Cargar los km relevados de cada quincena para el personal "por tantos".',
+  '/seguridad/nuevo': 'Reportar un riesgo, un incidente o una paralización que viste en campo, y lo que hiciste.',
+  '/seguridad': 'Ver tus reportes, la calificación de HyS y tus puntos del período.',
 };
 
 /** Un tile del inicio: el mismo dato que ya se calcula en su módulo — nada de
@@ -165,6 +167,20 @@ export default function HomePage() {
 
       <div className="mx-auto max-w-5xl space-y-8 px-4 py-6 sm:px-6 lg:py-8">
         {indicadores.length > 0 && <FilaIndicadores datos={indicadores} />}
+
+        {/* Autogestión de la Seguridad (ADR-027): reportar es lo que más se usa
+         * desde el celular, y es de todos los roles, así que va como acceso
+         * directo arriba de las áreas. */}
+        <Link
+          href="/seguridad/nuevo"
+          className="flex items-center justify-between gap-4 rounded-xl bg-graphite px-5 py-4 text-white transition hover:brightness-110"
+        >
+          <span>
+            <span className="block font-display text-base font-semibold">¿Viste un riesgo en campo?</span>
+            <span className="mt-0.5 block text-sm text-white/75">Contá qué viste y qué hiciste, y sumá puntos.</span>
+          </span>
+          <span className="shrink-0 rounded-md bg-brand px-3 py-2 text-sm font-semibold text-ink">Reportar</span>
+        </Link>
 
         {areas.map(({ area, items }) => (
           <section key={area.id} className="space-y-3">

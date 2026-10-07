@@ -3,7 +3,7 @@ import type { Perfil, Rol } from '@/types/domain';
 // Central Sertec (ADR-025): los módulos se agrupan en cuatro áreas para que la
 // barra y el inicio cuenten el mismo relato. El área es solo presentación: los
 // roles siguen decidiendo qué se ve (ver `navForRole`).
-export type AreaId = 'operacion' | 'personas' | 'resultados' | 'administracion';
+export type AreaId = 'operacion' | 'personas' | 'seguridad' | 'resultados' | 'administracion';
 
 export interface Area {
   id: AreaId;
@@ -14,6 +14,7 @@ export interface Area {
 export const AREAS: Area[] = [
   { id: 'operacion', label: 'Operación' },
   { id: 'personas', label: 'Personas' },
+  { id: 'seguridad', label: 'Seguridad' },
   { id: 'resultados', label: 'Resultados operativos' },
   { id: 'administracion', label: 'Administración' },
 ];
@@ -24,6 +25,10 @@ export interface NavItem {
   roles: Rol[];
   area: AreaId;
 }
+
+/** Todos los roles: Autogestión de la Seguridad es el primer módulo abierto a
+ * cualquier usuario (ADR-027). */
+const TODOS_LOS_ROLES: Rol[] = ['Operario', 'JefeCuadrilla', 'JefeContrato', 'Supervisor', 'HyS', 'Admin', 'Liquidador'];
 
 // Ordenados por área y, dentro de cada área, en el orden del ADR-025
 // (en Operación, Combustible va al final por ser el módulo más lateral).
@@ -47,6 +52,9 @@ export const NAV_ITEMS: NavItem[] = [
     area: 'personas',
   },
   { label: 'Ausencias', href: '/ausencias', roles: ['HyS', 'Admin'], area: 'personas' },
+  // Autogestión de la Seguridad (ADR-027): reportar y ver los puntos propios es de todos.
+  { label: 'Nuevo reporte', href: '/seguridad/nuevo', roles: TODOS_LOS_ROLES, area: 'seguridad' },
+  { label: 'Mis reportes y puntos', href: '/seguridad', roles: TODOS_LOS_ROLES, area: 'seguridad' },
   // Perfiles no es un ítem propio: sigue siendo pestaña de Liquidación
   // (decisión del usuario, ADR-025).
   { label: 'Liquidación', href: '/liquidacion', roles: ['Liquidador', 'Admin'], area: 'resultados' },
