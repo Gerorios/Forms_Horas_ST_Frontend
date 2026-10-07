@@ -18,6 +18,7 @@ import {
   useActualizarNovedad,
   useAnularNovedad,
   useNovedades,
+  useNovedadesPorEstado,
   useReabrirNovedad,
   useResolverHys,
   useResumenAusencias,
@@ -42,6 +43,7 @@ type InfoAccion = { titulo: string; boton: string; cargando: string; exito: stri
  * ADR-026 del backend, la Baja de Operario (HyS es quien se entera de las
  * bajas; confirmada, bloquea horas y liquida $0 las quincenas siguientes). */
 const TIPOS_HYS = new Set(['Ausencia', TIPO_BAJA]);
+const esAusenciaActiva = (n: Novedad) => TIPOS_HYS.has(n.tipoNovedad.nombre) && n.estado === 'activa';
 
 const ACCION_BAJA: Record<'aprobada' | 'desaprobada', InfoAccion> = {
   aprobada: {
@@ -211,7 +213,12 @@ export default function AusenciasPage() {
   const [estado, setEstado] = useState<EstadoHys>('pendiente');
   const [periodo, setPeriodo] = useState<Quincena>(() => quincenaDeFecha(new Date()));
 
-  const { data, isLoading } = useNovedades(periodo);
+  const { data, isLoading, isError, refetch } = useNovedades(periodo);
+  // Hotfix 2026-10-07 (revisión B2): las PENDIENTES salen de todas las
+  // quincenas. Filtradas por el selector, una ausencia de julio sin resolver
+  // no aparecía en octubre y llegaba a la liquidación como injustificada.
+  // Justificadas, injustificadas y anuladas siguen siendo de la quincena.
+  const pendientesTodas = useNovedadesPorEstado('pendiente');
   const resolver = useResolverHys();
   const reabrir = useReabrirNovedad();
   const actualizar = useActualizarNovedad();
@@ -234,7 +241,11 @@ export default function AusenciasPage() {
    * cerrarlo y volver a abrirlo para ver el certificado nuevo. */
   const [detalleId, setDetalleId] = useState<number | null>(null);
   const detalle =
-    detalleId === null ? null : ((data ?? []).find((n) => n.id === detalleId) ?? null);
+    detalleId === null
+      ? null
+      : ((data ?? []).find((n) => n.id === detalleId) ??
+        (pendientesTodas.data ?? []).find((n) => n.id === detalleId) ??
+        null);
   const setDetalle = (n: Novedad | null) => setDetalleId(n?.id ?? null);
   const [verAnuladas, setVerAnuladas] = useState(false);
   // Paginación en el cliente (pedido 2026-09-03: la lista de HyS se hacía
@@ -252,8 +263,11 @@ export default function AusenciasPage() {
   // acá: vigencia (`estado`) es un eje distinto de la resolución de HyS
   // (`estadoHys`, usado para las pestañas) y se manejan aparte, ver abajo.
   const ausencias = useMemo(
-    () => (data ?? []).filter((n) => TIPOS_HYS.has(n.tipoNovedad.nombre) && n.estado === 'activa'),
-    [data],
+    () => [
+      ...(pendientesTodas.data ?? []).filter((n) => esAusenciaActiva(n) && n.estadoHys === 'pendiente'),
+      ...(data ?? []).filter((n) => esAusenciaActiva(n) && n.estadoHys !== 'pendiente'),
+    ],
+    [data, pendientesTodas.data],
   );
   const filtradas = useMemo(() => ausencias.filter((n) => n.estadoHys === estado), [ausencias, estado]);
   const { enPagina, paginaSegura, totalPaginas } = paginar(filtradas, pagina, POR_PAGINA);
@@ -261,11 +275,11 @@ export default function AusenciasPage() {
   // Contador por pestaña (badge junto al nombre): de un vistazo, cuántas
   // ausencias hay en cada estado sin tener que entrar a cada pestaña.
   const conteos = useMemo(() => {
-    if (!data) return undefined;
+    if (!data || !pendientesTodas.data) return undefined;
     const acc: Record<EstadoHys, number> = { pendiente: 0, aprobada: 0, desaprobada: 0, no_aplica: 0 };
     for (const n of ausencias) acc[n.estadoHys]++;
     return acc;
-  }, [data, ausencias]);
+  }, [data, pendientesTodas.data, ausencias]);
 
   const ausenciasAnuladas = useMemo(
     () => (data ?? []).filter((n) => TIPOS_HYS.has(n.tipoNovedad.nombre) && n.estado === 'anulada'),
@@ -395,8 +409,24 @@ export default function AusenciasPage() {
         )}
       </BarraFiltros>
 
-      {isLoading ? (
+      {isLoading || (estado === 'pendiente' && pendientesTodas.isLoading) ? (
         <TableSkeleton rows={5} cols={5} />
+      ) : (estado === 'pendiente' ? pendientesTodas.isError : isError) ? (
+        // Hotfix R1: una consulta que falla no puede verse como bandeja vacía
+        // (HyS no resolvería y esas ausencias se liquidarían como injustificadas).
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/40 bg-danger/5 p-4 text-sm text-danger"
+        >
+          <span>No se pudieron cargar las ausencias. La bandeja puede no estar completa.</span>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => (estado === 'pendiente' ? pendientesTodas.refetch() : refetch())}
+          >
+            Reintentar
+          </Button>
+        </div>
       ) : filtradas.length === 0 ? (
         <p className="rounded-xl border border-dashed border-line bg-surface p-8 text-center text-sm text-slate">
           Sin ausencias en este estado.

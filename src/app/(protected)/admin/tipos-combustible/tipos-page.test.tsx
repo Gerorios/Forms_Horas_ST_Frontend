@@ -49,9 +49,11 @@ describe('TiposCombustibleAdminPage', () => {
     await waitFor(() => expect(crear).toHaveBeenCalledWith({ nombre: 'GNC' }));
   });
 
-  it('el toggle de activo llama la mutación', async () => {
+  it('el toggle de activo pide confirmación y recién ahí llama la mutación', async () => {
     render(<TiposCombustibleAdminPage />);
     await userEvent.click(screen.getByRole('button', { name: /activo/i }));
+    expect(toggle).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Desactivar' }));
     await waitFor(() => expect(toggle).toHaveBeenCalledWith({ id: 1, activo: false }));
   });
 
