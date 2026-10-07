@@ -76,6 +76,7 @@ vi.mock('@/lib/api/panel-general', () => ({
 }));
 vi.mock('@/lib/api/novedades', () => ({ useNovedades: vi.fn(() => ({ data: undefined })) }));
 vi.mock('@/lib/api/liquidacion', () => ({ useAlertasQuincena: vi.fn(() => ({ data: undefined })) }));
+vi.mock('@/lib/api/seguridad', () => ({ usePanelReportes: vi.fn(() => ({ data: undefined })) }));
 vi.mock('@/lib/api/registros', () => ({
   useMisRegistros: vi.fn(() => ({ data: h.registros ?? undefined })),
 }));

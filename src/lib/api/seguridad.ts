@@ -200,3 +200,172 @@ export function useInvalidarSeguridad() {
 }
 
 export const urlFoto = (reporteId: number, fotoId: number) => `/seguridad/reportes/${reporteId}/fotos/${fotoId}`;
+
+// ---------------------------------------------------------------- HyS y Admin
+
+export interface FiltrosPanel {
+  estado?: EstadoReporte;
+  tipo?: TipoReporte;
+  desde?: string;
+  hasta?: string;
+}
+
+/** Rango de consulta del ranking y los tableros: un período guardado o un
+ * rango libre. Vacío = el período actual. */
+export interface RangoConsulta {
+  periodoId?: number;
+  desde?: string;
+  hasta?: string;
+}
+
+export interface RangoRespuesta {
+  periodo: Periodo | null;
+  desde: string | null;
+  hasta: string | null;
+}
+
+export interface FilaRanking {
+  cuil: string;
+  nombre: string;
+  legajo: number | null;
+  mas: number;
+  menos: number;
+  total: number;
+  puesto: number;
+}
+
+export interface Ranking extends RangoRespuesta {
+  /** Reportes del rango que siguen pendientes: el ranking todavía puede cambiar. */
+  pendientes: number;
+  filas: FilaRanking[];
+}
+
+export interface Conteo {
+  nombre: string;
+  cantidad: number;
+}
+
+export interface Tableros extends RangoRespuesta {
+  totales: { reportes: number; inspecciones: number; pendientes: number; aprobados: number; desaprobados: number };
+  participacion: { personas: number; nominaActiva: number };
+  respuestaHysDias: number | null;
+  conPunto: number;
+  porTipo: Conteo[];
+  porContrato: Conteo[];
+  porTarea: Conteo[];
+  porProvincia: Conteo[];
+  porMotivoParalizacion: Conteo[];
+  porNaturaleza: { nombre: string; reportes: number; inspecciones: number }[];
+  porMes: { mes: string; reportes: number; inspecciones: number }[];
+  masInspeccionados: { cuil: string; nombre: string; cantidad: number; puntos: number }[];
+}
+
+export interface CalificacionInput {
+  decision: 'aprobar' | 'desaprobar';
+  puntaje?: number;
+  comentario?: string;
+}
+
+export interface PeriodoInput {
+  nombre: string;
+  desde: string;
+  hasta: string;
+}
+
+export type CatalogoSeguridad = 'naturalezas' | 'motivos';
+
+export interface ItemCatalogoAdmin extends ItemCatalogo {
+  activo: boolean;
+}
+
+function limpiar<T extends object>(o: T): Partial<T> {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== '')) as Partial<T>;
+}
+
+export function usePanelReportes(filtros: FiltrosPanel, enabled = true) {
+  return useQuery({
+    queryKey: [...CLAVE, 'panel', filtros],
+    enabled,
+    queryFn: async () => (await api.get<ReporteSeguridad[]>('/seguridad/panel', { params: limpiar(filtros) })).data,
+  });
+}
+
+export function useCalificarReporte() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, input }: { id: number; input: CalificacionInput }) =>
+      (await api.patch<ReporteSeguridad>(`/seguridad/reportes/${id}/calificar`, input)).data,
+    onSuccess: () => invalidar(qc),
+  });
+}
+
+export function useReabrirReporte() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => (await api.patch<ReporteSeguridad>(`/seguridad/reportes/${id}/reabrir`)).data,
+    onSuccess: () => invalidar(qc),
+  });
+}
+
+export function useRanking(rango: RangoConsulta) {
+  return useQuery({
+    queryKey: [...CLAVE, 'ranking', rango],
+    queryFn: async () => (await api.get<Ranking>('/seguridad/ranking', { params: limpiar(rango) })).data,
+  });
+}
+
+export function useTableros(rango: RangoConsulta) {
+  return useQuery({
+    queryKey: [...CLAVE, 'tableros', rango],
+    queryFn: async () => (await api.get<Tableros>('/seguridad/tableros', { params: limpiar(rango) })).data,
+  });
+}
+
+export function useCrearPeriodo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: PeriodoInput) => (await api.post<Periodo>('/seguridad/periodos', input)).data,
+    onSuccess: () => invalidar(qc),
+  });
+}
+
+export function useEditarPeriodo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, input }: { id: number; input: PeriodoInput }) =>
+      (await api.patch<Periodo>(`/seguridad/periodos/${id}`, input)).data,
+    onSuccess: () => invalidar(qc),
+  });
+}
+
+export function useBorrarPeriodo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => (await api.delete(`/seguridad/periodos/${id}`)).data,
+    onSuccess: () => invalidar(qc),
+  });
+}
+
+export function useCatalogoAdmin(catalogo: CatalogoSeguridad) {
+  return useQuery({
+    queryKey: [...CLAVE, 'admin', catalogo],
+    queryFn: async () => (await api.get<ItemCatalogoAdmin[]>(`/seguridad/admin/${catalogo}`)).data,
+  });
+}
+
+export function useCrearEnCatalogo(catalogo: CatalogoSeguridad) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (nombre: string) => (await api.post<ItemCatalogoAdmin>(`/seguridad/admin/${catalogo}`, { nombre })).data,
+    onSuccess: () => invalidar(qc),
+  });
+}
+
+export function useEditarEnCatalogo(catalogo: CatalogoSeguridad) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, cambios }: { id: number; cambios: { nombre?: string; activo?: boolean } }) =>
+      (await api.patch<ItemCatalogoAdmin>(`/seguridad/admin/${catalogo}/${id}`, cambios)).data,
+    onSuccess: () => invalidar(qc),
+  });
+}

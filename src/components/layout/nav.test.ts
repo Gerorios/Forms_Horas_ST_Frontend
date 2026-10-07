@@ -58,7 +58,15 @@ describe('navForRole', () => {
 
   it('HyS ve Ausencias y Novedades', () => {
     const hrefs = navForRole(perfil('HyS')).map((i) => i.href);
-    expect(hrefs).toEqual(['/novedades', '/ausencias', '/seguridad/nuevo', '/seguridad']);
+    expect(hrefs).toEqual([
+      '/novedades',
+      '/ausencias',
+      '/seguridad/nuevo',
+      '/seguridad',
+      '/seguridad/panel',
+      '/seguridad/ranking',
+      '/seguridad/periodos',
+    ]);
   });
 
   it('JefeContrato, Liquidador y Admin ven Novedades (lectura, no solo carga)', () => {
@@ -129,6 +137,20 @@ describe('Autogestión de la Seguridad (ADR-027)', () => {
       const hrefs = navForRole(perfil(rol)).map((i) => i.href);
       expect(hrefs, rol).toEqual(expect.arrayContaining(['/seguridad/nuevo', '/seguridad']));
       expect(canAccess(rol, '/seguridad')).toBe(true);
+    }
+  });
+
+  it('panel, ranking y períodos son solo de HyS y Admin', () => {
+    for (const rol of ['HyS', 'Admin'] as const) {
+      const hrefs = navForRole(perfil(rol)).map((i) => i.href);
+      expect(hrefs, rol).toEqual(expect.arrayContaining(['/seguridad/panel', '/seguridad/ranking', '/seguridad/periodos']));
+    }
+    for (const rol of ['Operario', 'JefeCuadrilla', 'JefeContrato', 'Supervisor', 'Liquidador'] as const) {
+      expect(canAccess(rol, '/seguridad/panel'), rol).toBe(false);
+      expect(canAccess(rol, '/seguridad/ranking'), rol).toBe(false);
+      expect(canAccess(rol, '/seguridad/periodos'), rol).toBe(false);
+      // Lo de todos sigue abierto.
+      expect(canAccess(rol, '/seguridad'), rol).toBe(true);
     }
   });
 });

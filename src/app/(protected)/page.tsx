@@ -12,6 +12,7 @@ import { useResumenOperarios, useSinCarga } from '@/lib/api/panel-general';
 import { useNovedades } from '@/lib/api/novedades';
 import { useAlertasQuincena } from '@/lib/api/liquidacion';
 import { useMisRegistros } from '@/lib/api/registros';
+import { usePanelReportes } from '@/lib/api/seguridad';
 import { quincenaDeFecha, rangoQuincenaISO, diasParaCierreQuincena } from '@/lib/quincena';
 import { redondearHoras } from '@/lib/horas';
 import { ClockIcon, ClipboardIcon, AlertUserIcon, TrendIcon, CalendarIcon, BellIcon, WarnTriIcon } from '@/components/stat-icons';
@@ -31,6 +32,9 @@ const DESCRIPCION: Record<string, string> = {
   '/km-por-tantos': 'Cargar los km relevados de cada quincena para el personal "por tantos".',
   '/seguridad/nuevo': 'Reportar un riesgo, un incidente o una paralización que viste en campo, y lo que hiciste.',
   '/seguridad': 'Ver tus reportes, la calificación de HyS y tus puntos del período.',
+  '/seguridad/panel': 'Revisar y calificar los reportes de seguridad; las paralizaciones pendientes van arriba.',
+  '/seguridad/ranking': 'Ranking de puntos del período y tableros de reportes e inspecciones.',
+  '/seguridad/periodos': 'Definir los períodos de medición (por ejemplo, semestrales).',
 };
 
 /** Un tile del inicio: el mismo dato que ya se calcula en su módulo — nada de
@@ -83,6 +87,8 @@ export default function HomePage() {
   const { data: sinCarga } = useSinCarga(periodo, rol === 'JefeContrato');
   const { data: ausencias } = useNovedades(periodo, undefined, rol === 'HyS');
   const { data: alertas } = useAlertasQuincena(periodo.anio, periodo.mes, periodo.parte, rol === 'Liquidador');
+  // Alarmas de seguridad (ADR-027): paralizaciones sin calificar.
+  const { data: paralizaciones } = usePanelReportes({ estado: 'pendiente', tipo: 'paralizacion' }, rol === 'HyS');
   const { data: misRegistros } = useMisRegistros(cuil, rangoISO, rol === 'Operario' || rol === 'JefeCuadrilla');
 
   if (!perfil) return null;
@@ -113,6 +119,13 @@ export default function HomePage() {
     ).length;
     indicadores = [
       { label: 'Ausencias pendientes', value: pendientes, tone: 'warn', icon: <BellIcon />, href: '/ausencias' },
+      {
+        label: 'Paralizaciones sin calificar',
+        value: (paralizaciones ?? []).length,
+        tone: 'danger',
+        icon: <WarnTriIcon />,
+        href: '/seguridad/panel',
+      },
       cierreItem,
     ];
   } else if (rol === 'Liquidador') {

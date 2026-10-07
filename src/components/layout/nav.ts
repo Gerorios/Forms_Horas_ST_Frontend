@@ -55,6 +55,10 @@ export const NAV_ITEMS: NavItem[] = [
   // Autogestión de la Seguridad (ADR-027): reportar y ver los puntos propios es de todos.
   { label: 'Nuevo reporte', href: '/seguridad/nuevo', roles: TODOS_LOS_ROLES, area: 'seguridad' },
   { label: 'Mis reportes y puntos', href: '/seguridad', roles: TODOS_LOS_ROLES, area: 'seguridad' },
+  // Calificar, medir y definir los períodos es de HyS (y Admin).
+  { label: 'Panel de reportes', href: '/seguridad/panel', roles: ['HyS', 'Admin'], area: 'seguridad' },
+  { label: 'Ranking y tableros', href: '/seguridad/ranking', roles: ['HyS', 'Admin'], area: 'seguridad' },
+  { label: 'Períodos', href: '/seguridad/periodos', roles: ['HyS', 'Admin'], area: 'seguridad' },
   // Perfiles no es un ítem propio: sigue siendo pestaña de Liquidación
   // (decisión del usuario, ADR-025).
   { label: 'Liquidación', href: '/liquidacion', roles: ['Liquidador', 'Admin'], area: 'resultados' },
