@@ -5,7 +5,7 @@ import { StatusBadge } from '@/components/status-badge';
 import type { ReporteSeguridad } from '@/lib/api/seguridad';
 import { FotoProtegida } from './fotos-grupo';
 import { VisorFotos } from './visor-fotos';
-import { TIPO_LABEL, fechaCorta, signo } from './tipos';
+import { FOCO_VISIBLE, TIPO_LABEL, fechaCorta, fechaHoraLarga, signo } from './tipos';
 
 function Fila({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
   return (
@@ -14,10 +14,6 @@ function Fila({ etiqueta, children }: { etiqueta: string; children: ReactNode })
       <dd className="text-ink">{children}</dd>
     </div>
   );
-}
-
-function fechaHora(iso: string) {
-  return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 /** Detalle de solo lectura de un reporte: lo que declaró el autor, sus fotos
@@ -52,7 +48,7 @@ export function DetalleReporte({ reporte }: { reporte: ReporteSeguridad }) {
 
       <dl className="space-y-1.5">
         <Fila etiqueta="Fecha">
-          {fechaCorta(r.fechaReporte)} · enviado {fechaHora(r.enviadoEn)}
+          {fechaCorta(r.fechaReporte)} · enviado el {fechaHoraLarga(r.enviadoEn)}
         </Fila>
         <Fila etiqueta="Actividad">
           {r.contrato.codigo} › {r.tarea.nombre}
@@ -71,14 +67,14 @@ export function DetalleReporte({ reporte }: { reporte: ReporteSeguridad }) {
       </dl>
 
       <div className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate">
+        <p className="text-sm font-medium text-slate">
           {r.tipo === 'propuesta_mejora' ? 'Propuesta' : 'Qué se vio'}
         </p>
         <p className="whitespace-pre-line text-sm text-ink">{r.descripcion}</p>
       </div>
       {r.controlRiesgo && (
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate">Qué se hizo</p>
+          <p className="text-sm font-medium text-slate">Qué se hizo</p>
           <p className="whitespace-pre-line text-sm text-ink">{r.controlRiesgo}</p>
         </div>
       )}
@@ -87,19 +83,19 @@ export function DetalleReporte({ reporte }: { reporte: ReporteSeguridad }) {
         (g) =>
           fotos(g).length > 0 && (
             <div key={g} className="space-y-1.5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate">
+              <p className="text-sm font-medium text-slate">
                 {g === 'riesgo' ? 'Fotos de lo que se vio' : 'Fotos de lo que se hizo'}
               </p>
               <div className="grid grid-cols-3 gap-2">
-                {fotos(g).map((f) => (
+                {fotos(g).map((f, i) => (
                   <button
                     key={f.id}
                     type="button"
-                    aria-label={`Ampliar: ${etiqueta(g).toLowerCase()}`}
+                    aria-label={`Ampliar: ${etiqueta(g).toLowerCase()} ${i + 1}`}
                     onClick={() => setAbierta(todas.indexOf(f))}
-                    className="aspect-square cursor-zoom-in overflow-hidden rounded-lg border border-line"
+                    className={`aspect-square cursor-zoom-in overflow-hidden rounded-lg border border-line ${FOCO_VISIBLE}`}
                   >
-                    <FotoProtegida reporteId={r.id} fotoId={f.id} alt={etiqueta(g)} />
+                    <FotoProtegida reporteId={r.id} fotoId={f.id} alt={`${etiqueta(g)} ${i + 1}`} />
                   </button>
                 ))}
               </div>
