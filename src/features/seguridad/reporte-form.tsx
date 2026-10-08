@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/button';
 import { useSession } from '@/lib/auth/session';
@@ -19,11 +19,21 @@ import {
   type ReporteSeguridad,
   type TipoReporte,
 } from '@/lib/api/seguridad';
-import { OperariosSelect } from '@/features/reporte/operarios-select';
 import type { EmpleadoBusqueda } from '@/types/domain';
+import { PersonasSelect } from './personas-select';
+import { ConfirmarDialog } from './confirmar-dialog';
 import { FotosGrupo, type FotoNueva } from './fotos-grupo';
 import { BotonUbicacion, urlMapa, type PuntoGps } from './boton-ubicacion';
-import { borrarBorrador, guardarBorrador, leerBorrador, tieneContenido, type Borrador, type CamposBorrador } from './borrador';
+import {
+  borrarBorrador,
+  guardarBorrador,
+  guardarUltimoLugar,
+  leerBorrador,
+  leerUltimoLugar,
+  tieneContenido,
+  type Borrador,
+  type CamposBorrador,
+} from './borrador';
 import {
   CAMPOS_POR_TIPO,
   FOCO_VISIBLE,
@@ -81,7 +91,8 @@ export function ReporteForm({
   tipoInicial,
 }: {
   inicial?: ReporteSeguridad;
-  onListo: () => void;
+  /** En el alta recibe el id del reporte creado, para mostrarlo como recibo. */
+  onListo: (idCreado?: number) => void;
   modo?: ModoFormulario;
   /** Tipo preseleccionado (p. ej. `?tipo=inspeccion` desde el panel de HyS). */
   tipoInicial?: TipoReporte;
@@ -126,8 +137,19 @@ export function ReporteForm({
   const [reporteId, setReporteId] = useState<number | null>(null);
   /** Borrador: `null` mientras se lee; `false` si no hay (o ya se decidió). */
   const [borrador, setBorrador] = useState<Borrador | null | false>(esAlta ? null : false);
+  /** Provincia, contrato y tarea vinieron del último reporte enviado. */
+  const [precargado, setPrecargado] = useState(false);
+  /** Foto ya subida que se va a quitar: pide confirmación (no vuelve). */
+  const [quitandoFoto, setQuitandoFoto] = useState<number | null>(null);
+  const tiposRef = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const { data: tareas } = useTareas(contratoId);
+  // Lo precargado del último reporte que ya no está activo cuenta como vacío
+  // (derivado, no un efecto que lo borre).
+  const contratoEf =
+    precargado && catalogos != null && contratoId != null && !catalogos.contratos.some((c) => c.id === contratoId) ? null : contratoId;
+  const { data: tareas } = useTareas(contratoEf);
+  const tareaEf =
+    contratoEf == null || (precargado && tareas != null && tareaId != null && !tareas.some((t) => t.id === tareaId)) ? null : tareaId;
   // La inspección la ven HyS y los inspectores habilitados; al corregir, HyS
   // puede reclasificar a cualquier tipo.
   const tipos = useMemo<TipoReporte[]>(
@@ -147,8 +169,8 @@ export function ReporteForm({
     descripcion,
     fechaReporte,
     provinciaId,
-    contratoId,
-    tareaId,
+    contratoId: contratoEf,
+    tareaId: tareaEf,
     tienePunto: correccion ? undefined : punto != null,
   });
   const mostrarErrores = intentoEnviar && errores.length > 0;
@@ -167,12 +189,25 @@ export function ReporteForm({
 
   // ---------------------------------------------------------------- borrador
 
+  /** Casi siempre se reporta desde el mismo lugar: provincia, contrato y
+   * tarea del último reporte enviado, editables. */
+  const precargarLugar = (c: string) => {
+    const lugar = leerUltimoLugar(c);
+    if (!lugar) return;
+    setProvinciaId(lugar.provinciaId);
+    setContratoId(lugar.contratoId);
+    setTareaId(lugar.tareaId);
+    setPrecargado(true);
+  };
+
   useEffect(() => {
     if (!esAlta || !cuil) return;
     let cancelado = false;
     leerBorrador(cuil).then((b) => {
       if (cancelado) return;
-      setBorrador(b && tieneContenido(b.campos) ? b : false);
+      const hay = b && tieneContenido(b.campos);
+      setBorrador(hay ? b : false);
+      if (!hay) precargarLugar(cuil);
     });
     return () => {
       cancelado = true;
@@ -183,8 +218,8 @@ export function ReporteForm({
     tipo,
     fechaReporte,
     provinciaId,
-    contratoId,
-    tareaId,
+    contratoId: contratoEf,
+    tareaId: tareaEf,
     ubicacion,
     naturalezaId,
     motivoId,
@@ -231,9 +266,13 @@ export function ReporteForm({
   }
 
   function descartarBorrador() {
-    if (cuil) void borrarBorrador(cuil);
+    if (cuil) {
+      void borrarBorrador(cuil);
+      precargarLugar(cuil);
+    }
     setBorrador(false);
   }
+
 
   // ------------------------------------------------------------------ campos
 
@@ -254,8 +293,8 @@ export function ReporteForm({
       tipo: tipo!,
       fechaReporte,
       provinciaId: provinciaId!,
-      contratoId: contratoId!,
-      tareaId: tareaId!,
+      contratoId: contratoEf!,
+      tareaId: tareaEf!,
       descripcion: descripcion.trim(),
       ...(ubicacion.trim() ? { ubicacion: ubicacion.trim() } : {}),
       ...(punto ? { latitud: punto.latitud, longitud: punto.longitud, errorMetros: punto.errorMetros } : {}),
@@ -292,10 +331,15 @@ export function ReporteForm({
     return fallidas;
   }
 
-  async function terminar(mensaje: string) {
-    if (esAlta && cuil) await borrarBorrador(cuil);
+  async function terminar(mensaje: string, idCreado?: number) {
+    if (esAlta && cuil) {
+      await borrarBorrador(cuil);
+      if (provinciaId != null && contratoEf != null && tareaEf != null) {
+        guardarUltimoLugar(cuil, { provinciaId, contratoId: contratoEf, tareaId: tareaEf });
+      }
+    }
     toast.success(mensaje);
-    onListo();
+    onListo(esAlta ? (idCreado ?? reporteId ?? undefined) : undefined);
   }
 
   async function reintentarUna(clave: string) {
@@ -304,7 +348,7 @@ export function ReporteForm({
     const ok = await subirUna(destinoFotos, f);
     await invalidar();
     if (ok && soloFotos && fotos.every((x) => x.clave === clave || x.estado === 'ok')) {
-      await terminar('Listo: el reporte y todas sus fotos se enviaron.');
+      await terminar('Listo: el reporte y todas sus fotos se enviaron.', destinoFotos);
     }
   }
 
@@ -341,7 +385,7 @@ export function ReporteForm({
         );
         return;
       }
-      await terminar(inicial ? 'Reporte actualizado' : 'Reporte enviado. HyS lo va a revisar.');
+      await terminar(inicial ? 'Reporte actualizado' : 'Reporte enviado. HyS lo va a revisar.', id ?? undefined);
     } catch (e) {
       toast.error(`${mensajeDeError(e, 'No se pudo guardar el reporte')}. Lo que cargaste quedó guardado en este celular.`);
     } finally {
@@ -351,6 +395,7 @@ export function ReporteForm({
 
   function quitarExistente(fotoId: number) {
     if (!inicial) return;
+    setQuitandoFoto(null);
     toast.promise(quitarFoto.mutateAsync({ reporteId: inicial.id, fotoId }), {
       loading: 'Quitando la foto…',
       success: 'Foto quitada',
@@ -363,12 +408,25 @@ export function ReporteForm({
     nuevas: fotos.filter((f) => f.foto.grupo === grupo),
     onAgregar: (foto: FotoParaSubir) => setFotos((f) => [...f, { clave: nuevaClave(), foto, estado: 'pendiente' }]),
     onQuitarNueva: (clave: string) => setFotos((f) => f.filter((x) => x.clave !== clave)),
-    onQuitarExistente: inicial ? quitarExistente : undefined,
+    // Una foto ya subida no vuelve: se confirma antes de quitarla.
+    onQuitarExistente: inicial ? (fotoId: number) => setQuitandoFoto(fotoId) : undefined,
     onReintentar: (clave: string) => void reintentarUna(clave),
   });
 
   // Funciones que devuelven JSX (no componentes): un componente definido acá
   // adentro se remontaría en cada tecla y el campo perdería el foco.
+  /** Radiogroup del tipo: una sola parada de Tab y flechas que mueven y
+   * eligen (patrón ARIA radio). */
+  const indiceTipo = tipo ? tipos.indexOf(tipo) : -1;
+  function teclaTipo(e: KeyboardEvent<HTMLButtonElement>, i: number) {
+    const paso = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!paso) return;
+    e.preventDefault();
+    const siguiente = (i + paso + tipos.length) % tipos.length;
+    elegirTipo(tipos[siguiente]);
+    tiposRef.current[siguiente]?.focus();
+  }
+
   const mensajeCampo = (campo: CampoReporte): ReactNode => {
     const m = errorDe(campo);
     return m ? (
@@ -413,10 +471,15 @@ export function ReporteForm({
             {tipos.map((t, i) => (
               <button
                 key={t}
+                ref={(el) => {
+                  tiposRef.current[i] = el;
+                }}
                 id={i === 0 ? idCampo('tipo') : undefined}
                 type="button"
                 role="radio"
                 aria-checked={tipo === t}
+                tabIndex={i === (indiceTipo >= 0 ? indiceTipo : 0) ? 0 : -1}
+                onKeyDown={(e) => teclaTipo(e, i)}
                 onClick={() => elegirTipo(t)}
                 className={`min-h-12 rounded-lg px-2 py-2 text-sm font-semibold transition disabled:opacity-60 ${FOCO_VISIBLE} ${
                   tipo === t ? 'border-2 border-graphite bg-graphite text-white' : 'border border-line bg-surface text-ink hover:bg-accent/60'
@@ -451,37 +514,46 @@ export function ReporteForm({
                 </select>
                 {mensajeCampo('provinciaId')}
               </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className={ROTULO}>
-                  Contrato
-                  <select
-                    value={contratoId ?? ''}
-                    onChange={(e) => {
-                      setContratoId(e.target.value ? Number(e.target.value) : null);
-                      setTareaId(null);
-                    }}
-                    className={CAMPO}
-                    {...a11y('contratoId')}
-                  >
-                    <option value="">Elegí</option>
-                    {(catalogos?.contratos ?? []).map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.codigo} · {c.nombre}
-                      </option>
-                    ))}
-                  </select>
-                  {mensajeCampo('contratoId')}
-                </label>
+              {precargado && esAlta && (
+                <p className="-mt-2 text-xs text-slate">Provincia, contrato y tarea precargados de tu último reporte: cambialos si hace falta.</p>
+              )}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className={ROTULO}>
+                    Contrato
+                    <select
+                      value={contratoEf ?? ''}
+                      onChange={(e) => {
+                        setContratoId(e.target.value ? Number(e.target.value) : null);
+                        setTareaId(null);
+                      }}
+                      className={CAMPO}
+                      {...a11y('contratoId')}
+                      aria-describedby={[errorDe('contratoId') ? idError('contratoId') : null, 'ayuda-contrato'].filter(Boolean).join(' ')}
+                    >
+                      <option value="">Elegí</option>
+                      {(catalogos?.contratos ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.codigo} · {c.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    {mensajeCampo('contratoId')}
+                  </label>
+                  <span id="ayuda-contrato" className="text-xs text-slate">
+                    Si no es de un contrato K, elegí OTROS.
+                  </span>
+                </div>
                 <label className={ROTULO}>
                   Tarea
                   <select
-                    value={tareaId ?? ''}
-                    disabled={contratoId == null}
+                    value={tareaEf ?? ''}
+                    disabled={contratoEf == null}
                     onChange={(e) => setTareaId(e.target.value ? Number(e.target.value) : null)}
                     className={CAMPO}
                     {...a11y('tareaId')}
                   >
-                    <option value="">{contratoId == null ? 'Primero el contrato' : 'Elegí'}</option>
+                    <option value="">{contratoEf == null ? 'Primero el contrato' : 'Elegí'}</option>
                     {(tareas ?? []).map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.nombre}
@@ -491,7 +563,6 @@ export function ReporteForm({
                   {mensajeCampo('tareaId')}
                 </label>
               </div>
-              <span className="-mt-2 block text-xs text-slate">Si no es de un contrato K, elegí OTROS.</span>
               {correccion ? (
                 inicial?.punto && (
                   <p className="text-sm text-slate">
@@ -571,15 +642,27 @@ export function ReporteForm({
                 {mensajeCampo('descripcion')}
               </label>
               {reglas.involucrados !== 'no' && (
-                <div className="space-y-1.5" id={idCampo('involucrados')} aria-describedby={errorDe('involucrados') ? idError('involucrados') : undefined}>
-                  <p className="text-sm font-medium text-ink">
-                    {reglas.involucrados === 'obligatorio' ? 'Personas observadas' : 'Personas involucradas'}{' '}
-                    {reglas.involucrados === 'opcional' && <span className="font-normal text-slate">(opcional)</span>}
-                  </p>
-                  {reglas.involucrados === 'obligatorio' && (
-                    <p className="text-xs text-slate">Cada una pierde los puntos que le pongas al aprobar la inspección.</p>
-                  )}
-                  <OperariosSelect value={involucrados} onChange={setInvolucrados} />
+                <div className="space-y-1.5">
+                  <PersonasSelect
+                    id={idCampo('involucrados')}
+                    label={
+                      reglas.involucrados === 'obligatorio' ? (
+                        'Personas observadas'
+                      ) : (
+                        <>
+                          Personas involucradas <span className="font-normal text-slate">(opcional)</span>
+                        </>
+                      )
+                    }
+                    ayuda={
+                      reglas.involucrados === 'obligatorio'
+                        ? 'Cada una pierde los puntos que le pongas al aprobar la inspección.'
+                        : 'Nombrarlas no les resta puntos: sirve para que HyS sepa quién estaba.'
+                    }
+                    value={involucrados}
+                    onChange={setInvolucrados}
+                    idError={errorDe('involucrados') ? idError('involucrados') : undefined}
+                  />
                   {mensajeCampo('involucrados')}
                 </div>
               )}
@@ -685,6 +768,17 @@ export function ReporteForm({
             </>
           )}
         </>
+      )}
+      {quitandoFoto != null && (
+        <ConfirmarDialog
+          titulo="Quitar esta foto"
+          detalle="La foto ya está subida en el reporte. Si la quitás, deja de verse; para volver a tenerla hay que subirla de nuevo."
+          verbo="Quitar foto"
+          variante="danger-solid"
+          ocupado={quitarFoto.isPending}
+          onCancelar={() => setQuitandoFoto(null)}
+          onConfirmar={() => quitarExistente(quitandoFoto)}
+        />
       )}
     </form>
   );

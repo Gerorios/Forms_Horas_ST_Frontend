@@ -101,3 +101,37 @@ export async function borrarBorrador(cuil: string): Promise<void> {
 export function tieneContenido(c: CamposBorrador): boolean {
   return c.tipo != null;
 }
+
+// ------------------------------------------------------- último lugar usado
+
+/** Dónde trabaja esta persona: casi siempre repite provincia, contrato y
+ * tarea. Se precarga en el próximo reporte (crítica impeccable 2026-10-08).
+ * Es texto chico: alcanza localStorage. */
+export interface UltimoLugar {
+  provinciaId: number;
+  contratoId: number;
+  tareaId: number;
+}
+
+const claveLugar = (cuil: string) => `seguridad:ultimo-lugar:${cuil}`;
+
+export function leerUltimoLugar(cuil: string): UltimoLugar | null {
+  try {
+    const crudo = localStorage.getItem(claveLugar(cuil));
+    if (!crudo) return null;
+    const v = JSON.parse(crudo) as Partial<UltimoLugar>;
+    return typeof v.provinciaId === 'number' && typeof v.contratoId === 'number' && typeof v.tareaId === 'number'
+      ? { provinciaId: v.provinciaId, contratoId: v.contratoId, tareaId: v.tareaId }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function guardarUltimoLugar(cuil: string, lugar: UltimoLugar): void {
+  try {
+    localStorage.setItem(claveLugar(cuil), JSON.stringify(lugar));
+  } catch {
+    // Sin espacio o modo privado: la próxima vez simplemente no se precarga.
+  }
+}

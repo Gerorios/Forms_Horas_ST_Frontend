@@ -17,13 +17,50 @@ export interface FotoNueva {
   estado: EstadoSubida;
 }
 
-/** Miniatura de una foto ya subida (se pide con el token). */
-export function FotoProtegida({ reporteId, fotoId, alt }: { reporteId: number; fotoId: number; alt: string }) {
-  const { src, error } = useFotoProtegida(reporteId, fotoId);
-  if (error) return <div className="flex h-full items-center justify-center p-2 text-xs text-slate">No se pudo cargar</div>;
-  if (!src) return <div className="h-full w-full animate-pulse bg-line/60" />;
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt} className="h-full w-full object-cover" />;
+/**
+ * Miniatura de una foto ya subida (se pide con el token). Arma su propio
+ * botón: "Ampliar" si cargó, "Reintentar" si falló, nunca uno adentro del
+ * otro. Sin `onAmpliar` es solo la imagen.
+ */
+export function FotoProtegida({
+  reporteId,
+  fotoId,
+  alt,
+  onAmpliar,
+  className = '',
+}: {
+  reporteId: number;
+  fotoId: number;
+  alt: string;
+  onAmpliar?: () => void;
+  className?: string;
+}) {
+  const { src, error, reintentar } = useFotoProtegida(reporteId, fotoId);
+  if (error) {
+    return (
+      <button
+        type="button"
+        onClick={reintentar}
+        aria-label={`No se pudo cargar ${alt.toLowerCase()}. Reintentar`}
+        className={`flex h-full w-full flex-col items-center justify-center gap-1 bg-sand p-2 text-center text-xs text-ink ${FOCO_VISIBLE} ${className}`}
+      >
+        No se pudo cargar
+        <span className="font-semibold underline underline-offset-2">Reintentar</span>
+      </button>
+    );
+  }
+  const img = src ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={alt} className="h-full w-full object-cover" />
+  ) : (
+    <span className="block h-full w-full animate-pulse bg-line/60" />
+  );
+  if (!onAmpliar) return src ? img : <div className={`h-full w-full ${className}`}>{img}</div>;
+  return (
+    <button type="button" aria-label={`Ampliar: ${alt.toLowerCase()}`} onClick={onAmpliar} className={`h-full w-full cursor-zoom-in ${FOCO_VISIBLE} ${className}`}>
+      {img}
+    </button>
+  );
 }
 
 /** Foto nueva todavía sin subir: preview local. */
@@ -163,9 +200,7 @@ export function FotosGrupo({
           {existentes.map((f, i) => (
             <div key={`e${f.id}`} className={casilla}>
               {reporteId != null && (
-                <button type="button" aria-label={`Ampliar: ${nombre(i + 1).toLowerCase()}`} onClick={() => setAbierta(i)} className={ampliar}>
-                  <FotoProtegida reporteId={reporteId} fotoId={f.id} alt={nombre(i + 1)} />
-                </button>
+                <FotoProtegida reporteId={reporteId} fotoId={f.id} alt={nombre(i + 1)} onAmpliar={() => setAbierta(i)} className="absolute inset-0" />
               )}
               <RotuloOrigen origen={f.origen} conUbicacion={f.conUbicacion} />
               {onQuitarExistente && (

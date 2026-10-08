@@ -5,7 +5,7 @@ import { StatusBadge } from '@/components/status-badge';
 import type { ReporteSeguridad } from '@/lib/api/seguridad';
 import { FotoProtegida } from './fotos-grupo';
 import { VisorFotos } from './visor-fotos';
-import { FOCO_VISIBLE, TIPO_LABEL, fechaCorta, fechaHoraLarga, signo } from './tipos';
+import { TIPO_LABEL, fechaCorta, fechaHoraLarga, signo } from './tipos';
 
 function Fila({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
   return (
@@ -88,15 +88,9 @@ export function DetalleReporte({ reporte }: { reporte: ReporteSeguridad }) {
               </p>
               <div className="grid grid-cols-3 gap-2">
                 {fotos(g).map((f, i) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    aria-label={`Ampliar: ${etiqueta(g).toLowerCase()} ${i + 1}`}
-                    onClick={() => setAbierta(todas.indexOf(f))}
-                    className={`aspect-square cursor-zoom-in overflow-hidden rounded-lg border border-line ${FOCO_VISIBLE}`}
-                  >
-                    <FotoProtegida reporteId={r.id} fotoId={f.id} alt={`${etiqueta(g)} ${i + 1}`} />
-                  </button>
+                  <div key={f.id} className="aspect-square overflow-hidden rounded-lg border border-line">
+                    <FotoProtegida reporteId={r.id} fotoId={f.id} alt={`${etiqueta(g)} ${i + 1}`} onAmpliar={() => setAbierta(todas.indexOf(f))} />
+                  </div>
                 ))}
               </div>
             </div>
