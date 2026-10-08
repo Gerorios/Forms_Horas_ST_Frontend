@@ -3,12 +3,12 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/button';
-import { useSession } from '@/lib/auth/session';
 import { useProvincias, useTareas } from '@/lib/api/catalogos';
 import { mensajeDeError } from '@/lib/api/liquidacion';
 import {
   subirFoto,
   useCatalogosSeguridad,
+  useCorregirReporte,
   useCrearReporte,
   useEditarReporte,
   useInvalidarSeguridad,
@@ -21,7 +21,13 @@ import {
 import { OperariosSelect } from '@/features/reporte/operarios-select';
 import type { EmpleadoBusqueda } from '@/types/domain';
 import { FotosGrupo } from './fotos-grupo';
+import { BotonUbicacion, urlMapa, type PuntoGps } from './boton-ubicacion';
 import { CAMPOS_POR_TIPO, TIPOS_PARA_TODOS, TIPO_AYUDA, TIPO_LABEL, faltantes, hoyLocal } from './tipos';
+
+/** `autor`: alta o edición del propio reporte pendiente. `correccion`: HyS
+ * (o Admin) corrige uno ajeno en cualquier estado (ADR-027, 2026-10-08); no
+ * toca fotos ni el punto GPS, y si estaba aprobado el backend recalcula. */
+export type ModoFormulario = 'autor' | 'correccion';
 
 const CAMPO =
   'min-h-11 w-full rounded-md border border-line bg-surface px-3 py-2 text-base text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 sm:text-sm';
@@ -34,12 +40,21 @@ const ROTULO = 'flex flex-col gap-1.5 text-sm font-medium text-ink';
  * de a una. Si alguna foto falla, el reporte queda igual y el autor puede
  * sumarla editándolo.
  */
-export function ReporteForm({ inicial, onListo }: { inicial?: ReporteSeguridad; onListo: () => void }) {
-  const { perfil } = useSession();
+export function ReporteForm({
+  inicial,
+  onListo,
+  modo = 'autor',
+}: {
+  inicial?: ReporteSeguridad;
+  onListo: () => void;
+  modo?: ModoFormulario;
+}) {
+  const correccion = modo === 'correccion';
   const { data: catalogos } = useCatalogosSeguridad();
   const { data: provincias } = useProvincias();
   const crear = useCrearReporte();
   const editar = useEditarReporte();
+  const corregir = useCorregirReporte();
   const quitarFoto = useQuitarFoto();
   const invalidar = useInvalidarSeguridad();
 
@@ -57,13 +72,22 @@ export function ReporteForm({ inicial, onListo }: { inicial?: ReporteSeguridad; 
     (inicial?.involucrados ?? []).map((i) => ({ cuil: i.cuil, apellido_nombre: i.nombre, legajo: 0, cargo: '' })),
   );
   const [fotosNuevas, setFotosNuevas] = useState<FotoParaSubir[]>([]);
+  // Solo el punto tomado con el botón es del reporte; el que sale de una foto
+  // se sigue derivando de la foto.
+  const [punto, setPunto] = useState<PuntoGps | null>(
+    inicial?.punto?.origen === 'gps'
+      ? { latitud: inicial.punto.latitud, longitud: inicial.punto.longitud, errorMetros: inicial.punto.errorMetros ?? 0 }
+      : null,
+  );
   const [enviando, setEnviando] = useState(false);
   const [intentoEnviar, setIntentoEnviar] = useState(false);
 
   const { data: tareas } = useTareas(contratoId);
+  // La inspección la ven HyS y los inspectores habilitados; al corregir, HyS
+  // puede reclasificar a cualquier tipo.
   const tipos = useMemo<TipoReporte[]>(
-    () => (perfil?.rol.nombre === 'HyS' ? [...TIPOS_PARA_TODOS, 'inspeccion'] : TIPOS_PARA_TODOS),
-    [perfil],
+    () => (correccion || catalogos?.puedeInspeccionar ? [...TIPOS_PARA_TODOS, 'inspeccion'] : TIPOS_PARA_TODOS),
+    [correccion, catalogos],
   );
   const reglas = tipo ? CAMPOS_POR_TIPO[tipo] : null;
   const pendientes = faltantes({
@@ -77,6 +101,7 @@ export function ReporteForm({ inicial, onListo }: { inicial?: ReporteSeguridad; 
     provinciaId,
     contratoId,
     tareaId,
+    tienePunto: correccion ? undefined : punto != null,
   });
   const existentes = inicial?.fotos ?? [];
 
@@ -101,6 +126,7 @@ export function ReporteForm({ inicial, onListo }: { inicial?: ReporteSeguridad; 
       tareaId: tareaId!,
       descripcion: descripcion.trim(),
       ...(ubicacion.trim() ? { ubicacion: ubicacion.trim() } : {}),
+      ...(punto ? { latitud: punto.latitud, longitud: punto.longitud, errorMetros: punto.errorMetros } : {}),
       ...(reglas?.naturaleza && naturalezaId != null ? { naturalezaId } : {}),
       ...(reglas?.motivoParalizacion && motivoId != null ? { motivoParalizacionId: motivoId } : {}),
       ...(reglas?.controlRiesgo ? { controlRiesgo: controlRiesgo.trim() } : {}),
@@ -113,6 +139,14 @@ export function ReporteForm({ inicial, onListo }: { inicial?: ReporteSeguridad; 
     if (pendientes.length > 0) return;
     setEnviando(true);
     try {
+      if (correccion && inicial) {
+        await corregir.mutateAsync({ id: inicial.id, input: construirInput() });
+        toast.success(
+          inicial.estado === 'aprobado' ? 'Reporte corregido. Los puntos se recalcularon.' : 'Reporte corregido',
+        );
+        onListo();
+        return;
+      }
       const guardado = inicial
         ? await editar.mutateAsync({ id: inicial.id, input: construirInput() })
         : await crear.mutateAsync(construirInput());
@@ -258,6 +292,18 @@ export function ReporteForm({ inicial, onListo }: { inicial?: ReporteSeguridad; 
                 className={CAMPO}
               />
             </label>
+            {correccion ? (
+              inicial?.punto && (
+                <p className="text-sm text-slate">
+                  Punto en el mapa: ±{inicial.punto.errorMetros ?? '?'} m ({inicial.punto.origen === 'gps' ? 'GPS' : 'foto'}) ·{' '}
+                  <a href={urlMapa(inicial.punto)} target="_blank" rel="noreferrer" className="text-brand-deep underline">
+                    ver
+                  </a>
+                </p>
+              )
+            ) : (
+              <BotonUbicacion valor={punto} onChange={setPunto} obligatorio={reglas.puntoGps === 'obligatorio'} deshabilitado={enviando} />
+            )}
           </section>
 
           <section className={TARJETA}>
@@ -332,6 +378,12 @@ export function ReporteForm({ inicial, onListo }: { inicial?: ReporteSeguridad; 
             </section>
           )}
 
+          {correccion ? (
+            <p className="text-xs text-slate">
+              Las fotos no se tocan al corregir. Si el tipo nuevo no lleva fotos del control, esas se descartan (quedan en la
+              auditoría).
+            </p>
+          ) : (
           <section className={TARJETA}>
             <FotosGrupo
               titulo={tipo === 'propuesta_mejora' ? 'Fotos' : 'Fotos de lo que viste'}
@@ -347,6 +399,7 @@ export function ReporteForm({ inicial, onListo }: { inicial?: ReporteSeguridad; 
               Las fotos que sacás con la cámara guardan el lugar donde las sacaste, solo en ese momento. La app nunca te sigue.
             </p>
           </section>
+          )}
 
           {intentoEnviar && pendientes.length > 0 && (
             <ul role="alert" className="space-y-1 rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
@@ -357,11 +410,13 @@ export function ReporteForm({ inicial, onListo }: { inicial?: ReporteSeguridad; 
           )}
 
           <Button type="submit" variant="primary" disabled={enviando} className="min-h-12 text-base font-semibold">
-            {enviando ? 'Enviando…' : inicial ? 'Guardar cambios' : 'Enviar reporte'}
+            {enviando ? 'Enviando…' : correccion ? 'Guardar corrección' : inicial ? 'Guardar cambios' : 'Enviar reporte'}
           </Button>
-          <p className="text-center text-xs text-slate">
-            Mientras esté pendiente lo podés editar o anular. HyS lo revisa y, si lo aprueba, sumás puntos.
-          </p>
+          {!correccion && (
+            <p className="text-center text-xs text-slate">
+              Mientras esté pendiente lo podés editar o anular. HyS lo revisa y, si lo aprueba, sumás puntos.
+            </p>
+          )}
         </>
       )}
     </form>

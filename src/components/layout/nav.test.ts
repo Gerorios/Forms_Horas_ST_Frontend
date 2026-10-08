@@ -65,7 +65,7 @@ describe('navForRole', () => {
       '/seguridad',
       '/seguridad/panel',
       '/seguridad/ranking',
-      '/seguridad/periodos',
+      '/seguridad/inspectores',
     ]);
   });
 
@@ -143,12 +143,12 @@ describe('Autogestión de la Seguridad (ADR-027)', () => {
   it('panel, ranking y períodos son solo de HyS y Admin', () => {
     for (const rol of ['HyS', 'Admin'] as const) {
       const hrefs = navForRole(perfil(rol)).map((i) => i.href);
-      expect(hrefs, rol).toEqual(expect.arrayContaining(['/seguridad/panel', '/seguridad/ranking', '/seguridad/periodos']));
+      expect(hrefs, rol).toEqual(expect.arrayContaining(['/seguridad/panel', '/seguridad/ranking', '/seguridad/inspectores']));
     }
     for (const rol of ['Operario', 'JefeCuadrilla', 'JefeContrato', 'Supervisor', 'Liquidador'] as const) {
       expect(canAccess(rol, '/seguridad/panel'), rol).toBe(false);
       expect(canAccess(rol, '/seguridad/ranking'), rol).toBe(false);
-      expect(canAccess(rol, '/seguridad/periodos'), rol).toBe(false);
+      expect(canAccess(rol, '/seguridad/inspectores'), rol).toBe(false);
       // Lo de todos sigue abierto.
       expect(canAccess(rol, '/seguridad'), rol).toBe(true);
     }

@@ -37,8 +37,8 @@ export const NAV_ICONS: Record<string, ReactElement> = {
   '/seguridad/panel': svg(<><path d="M3 11.5h4l1.5 2.5h3l1.5-2.5h4" /><path d="M5 4.5h10l2 7v4a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5v-4l2-7Z" /></>),
   // Ranking y tableros: podio
   '/seguridad/ranking': svg(<><path d="M7.5 16.5V8h5v8.5M3 16.5V11h4.5M12.5 16.5V12.5H17v4" /><path d="M2.5 16.5h15" /></>),
-  // Períodos: calendario con rango
-  '/seguridad/periodos': svg(<><rect x="3" y="4.5" width="14" height="12" rx="1.5" /><path d="M3 8.5h14M7 3v3M13 3v3M6.5 12h7" /></>),
+  // Inspectores: persona con insignia
+  '/seguridad/inspectores': svg(<><circle cx="8" cy="6.5" r="3" /><path d="M2.5 17c.6-3 2.8-4.8 5.5-4.8 1.2 0 2.3.3 3.2 1" /><path d="m13 11.5 1.6 1.6 3-3.2" /></>),
   // Certificaciones: certificado con cinta
   '/certificaciones': svg(<><rect x="3.5" y="3" width="13" height="9.5" rx="1.5" /><path d="M6 6.5h7M6 9h4.5" /><path d="M8 12.5v4l2-1.3 2 1.3v-4" /></>),
 };

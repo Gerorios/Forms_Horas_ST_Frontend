@@ -58,7 +58,8 @@ export const NAV_ITEMS: NavItem[] = [
   // Calificar, medir y definir los períodos es de HyS (y Admin).
   { label: 'Panel de reportes', href: '/seguridad/panel', roles: ['HyS', 'Admin'], area: 'seguridad' },
   { label: 'Ranking y tableros', href: '/seguridad/ranking', roles: ['HyS', 'Admin'], area: 'seguridad' },
-  { label: 'Períodos', href: '/seguridad/periodos', roles: ['HyS', 'Admin'], area: 'seguridad' },
+  // Quiénes, además de HyS, pueden cargar inspecciones (ADR-027, 2026-10-08).
+  { label: 'Inspectores', href: '/seguridad/inspectores', roles: ['HyS', 'Admin'], area: 'seguridad' },
   // Perfiles no es un ítem propio: sigue siendo pestaña de Liquidación
   // (decisión del usuario, ADR-025).
   { label: 'Liquidación', href: '/liquidacion', roles: ['Liquidador', 'Admin'], area: 'resultados' },

@@ -20,6 +20,8 @@ export interface CatalogosSeguridad {
   motivosParalizacion: ItemCatalogo[];
   /** TODOS los contratos activos, no los habilitados: reportar no es imputar horas. */
   contratos: ContratoResumen[];
+  /** HyS, o un inspector habilitado: ve el tipo "Inspección de seguridad". */
+  puedeInspeccionar: boolean;
 }
 
 export interface FotoReporte {
@@ -49,7 +51,8 @@ export interface ReporteSeguridad {
   controlRiesgo: string | null;
   involucrados: { cuil: string; nombre: string }[];
   fotos: FotoReporte[];
-  punto: { latitud: number; longitud: number; errorMetros: number | null } | null;
+  /** `gps`: tomado con "Tomar mi ubicación"; `foto`: de la foto de cámara con menor error. */
+  punto: { latitud: number; longitud: number; errorMetros: number | null; origen: 'gps' | 'foto' } | null;
   puntaje: number | null;
   comentarioHys: string | null;
   /** Solo para HyS y Admin; el autor no ve quién lo calificó. */
@@ -66,6 +69,10 @@ export interface ReporteInput {
   contratoId: number;
   tareaId: number;
   ubicacion?: string;
+  /** Punto GPS propio del reporte (obligatorio en la paralización). */
+  latitud?: number;
+  longitud?: number;
+  errorMetros?: number;
   descripcion: string;
   naturalezaId?: number;
   motivoParalizacionId?: number;
@@ -73,15 +80,16 @@ export interface ReporteInput {
   involucrados?: string[];
 }
 
-export interface Periodo {
-  id: number;
-  nombre: string;
-  desde: string;
-  hasta: string;
+/** Rango de consulta de puntos, ranking y tableros ('YYYY-MM-DD', bordes
+ * incluidos). Vacío = el año en curso (lo resuelve el backend). */
+export interface RangoConsulta {
+  desde?: string;
+  hasta?: string;
 }
 
 export interface MisPuntos {
-  periodo: Periodo | null;
+  desde: string;
+  hasta: string;
   puntos: { total: number; mas: number; menos: number };
   /** null: no compite (HyS, fuera de nómina) o todavía no tiene movimientos. */
   posicion: { puesto: number; de: number } | null;
@@ -125,18 +133,10 @@ export function useReporte(id: number | null) {
   });
 }
 
-export function useMisPuntos(periodoId?: number) {
+export function useMisPuntos(rango: RangoConsulta) {
   return useQuery({
-    queryKey: [...CLAVE, 'mis-puntos', periodoId ?? null],
-    queryFn: async () =>
-      (await api.get<MisPuntos>('/seguridad/mis-puntos', { params: periodoId ? { periodoId } : {} })).data,
-  });
-}
-
-export function usePeriodos() {
-  return useQuery({
-    queryKey: [...CLAVE, 'periodos'],
-    queryFn: async () => (await api.get<(Periodo & { actual: boolean })[]>('/seguridad/periodos')).data,
+    queryKey: [...CLAVE, 'mis-puntos', rango],
+    queryFn: async () => (await api.get<MisPuntos>('/seguridad/mis-puntos', { params: rango })).data,
   });
 }
 
@@ -210,18 +210,9 @@ export interface FiltrosPanel {
   hasta?: string;
 }
 
-/** Rango de consulta del ranking y los tableros: un período guardado o un
- * rango libre. Vacío = el período actual. */
-export interface RangoConsulta {
-  periodoId?: number;
-  desde?: string;
-  hasta?: string;
-}
-
 export interface RangoRespuesta {
-  periodo: Periodo | null;
-  desde: string | null;
-  hasta: string | null;
+  desde: string;
+  hasta: string;
 }
 
 export interface FilaRanking {
@@ -264,12 +255,6 @@ export interface CalificacionInput {
   decision: 'aprobar' | 'desaprobar';
   puntaje?: number;
   comentario?: string;
-}
-
-export interface PeriodoInput {
-  nombre: string;
-  desde: string;
-  hasta: string;
 }
 
 export type CatalogoSeguridad = 'naturalezas' | 'motivos';
@@ -321,31 +306,6 @@ export function useTableros(rango: RangoConsulta) {
   });
 }
 
-export function useCrearPeriodo() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: PeriodoInput) => (await api.post<Periodo>('/seguridad/periodos', input)).data,
-    onSuccess: () => invalidar(qc),
-  });
-}
-
-export function useEditarPeriodo() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, input }: { id: number; input: PeriodoInput }) =>
-      (await api.patch<Periodo>(`/seguridad/periodos/${id}`, input)).data,
-    onSuccess: () => invalidar(qc),
-  });
-}
-
-export function useBorrarPeriodo() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: number) => (await api.delete(`/seguridad/periodos/${id}`)).data,
-    onSuccess: () => invalidar(qc),
-  });
-}
-
 export function useCatalogoAdmin(catalogo: CatalogoSeguridad) {
   return useQuery({
     queryKey: [...CLAVE, 'admin', catalogo],
@@ -366,6 +326,51 @@ export function useEditarEnCatalogo(catalogo: CatalogoSeguridad) {
   return useMutation({
     mutationFn: async ({ id, cambios }: { id: number; cambios: { nombre?: string; activo?: boolean } }) =>
       (await api.patch<ItemCatalogoAdmin>(`/seguridad/admin/${catalogo}/${id}`, cambios)).data,
+    onSuccess: () => invalidar(qc),
+  });
+}
+
+/** HyS corrige un reporte ajeno, en cualquier estado salvo anulado; si estaba
+ * aprobado, el backend recalcula los puntos (ADR-027, revisión 2026-10-08). */
+export function useCorregirReporte() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, input }: { id: number; input: ReporteInput }) =>
+      (await api.patch<ReporteSeguridad>(`/seguridad/reportes/${id}/corregir`, input)).data,
+    onSuccess: () => invalidar(qc),
+  });
+}
+
+// ------------------------------------------------------------- inspectores
+
+export interface Inspector {
+  cuil: string;
+  nombre: string;
+  rol: string;
+  activo: boolean;
+  habilitadoPor: string;
+  habilitadoEn: string;
+}
+
+export function useInspectores() {
+  return useQuery({
+    queryKey: [...CLAVE, 'inspectores'],
+    queryFn: async () => (await api.get<Inspector[]>('/seguridad/inspectores')).data,
+  });
+}
+
+export function useHabilitarInspector() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (cuil: string) => (await api.post<Inspector[]>('/seguridad/inspectores', { cuil })).data,
+    onSuccess: () => invalidar(qc),
+  });
+}
+
+export function useDeshabilitarInspector() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (cuil: string) => (await api.delete<Inspector[]>(`/seguridad/inspectores/${cuil}`)).data,
     onSuccess: () => invalidar(qc),
   });
 }

@@ -34,7 +34,7 @@ const DESCRIPCION: Record<string, string> = {
   '/seguridad': 'Ver tus reportes, la calificación de HyS y tus puntos del período.',
   '/seguridad/panel': 'Revisar y calificar los reportes de seguridad; las paralizaciones pendientes van arriba.',
   '/seguridad/ranking': 'Ranking de puntos del período y tableros de reportes e inspecciones.',
-  '/seguridad/periodos': 'Definir los períodos de medición (por ejemplo, semestrales).',
+  '/seguridad/inspectores': 'Habilitar quién, además de HyS, puede cargar inspecciones de seguridad.',
 };
 
 /** Un tile del inicio: el mismo dato que ya se calcula en su módulo — nada de

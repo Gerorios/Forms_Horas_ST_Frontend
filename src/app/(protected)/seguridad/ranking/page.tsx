@@ -3,10 +3,10 @@
 import { useState, type ReactNode } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { TableSkeleton } from '@/components/skeleton';
-import { usePeriodos, useRanking, useTableros, type Conteo, type RangoConsulta, type TipoReporte } from '@/lib/api/seguridad';
-import { TIPO_LABEL, fechaCorta, signo } from '@/features/seguridad/tipos';
+import { useRanking, useTableros, type Conteo, type TipoReporte } from '@/lib/api/seguridad';
+import { TIPO_LABEL, signo } from '@/features/seguridad/tipos';
+import { FiltroRango, RANGO_INICIAL, rangoDe, textoRango } from '@/features/seguridad/filtro-rango';
 
-const CAMPO = 'min-h-10 rounded-md border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
 const TARJETA = 'rounded-xl border border-line bg-surface p-4';
 /** Dos series que se distinguen también por luminosidad, no solo por tono. */
 const COLOR_REPORTES = 'bg-[#2f5f8a]';
@@ -76,24 +76,14 @@ function etiquetaMes(clave: string) {
   return `${mes.charAt(0).toUpperCase()}${mes.slice(1)} ${a}`;
 }
 
-/** Ranking y tableros de HyS y Admin. El rango sale de un período guardado o
- * de fechas libres; sin elegir nada, el período actual. */
+/** Ranking y tableros de HyS y Admin, por rango de fechas: cada una elige
+ * si mira el mes, el trimestre, el semestre o el año (por defecto, el año en
+ * curso). No hay períodos guardados (ADR-027, revisión 2026-10-08). */
 export default function RankingPage() {
-  const { data: periodos } = usePeriodos();
-  const [modo, setModo] = useState<string>(''); // '' = actual, id de período, o 'libre'
-  const [desde, setDesde] = useState('');
-  const [hasta, setHasta] = useState('');
-
-  const rango: RangoConsulta =
-    modo === 'libre' ? { desde: desde || undefined, hasta: hasta || undefined } : modo ? { periodoId: Number(modo) } : {};
+  const [filtro, setFiltro] = useState(RANGO_INICIAL);
+  const rango = rangoDe(filtro);
   const { data: ranking, isLoading } = useRanking(rango);
   const { data: t } = useTableros(rango);
-
-  const textoRango = ranking?.periodo
-    ? `${ranking.periodo.nombre} · ${fechaCorta(ranking.periodo.desde)} al ${fechaCorta(ranking.periodo.hasta)}`
-    : ranking?.desde || ranking?.hasta
-      ? `${ranking.desde ? fechaCorta(ranking.desde) : 'el principio'} al ${ranking.hasta ? fechaCorta(ranking.hasta) : 'hoy'}`
-      : 'Sin período vigente: todo el historial';
   const maxNaturaleza = Math.max(0, ...(t?.porNaturaleza ?? []).flatMap((n) => [n.reportes, n.inspecciones]));
   const calificados = (t?.totales.aprobados ?? 0) + (t?.totales.desaprobados ?? 0);
   const totalTodos = (t?.totales.reportes ?? 0) + (t?.totales.inspecciones ?? 0);
@@ -103,31 +93,8 @@ export default function RankingPage() {
       <PageHeader area="seguridad" title="Ranking y tableros" />
 
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs text-slate">
-          Período
-          <select aria-label="Período" value={modo} onChange={(e) => setModo(e.target.value)} className={`${CAMPO} min-w-64`}>
-            <option value="">El actual</option>
-            {(periodos ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre} ({fechaCorta(p.desde)} al {fechaCorta(p.hasta)})
-              </option>
-            ))}
-            <option value="libre">Rango libre…</option>
-          </select>
-        </label>
-        {modo === 'libre' && (
-          <>
-            <label className="flex flex-col gap-1 text-xs text-slate">
-              Desde
-              <input aria-label="Desde" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className={CAMPO} />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-slate">
-              Hasta
-              <input aria-label="Hasta" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className={CAMPO} />
-            </label>
-          </>
-        )}
-        <p className="pb-2 text-sm text-slate">{textoRango}</p>
+        <FiltroRango valor={filtro} onChange={setFiltro} />
+        {ranking && <p className="pb-2 text-sm text-slate">{textoRango(ranking)}</p>}
       </div>
 
       {ranking && ranking.pendientes > 0 && (

@@ -8,14 +8,16 @@ export interface CamposDelTipo {
   controlRiesgo: boolean;
   involucrados: 'no' | 'opcional' | 'obligatorio';
   fotosControl: boolean;
+  /** Punto GPS ("Tomar mi ubicación"): obligatorio en la paralización. */
+  puntoGps: 'obligatorio' | 'opcional';
 }
 
 export const CAMPOS_POR_TIPO: Record<TipoReporte, CamposDelTipo> = {
-  aviso_riesgo: { naturaleza: true, motivoParalizacion: false, controlRiesgo: true, involucrados: 'opcional', fotosControl: true },
-  incidente: { naturaleza: true, motivoParalizacion: false, controlRiesgo: true, involucrados: 'opcional', fotosControl: true },
-  paralizacion: { naturaleza: false, motivoParalizacion: true, controlRiesgo: true, involucrados: 'opcional', fotosControl: true },
-  propuesta_mejora: { naturaleza: false, motivoParalizacion: false, controlRiesgo: false, involucrados: 'no', fotosControl: false },
-  inspeccion: { naturaleza: true, motivoParalizacion: false, controlRiesgo: true, involucrados: 'obligatorio', fotosControl: true },
+  aviso_riesgo: { naturaleza: true, motivoParalizacion: false, controlRiesgo: true, involucrados: 'opcional', fotosControl: true, puntoGps: 'opcional' },
+  incidente: { naturaleza: true, motivoParalizacion: false, controlRiesgo: true, involucrados: 'opcional', fotosControl: true, puntoGps: 'opcional' },
+  paralizacion: { naturaleza: false, motivoParalizacion: true, controlRiesgo: true, involucrados: 'opcional', fotosControl: true, puntoGps: 'obligatorio' },
+  propuesta_mejora: { naturaleza: false, motivoParalizacion: false, controlRiesgo: false, involucrados: 'no', fotosControl: false, puntoGps: 'opcional' },
+  inspeccion: { naturaleza: true, motivoParalizacion: false, controlRiesgo: true, involucrados: 'obligatorio', fotosControl: true, puntoGps: 'opcional' },
 };
 
 export const TIPO_LABEL: Record<TipoReporte, string> = {
@@ -50,6 +52,8 @@ export interface FormularioReporte {
   provinciaId: number | null;
   contratoId: number | null;
   tareaId: number | null;
+  /** Si tiene el punto GPS. `undefined` = no se exige (corrección de HyS). */
+  tienePunto?: boolean;
 }
 
 /** Qué falta para poder enviar (vacío = listo). Mismos mensajes que el
@@ -68,6 +72,9 @@ export function faltantes(f: FormularioReporte): string[] {
   if (reglas.controlRiesgo && f.controlRiesgo.trim() === '') lista.push('Falta lo que hiciste para controlar el riesgo');
   if (reglas.involucrados === 'obligatorio' && f.involucrados.length === 0) {
     lista.push('Una inspección necesita al menos una persona observada');
+  }
+  if (reglas.puntoGps === 'obligatorio' && f.tienePunto === false) {
+    lista.push('Falta tomar la ubicación: hay que saber de qué obra se trata');
   }
   return lista;
 }

@@ -11,12 +11,12 @@ import {
   useAnularReporte,
   useMisPuntos,
   useMisReportes,
-  usePeriodos,
   type MisPuntos,
   type ReporteSeguridad,
 } from '@/lib/api/seguridad';
 import { AnularReporteDialog } from '@/features/seguridad/anular-reporte-dialog';
 import { TIPO_LABEL, fechaCorta, signo } from '@/features/seguridad/tipos';
+import { FiltroRango, RANGO_INICIAL, rangoDe, textoRango } from '@/features/seguridad/filtro-rango';
 
 const ENLACE_PRIMARIO =
   'inline-flex min-h-11 items-center justify-center rounded-md bg-brand px-4 text-sm font-semibold text-ink transition hover:brightness-95';
@@ -26,15 +26,11 @@ const ENLACE_PRIMARIO =
 const MAX_DELANTE = 10;
 
 function TarjetaPuntos({ datos }: { datos: MisPuntos }) {
-  const { periodo, puntos, posicion, delante } = datos;
+  const { puntos, posicion, delante } = datos;
   const cercanos = delante.slice(-MAX_DELANTE);
   return (
     <section className="space-y-4 rounded-xl bg-graphite p-5 text-white">
-      <p className="text-sm text-white/75">
-        {periodo
-          ? `${periodo.nombre} · ${fechaCorta(periodo.desde)} al ${fechaCorta(periodo.hasta)}`
-          : 'Sin período de medición vigente: tus puntos de siempre'}
-      </p>
+      <p className="text-sm text-white/75">{textoRango(datos)}</p>
       <div className="flex items-end justify-between gap-4">
         <div>
           <p className="font-display text-5xl font-bold leading-none text-brand">{signo(puntos.total)}</p>
@@ -116,9 +112,8 @@ function TarjetaReporte({ r, onAnular }: { r: ReporteSeguridad; onAnular: () => 
 /** Mis reportes y puntos: lo que cada persona ve de sí misma (CONTEXT.md del
  * backend, "Mis puntos"). */
 export default function MisReportesPage() {
-  const [periodoId, setPeriodoId] = useState<number | undefined>(undefined);
-  const { data: periodos } = usePeriodos();
-  const { data: puntos } = useMisPuntos(periodoId);
+  const [filtro, setFiltro] = useState(RANGO_INICIAL);
+  const { data: puntos } = useMisPuntos(rangoDe(filtro));
   const { data: reportes, isLoading } = useMisReportes();
   const anular = useAnularReporte();
   const [anulando, setAnulando] = useState<ReporteSeguridad | null>(null);
@@ -146,23 +141,7 @@ export default function MisReportesPage() {
         }
       />
 
-      {(periodos ?? []).length > 1 && (
-        <label className="flex flex-col gap-1 text-sm font-medium text-ink">
-          Período
-          <select
-            value={periodoId ?? ''}
-            onChange={(e) => setPeriodoId(e.target.value ? Number(e.target.value) : undefined)}
-            className="min-h-11 rounded-md border border-line bg-surface px-3 text-ink"
-          >
-            <option value="">El actual</option>
-            {(periodos ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <FiltroRango valor={filtro} onChange={setFiltro} />
 
       {puntos && <TarjetaPuntos datos={puntos} />}
 

@@ -9,6 +9,7 @@ import { useSession } from '@/lib/auth/session';
 import { usePanelReportes, type EstadoReporte, type FiltrosPanel, type ReporteSeguridad, type TipoReporte } from '@/lib/api/seguridad';
 import { DetalleReporte } from '@/features/seguridad/detalle-reporte';
 import { CalificarReporte } from '@/features/seguridad/calificar-reporte';
+import { ReporteForm } from '@/features/seguridad/reporte-form';
 import { TIPO_LABEL, fechaCorta } from '@/features/seguridad/tipos';
 
 const ESTADOS: { valor: EstadoReporte | ''; label: string }[] = [
@@ -31,7 +32,32 @@ function clasificacion(r: ReporteSeguridad) {
 
 function punto(r: ReporteSeguridad) {
   if (!r.punto) return '—';
-  return r.punto.errorMetros != null ? `±${Math.round(r.punto.errorMetros)} m` : 'Sí';
+  const origen = r.punto.origen === 'gps' ? 'GPS' : 'foto';
+  return r.punto.errorMetros != null ? `±${Math.round(r.punto.errorMetros)} m (${origen})` : origen;
+}
+
+/** HyS corrige un reporte ajeno (ADR-027, revisión 2026-10-08): el mismo
+ * formulario, en modo corrección, en una capa encima del panel. */
+function CorregirDialog({ reporte, onCerrar }: { reporte: ReporteSeguridad; onCerrar: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/40 p-4">
+      <div role="dialog" aria-label="Corregir reporte" className="mx-auto my-6 max-w-2xl space-y-4 rounded-xl bg-sand p-4 shadow-lg sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-semibold text-ink">Corregir reporte #{reporte.id}</h2>
+            <p className="text-sm text-slate">
+              Lo cargó {reporte.autor.nombre || reporte.autor.cuil}. Queda registrado qué cambiaste.
+              {reporte.estado === 'aprobado' && ' Está aprobado: al guardar se recalculan sus puntos.'}
+            </p>
+          </div>
+          <button type="button" onClick={onCerrar} className="min-h-10 rounded-md px-3 text-sm font-medium text-slate hover:bg-accent/60">
+            Cerrar
+          </button>
+        </div>
+        <ReporteForm inicial={reporte} modo="correccion" onListo={onCerrar} />
+      </div>
+    </div>
+  );
 }
 
 function IconoAlarma() {
@@ -49,6 +75,7 @@ function IconoAlarma() {
 export default function PanelReportesPage() {
   const { perfil } = useSession();
   const [filtros, setFiltros] = useState<FiltrosPanel>({ estado: 'pendiente' });
+  const [corrigiendo, setCorrigiendo] = useState<ReporteSeguridad | null>(null);
   const [seleccionadoId, setSeleccionadoId] = useState<number | null>(null);
   const { data, isLoading } = usePanelReportes(filtros);
   const reportes = useMemo(() => data ?? [], [data]);
@@ -210,6 +237,15 @@ export default function PanelReportesPage() {
                   </p>
                 )}
               </div>
+              {seleccionado.estado !== 'anulado' && (
+                <button
+                  type="button"
+                  onClick={() => setCorrigiendo(seleccionado)}
+                  className="w-full rounded-md border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-accent/60"
+                >
+                  Corregir tipo o datos del reporte
+                </button>
+              )}
               <div className="border-t border-line pt-4">
                 <CalificarReporte key={`${seleccionado.id}-${seleccionado.estado}`} reporte={seleccionado} miCuil={perfil?.cuil} />
               </div>
@@ -219,6 +255,7 @@ export default function PanelReportesPage() {
           )}
         </aside>
       </div>
+      {corrigiendo && <CorregirDialog reporte={corrigiendo} onCerrar={() => setCorrigiendo(null)} />}
     </div>
   );
 }

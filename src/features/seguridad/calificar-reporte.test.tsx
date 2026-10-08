@@ -54,7 +54,7 @@ describe('CalificarReporte', () => {
   it('aprobar manda el puntaje elegido', async () => {
     render(<CalificarReporte reporte={reporte()} miCuil={HYS1} />);
     await userEvent.click(screen.getByRole('radio', { name: '7' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Aprobar con 7' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Aprobar con +7' }));
     expect(h.calificar).toHaveBeenCalledWith({ id: 7, input: { decision: 'aprobar', puntaje: 7 } });
   });
 
@@ -90,8 +90,10 @@ describe('CalificarReporte', () => {
 
   it('la inspección la aprueba su autora y el puntaje se resta', async () => {
     render(<CalificarReporte reporte={reporte({ tipo: 'inspeccion', autor: { cuil: HYS1, nombre: 'HYS' } })} miCuil={HYS1} />);
-    await userEvent.click(screen.getByRole('radio', { name: '6' }));
-    expect(screen.getByRole('button', { name: 'Aprobar y restar 6' })).toBeEnabled();
+    // Se ve como una quita: título en rojo, escala con signo menos.
+    expect(screen.getByText('Quitar puntos')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: '−6' }));
+    expect(screen.getByRole('button', { name: 'Restar 6 a cada persona' })).toBeEnabled();
   });
 
   it('un calificado se puede reabrir', async () => {

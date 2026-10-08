@@ -3,12 +3,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const h = vi.hoisted(() => ({
-  rol: 'Operario',
+  puedeInspeccionar: false,
+  ubicacion: null as null | { latitud: number; longitud: number; errorMetros: number },
   crear: vi.fn(),
   subirFoto: vi.fn(),
 }));
 
-vi.mock('@/lib/auth/session', () => ({ useSession: () => ({ perfil: { cuil: '20111', rol: { nombre: h.rol } } }) }));
+vi.mock('./captura-foto', () => ({ obtenerUbicacion: async () => h.ubicacion, capturar: vi.fn() }));
 vi.mock('@/lib/api/catalogos', () => ({
   useProvincias: () => ({ data: [{ id: 1, nombre: 'Salta' }] }),
   useTareas: (contratoId: number | null) => ({ data: contratoId ? [{ id: 30, nombre: 'Conexión' }] : [] }),
@@ -19,8 +20,10 @@ vi.mock('@/lib/api/seguridad', () => ({
       naturalezas: [{ id: 5, nombre: 'E.P.P' }],
       motivosParalizacion: [{ id: 7, nombre: 'Viento / clima' }],
       contratos: [{ id: 2, codigo: 'K2', nombre: 'Operaciones Domiciliarias' }],
+      puedeInspeccionar: h.puedeInspeccionar,
     },
   }),
+  useCorregirReporte: () => ({ mutateAsync: vi.fn() }),
   useCrearReporte: () => ({ mutateAsync: h.crear }),
   useEditarReporte: () => ({ mutateAsync: vi.fn() }),
   useQuitarFoto: () => ({ mutateAsync: vi.fn() }),
@@ -41,16 +44,17 @@ async function completarComunes() {
 
 describe('ReporteForm', () => {
   beforeEach(() => {
-    h.rol = 'Operario';
+    h.puedeInspeccionar = false;
+    h.ubicacion = null;
     h.crear.mockReset().mockResolvedValue({ id: 99 });
     h.subirFoto.mockReset();
   });
 
-  it('un operario no ve el tipo Inspección; HyS sí', () => {
+  it('solo quien puede inspeccionar (HyS o inspector habilitado) ve el tipo Inspección', () => {
     const { unmount } = render(<ReporteForm onListo={vi.fn()} />);
     expect(screen.queryByRole('radio', { name: 'Inspección de seguridad' })).not.toBeInTheDocument();
     unmount();
-    h.rol = 'HyS';
+    h.puedeInspeccionar = true;
     render(<ReporteForm onListo={vi.fn()} />);
     expect(screen.getByRole('radio', { name: 'Inspección de seguridad' })).toBeInTheDocument();
   });
@@ -100,6 +104,27 @@ describe('ReporteForm', () => {
       }),
     );
     expect(h.crear.mock.calls[0][0]).not.toHaveProperty('motivoParalizacionId');
+  });
+
+  it('la paralización no se envía sin tomar la ubicación; con ubicación, la manda', async () => {
+    const onListo = vi.fn();
+    render(<ReporteForm onListo={onListo} />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Paralización de trabajos' }));
+    await completarComunes();
+    await userEvent.selectOptions(screen.getByLabelText('¿Por qué se detuvo la tarea?'), '7');
+    await userEvent.type(screen.getByLabelText(/controlar el riesgo/), 'Bajamos la cuadrilla');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar reporte' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Falta tomar la ubicación');
+    expect(h.crear).not.toHaveBeenCalled();
+
+    h.ubicacion = { latitud: -24.785912, longitud: -65.411646, errorMetros: 8.4 };
+    await userEvent.click(screen.getByRole('button', { name: 'Tomar mi ubicación' }));
+    expect(await screen.findByText(/Ubicación tomada · ±8 m/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar reporte' }));
+    await waitFor(() => expect(onListo).toHaveBeenCalled());
+    expect(h.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ tipo: 'paralizacion', latitud: -24.785912, longitud: -65.411646, errorMetros: 8 }),
+    );
   });
 
   it('la ayuda del control deja claro que avisar a otro no es gestionar', async () => {

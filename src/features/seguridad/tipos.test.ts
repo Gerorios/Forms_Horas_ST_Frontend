@@ -27,8 +27,12 @@ describe('faltantes', () => {
   it('la propuesta no pide naturaleza ni control', () => {
     expect(faltantes({ ...completo, tipo: 'propuesta_mejora', naturalezaId: null, controlRiesgo: '' })).toEqual([]);
   });
-  it('la paralización pide el motivo', () => {
-    expect(faltantes({ ...completo, tipo: 'paralizacion' })).toEqual(['Falta el motivo de la paralización']);
+  it('la paralización pide el motivo y el punto GPS (salvo en la corrección de HyS)', () => {
+    expect(faltantes({ ...completo, tipo: 'paralizacion', tienePunto: false })).toEqual([
+      'Falta el motivo de la paralización',
+      'Falta tomar la ubicación: hay que saber de qué obra se trata',
+    ]);
+    expect(faltantes({ ...completo, tipo: 'paralizacion', motivoParalizacionId: 2, naturalezaId: null })).toEqual([]);
   });
 });
 
