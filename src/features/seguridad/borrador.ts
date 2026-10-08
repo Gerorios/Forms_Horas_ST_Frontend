@@ -29,6 +29,8 @@ export interface CamposBorrador {
 }
 
 export interface Borrador {
+  /** Formato del borrador (ver VERSION_BORRADOR). */
+  version: number;
   /** ISO de la última vez que se guardó. */
   guardadoEn: string;
   campos: CamposBorrador;
@@ -40,6 +42,55 @@ export interface Borrador {
 
 const BASE = 'central-sertec-seguridad';
 const ALMACEN = 'borradores';
+
+/**
+ * Formato del borrador. Subirlo cuando cambien los campos del formulario: un
+ * borrador guardado por una versión anterior de la app se descarta en
+ * silencio en vez de cargarse a medias (los celulares pueden tener uno viejo
+ * guardado días antes de un deploy). Es un DATO del navegador, no código: no
+ * tiene nada que ver con el caché de la app.
+ */
+export const VERSION_BORRADOR = 1;
+
+/** Un borrador abandonado no se ofrece para siempre. */
+export const VENCE_DIAS = 7;
+
+const CAMPOS_VACIOS: CamposBorrador = {
+  tipo: null,
+  fechaReporte: '',
+  provinciaId: null,
+  contratoId: null,
+  tareaId: null,
+  ubicacion: '',
+  naturalezaId: null,
+  motivoId: null,
+  descripcion: '',
+  controlRiesgo: '',
+  involucrados: [],
+  punto: null,
+};
+
+/**
+ * Lo leído de IndexedDB, validado: devuelve null si es de otra versión, si
+ * venció o si no tiene forma de borrador. Los campos que falten se completan
+ * con vacíos, así un borrador incompleto nunca puede romper la pantalla.
+ */
+export function normalizarBorrador(crudo: unknown, ahora: Date = new Date()): Borrador | null {
+  if (!crudo || typeof crudo !== 'object') return null;
+  const b = crudo as Partial<Borrador>;
+  if (b.version !== VERSION_BORRADOR) return null;
+  const guardado = typeof b.guardadoEn === 'string' ? Date.parse(b.guardadoEn) : NaN;
+  if (Number.isNaN(guardado) || ahora.getTime() - guardado > VENCE_DIAS * 24 * 3600_000) return null;
+  const campos = { ...CAMPOS_VACIOS, ...(b.campos && typeof b.campos === 'object' ? b.campos : {}) };
+  if (!Array.isArray(campos.involucrados)) campos.involucrados = [];
+  return {
+    version: VERSION_BORRADOR,
+    guardadoEn: b.guardadoEn!,
+    campos,
+    fotos: Array.isArray(b.fotos) ? b.fotos.filter((f) => f && f.blob instanceof Blob) : [],
+    reporteId: typeof b.reporteId === 'number' ? b.reporteId : null,
+  };
+}
 
 function abrir(): Promise<IDBDatabase | null> {
   return new Promise((resolve) => {
@@ -85,12 +136,18 @@ async function operar<T>(modo: IDBTransactionMode, accion: (almacen: IDBObjectSt
 }
 
 /** El borrador de esta persona (uno por CUIL: el celular puede ser compartido). */
-export function leerBorrador(cuil: string): Promise<Borrador | null> {
-  return operar<Borrador>('readonly', (a) => a.get(cuil) as IDBRequest<Borrador>);
+export async function leerBorrador(cuil: string): Promise<Borrador | null> {
+  const crudo = await operar<unknown>('readonly', (a) => a.get(cuil));
+  const borrador = normalizarBorrador(crudo);
+  // De otra versión o vencido: se borra para que no vuelva a aparecer.
+  if (crudo != null && borrador == null) await borrarBorrador(cuil);
+  return borrador;
 }
 
-export async function guardarBorrador(cuil: string, borrador: Omit<Borrador, 'guardadoEn'>): Promise<void> {
-  await operar('readwrite', (a) => a.put({ ...borrador, guardadoEn: new Date().toISOString() }, cuil));
+export async function guardarBorrador(cuil: string, borrador: Omit<Borrador, 'guardadoEn' | 'version'>): Promise<void> {
+  await operar('readwrite', (a) =>
+    a.put({ ...borrador, version: VERSION_BORRADOR, guardadoEn: new Date().toISOString() }, cuil),
+  );
 }
 
 export async function borrarBorrador(cuil: string): Promise<void> {

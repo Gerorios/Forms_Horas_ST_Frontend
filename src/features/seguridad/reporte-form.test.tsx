@@ -82,6 +82,7 @@ async function avisoCompleto() {
 }
 
 const BORRADOR: Borrador = {
+  version: 1,
   guardadoEn: '2026-10-08T14:32:00.000Z',
   reporteId: null,
   fotos: [],
