@@ -1,17 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { createRef } from 'react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReporteSeguridad } from '@/lib/api/seguridad';
 
-const h = vi.hoisted(() => ({ calificar: vi.fn(), reabrir: vi.fn() }));
+const h = vi.hoisted(() => ({
+  calificar: vi.fn(),
+  reabrir: vi.fn(),
+  toast: { promise: vi.fn(), loading: vi.fn(() => 'id-toast'), success: vi.fn(), error: vi.fn() },
+}));
 
 vi.mock('@/lib/api/seguridad', () => ({
   useCalificarReporte: () => ({ mutateAsync: h.calificar, isPending: false }),
   useReabrirReporte: () => ({ mutateAsync: h.reabrir, isPending: false }),
 }));
-vi.mock('sonner', () => ({ toast: { promise: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: h.toast }));
 
-import { CalificarReporte } from './calificar-reporte';
+import { CalificarReporte, type AtajosCalificar } from './calificar-reporte';
 
 const HYS1 = '27222222222';
 const HYS2 = '27333333333';
@@ -49,6 +54,8 @@ describe('CalificarReporte', () => {
   beforeEach(() => {
     h.calificar.mockReset().mockResolvedValue({});
     h.reabrir.mockReset().mockResolvedValue({});
+    h.toast.success.mockReset();
+    h.toast.promise.mockReset();
   });
 
   it('aprobar manda el puntaje elegido', async () => {
@@ -92,7 +99,7 @@ describe('CalificarReporte', () => {
     render(<CalificarReporte reporte={reporte({ tipo: 'inspeccion', autor: { cuil: HYS1, nombre: 'HYS' } })} miCuil={HYS1} />);
     // Se ve como una quita: título en rojo, escala con signo menos.
     expect(screen.getByText('Quitar puntos')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('radio', { name: '−6' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'menos 6' }));
     expect(screen.getByRole('button', { name: 'Restar 6 a cada persona' })).toBeEnabled();
   });
 
@@ -106,7 +113,7 @@ describe('CalificarReporte', () => {
       ],
     });
     render(<CalificarReporte reporte={insp} miCuil={HYS1} />);
-    await userEvent.click(screen.getByRole('radio', { name: '−5' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'menos 5' }));
     await userEvent.click(screen.getByRole('button', { name: 'Restar 5 a cada persona' }));
 
     const dialogo = await screen.findByRole('dialog');
@@ -122,7 +129,7 @@ describe('CalificarReporte', () => {
   it('cancelar la confirmación no califica', async () => {
     const insp = reporte({ tipo: 'inspeccion', autor: { cuil: HYS1, nombre: 'HYS' }, involucrados: [{ cuil: '20444', nombre: 'GOMEZ LUIS' }] });
     render(<CalificarReporte reporte={insp} miCuil={HYS1} />);
-    await userEvent.click(screen.getByRole('radio', { name: '−3' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'menos 3' }));
     await userEvent.click(screen.getByRole('button', { name: 'Restar 3 a cada persona' }));
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancelar' }));
     expect(h.calificar).not.toHaveBeenCalled();
@@ -161,15 +168,76 @@ describe('CalificarReporte', () => {
     await vi.waitFor(() => expect(onHecho).toHaveBeenCalled());
   });
 
-  it('atajos: un número elige el puntaje, "1" "0" es el 10 y A aprueba', async () => {
-    render(<CalificarReporte reporte={reporte()} miCuil={HYS1} />);
-    fireEvent.keyDown(window, { key: '7' });
+  it('atajos (los dispara el panel por ref): un número elige el puntaje, "1" "0" es el 10 y A aprueba', async () => {
+    const ref = createRef<AtajosCalificar>();
+    render(<CalificarReporte ref={ref} reporte={reporte()} miCuil={HYS1} />);
+    act(() => void ref.current!.tecla('7'));
     expect(screen.getByRole('radio', { name: '7' })).toHaveAttribute('aria-checked', 'true');
-    fireEvent.keyDown(window, { key: '1' });
-    fireEvent.keyDown(window, { key: '0' });
+    act(() => {
+      ref.current!.tecla('1');
+      ref.current!.tecla('0');
+    });
     expect(screen.getByRole('radio', { name: '10' })).toHaveAttribute('aria-checked', 'true');
-    fireEvent.keyDown(window, { key: 'a' });
+    act(() => void ref.current!.tecla('a'));
     expect(h.calificar).toHaveBeenCalledWith({ id: 7, input: { decision: 'aprobar', puntaje: 10 } });
+  });
+
+  it('ya no escucha el teclado de toda la ventana', async () => {
+    render(<CalificarReporte reporte={reporte()} miCuil={HYS1} />);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '7' }));
+    expect(screen.getByRole('radio', { name: '7' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('la escala es un grupo de opciones: un solo Tab, y las flechas eligen', async () => {
+    render(<CalificarReporte reporte={reporte()} miCuil={HYS1} />);
+    const radios = screen.getAllByRole('radio');
+    expect(radios.filter((r) => r.tabIndex === 0)).toHaveLength(1);
+    radios[0].focus();
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}');
+    expect(screen.getByRole('radio', { name: '2' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: '2' })).toHaveFocus();
+    await userEvent.keyboard('{End}');
+    expect(screen.getByRole('radio', { name: '10' })).toHaveAttribute('aria-checked', 'true');
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(screen.getByRole('radio', { name: '9' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('aprobar sin confirmación ofrece Deshacer, que reabre y vuelve a elegir el reporte', async () => {
+    const onDeshecho = vi.fn();
+    render(<CalificarReporte reporte={reporte()} miCuil={HYS1} onDeshecho={onDeshecho} />);
+    await userEvent.click(screen.getByRole('radio', { name: '7' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Aprobar con +7' }));
+    await vi.waitFor(() => expect(h.toast.success).toHaveBeenCalled());
+    const [, opciones] = h.toast.success.mock.calls[0];
+    expect(opciones.action.label).toBe('Deshacer');
+    opciones.action.onClick();
+    expect(h.reabrir).toHaveBeenCalledWith(7);
+    await vi.waitFor(() => expect(onDeshecho).toHaveBeenCalledWith(7));
+  });
+
+  it('lo que pasó por una confirmación no ofrece Deshacer', async () => {
+    render(<CalificarReporte reporte={reporte({ estado: 'aprobado', puntaje: 8 })} miCuil={HYS1} />);
+    await userEvent.click(screen.getByRole('radio', { name: '5' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Aprobar con +5' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cambiar el puntaje' }));
+    await vi.waitFor(() => expect(h.toast.success).toHaveBeenCalled());
+    expect(h.toast.success.mock.calls[0][1]?.action).toBeUndefined();
+  });
+
+  it('en una inspección, Desaprobar es neutro y dice que nadie pierde puntos', () => {
+    render(<CalificarReporte reporte={reporte({ tipo: 'inspeccion', autor: { cuil: HYS1, nombre: 'HYS' } })} miCuil={HYS1} />);
+    const desaprobar = screen.getByRole('button', { name: /Desaprobar/ });
+    expect(desaprobar).toHaveTextContent('nadie pierde puntos');
+    expect(desaprobar.className).not.toContain('text-danger');
+  });
+
+  it('el comentario es opcional al aprobar y se marca obligatorio al intentar desaprobar', async () => {
+    render(<CalificarReporte reporte={reporte()} miCuil={HYS1} />);
+    await userEvent.click(screen.getByRole('radio', { name: '7' }));
+    expect(screen.getByText('(opcional)')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Desaprobar' }));
+    expect(screen.getByText('(obligatorio para desaprobar)')).toBeInTheDocument();
+    expect(screen.getByLabelText(/Comentario para el autor/)).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('los atajos no actúan mientras se escribe el comentario', async () => {

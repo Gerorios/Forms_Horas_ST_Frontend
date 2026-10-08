@@ -41,9 +41,10 @@ export function Button({
   return (
     <button
       type={type}
-      // Foco de teclado visible: el anillo global (dorado al 50 %) casi no se ve
-      // sobre blanco; acá va sólido y separado del borde.
-      className={`inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-50 ${VARIANT_CLS[variant]} ${SIZE_CLS[size]} ${className}`}
+      // Foco de teclado visible: contorno brand-deep separado del borde. El
+      // dorado de la marca (ring-brand) da menos de 3:1 sobre blanco y casi no
+      // se ve; es el mismo estilo que FOCO_VISIBLE de Seguridad.
+      className={`inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-deep disabled:opacity-50 ${VARIANT_CLS[variant]} ${SIZE_CLS[size]} ${className}`}
       {...props}
     />
   );

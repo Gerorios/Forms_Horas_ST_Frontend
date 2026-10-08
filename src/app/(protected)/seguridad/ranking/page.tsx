@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
 import { TableSkeleton, TilesSkeleton } from '@/components/skeleton';
 import { useRanking, useTableros, type Conteo, type TipoReporte } from '@/lib/api/seguridad';
-import { TIPO_LABEL, signo } from '@/features/seguridad/tipos';
+import { FOCO_VISIBLE, TIPO_LABEL, signo } from '@/features/seguridad/tipos';
 import { FiltroRango, rangoDe, textoRango, type FiltroRangoValor } from '@/features/seguridad/filtro-rango';
 import { ErrorCarga } from '@/features/seguridad/error-carga';
 import { rangoDeUrl, urlDeRango } from '@/features/seguridad/ranking-url';
@@ -15,6 +15,10 @@ const TARJETA = 'rounded-xl border border-line bg-surface p-4';
  * validada sobre blanco; el dorado de la marca no se usa como color de dato. */
 const COLOR_REPORTES = 'bg-chart-2';
 const COLOR_INSPECCIONES = 'bg-chart-5';
+/** Quién carga las inspecciones: un par propio, que no reusa los colores de
+ * "lo que reporta la gente" / "lo que encuentran las inspecciones". */
+const COLOR_HYS = 'bg-graphite';
+const COLOR_INSPECTORES = 'bg-chart-4';
 
 /**
  * Inspecciones de HyS contra las de los inspectores habilitados. Muchas del
@@ -33,13 +37,20 @@ function KpiInspecciones({ hys, inspectores }: { hys: number; inspectores: numbe
       {total > 0 ? (
         <>
           <div className="flex h-2 overflow-hidden rounded-full bg-line" role="img" aria-label={`${pctHys}% de HyS, ${100 - pctHys}% de inspectores`}>
-            <div className="bg-graphite" style={{ width: `${pctHys}%` }} />
-            <div className="bg-chart-2" style={{ width: `${100 - pctHys}%` }} />
+            <div className={COLOR_HYS} style={{ width: `${pctHys}%` }} />
+            <div className={COLOR_INSPECTORES} style={{ width: `${100 - pctHys}%` }} />
           </div>
-          <p className="text-xs text-slate">
-            {pctHys}% de HyS · {100 - pctHys}% del resto
-            {hys === 0 && <span className="font-medium text-warn"> · HyS no cargó ninguna</span>}
+          <p className="flex flex-wrap gap-x-3 text-xs text-slate">
+            <span className="inline-flex items-center gap-1.5">
+              <span className={`h-2.5 w-2.5 rounded-sm ${COLOR_HYS}`} aria-hidden />
+              {pctHys}% de HyS
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className={`h-2.5 w-2.5 rounded-sm ${COLOR_INSPECTORES}`} aria-hidden />
+              {100 - pctHys}% del resto
+            </span>
           </p>
+          {hys === 0 && <p className="text-xs font-medium text-ink">HyS no cargó ninguna: conviene salir más a campo.</p>}
         </>
       ) : (
         <p className="text-xs text-slate">Ninguna inspección en el rango</p>
@@ -144,11 +155,11 @@ function Leyenda() {
   );
 }
 
-function Seccion({ titulo, children, extra }: { titulo: string; children: ReactNode; extra?: ReactNode }) {
+function Seccion({ titulo, children, extra, protagonista }: { titulo: string; children: ReactNode; extra?: ReactNode; protagonista?: boolean }) {
   return (
-    <section className={`${TARJETA} space-y-3`}>
+    <section className={`${TARJETA} space-y-3 ${protagonista ? 'border-graphite/30' : ''}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-base font-semibold text-ink">{titulo}</h2>
+        <h2 className={`font-display font-semibold text-ink ${protagonista ? 'text-xl' : 'text-base'}`}>{titulo}</h2>
         {extra}
       </div>
       {children}
@@ -172,7 +183,11 @@ function etiquetaMes(clave: string) {
   return `${mes.charAt(0).toUpperCase()}${mes.slice(1)} ${a}`;
 }
 
-/** Ranking y tableros de HyS y Admin, por rango de fechas: cada una elige
+/** Ranking y tableros de HyS y Admin. El ranking va primero: es el número
+ * que HyS anuncia a las cuadrillas (crítica 2026-10-08); los indicadores lo
+ * acompañan debajo.
+ *
+ * Ranking y tableros de HyS y Admin, por rango de fechas: cada una elige
  * si mira el mes, el trimestre, el semestre o el año (por defecto, el año en
  * curso). No hay períodos guardados (ADR-027, revisión 2026-10-08). El rango
  * va en la dirección de la página: sobrevive a recargar y se comparte.
@@ -214,27 +229,9 @@ export default function RankingPage() {
         </p>
       )}
 
-      {tableros.isError ? (
-        <ErrorCarga que="los tableros" onReintentar={() => tableros.refetch()} reintentando={tableros.isFetching} />
-      ) : tableros.isLoading || !t ? (
-        <TilesSkeleton count={5} />
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          <Kpi label="Participación" valor={`${t.participacion.personas} de ${t.participacion.nominaActiva}`} detalle="personas con al menos un reporte" />
-          <Kpi label="Aprobados" valor={pct(t.totales.aprobados, calificados)} detalle={`${t.totales.aprobados} aprobados · ${t.totales.desaprobados} desaprobados`} />
-          <Kpi
-            label="Respuesta de HyS"
-            valor={t.respuestaHysDias == null ? '—' : `${t.respuestaHysDias.toLocaleString('es-AR')} días`}
-            detalle="promedio de envío a calificación"
-          />
-          <KpiInspecciones hys={t.inspeccionesPorOrigen.hys} inspectores={t.inspeccionesPorOrigen.inspectores} />
-          <Kpi label="Reportes con punto en el mapa" valor={pct(t.conPunto, totalTodos)} detalle={`${t.conPunto} de ${totalTodos}, por GPS o foto de cámara`} />
-        </div>
-      )}
-
       <div className="flex flex-wrap items-start gap-4">
         <div className="min-w-0 flex-[3_1_520px]">
-          <Seccion titulo="Ranking" extra={r && <span className="text-sm text-slate">{r.filas.length} personas con movimientos</span>}>
+          <Seccion titulo="Ranking" protagonista extra={r && <span className="text-sm text-slate">{r.filas.length} personas con movimientos</span>}>
             {ranking.isError ? (
               <ErrorCarga que="el ranking" onReintentar={() => ranking.refetch()} reintentando={ranking.isFetching} />
             ) : ranking.isLoading || !r ? (
@@ -256,9 +253,9 @@ export default function RankingPage() {
                   </thead>
                   <tbody className="tabular-nums">
                     {r.filas.map((f) => (
-                      <tr key={f.cuil} className="border-b border-line/60 last:border-0">
-                        <td className="py-2 pr-2 font-mono">{f.puesto}º</td>
-                        <td className="px-2 py-2 text-ink">{f.nombre || f.cuil}</td>
+                      <tr key={f.cuil} className={`border-b border-line/60 last:border-0 ${f.puesto <= 3 && f.total > 0 ? 'bg-accent/50' : ''}`}>
+                        <td className={`py-2 pr-2 font-mono ${f.puesto <= 3 && f.total > 0 ? 'font-semibold text-brand-deep' : ''}`}>{f.puesto}º</td>
+                        <td className={`px-2 py-2 text-ink ${f.puesto <= 3 && f.total > 0 ? 'font-semibold' : ''}`}>{f.nombre || f.cuil}</td>
                         <td className="px-2 py-2 font-mono text-slate">{f.legajo ?? '—'}</td>
                         <td className="px-2 py-2 text-right font-mono text-approved">{signo(f.mas)}</td>
                         <td className="px-2 py-2 text-right font-mono text-danger">{f.menos > 0 ? `−${f.menos}` : '0'}</td>
@@ -310,9 +307,32 @@ export default function RankingPage() {
         </div>
       </div>
 
+      <section aria-labelledby="indicadores" className="space-y-3">
+        <h2 id="indicadores" className="font-display text-base font-semibold text-ink">
+          Indicadores del rango
+        </h2>
+      {tableros.isError ? (
+          <ErrorCarga que="los tableros" onReintentar={() => tableros.refetch()} reintentando={tableros.isFetching} />
+        ) : tableros.isLoading || !t ? (
+          <TilesSkeleton count={5} />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <Kpi label="Participación" valor={`${t.participacion.personas} de ${t.participacion.nominaActiva}`} detalle="personas con al menos un reporte" />
+            <Kpi label="Aprobados" valor={pct(t.totales.aprobados, calificados)} detalle={`${t.totales.aprobados} aprobados · ${t.totales.desaprobados} desaprobados`} />
+            <Kpi
+              label="Respuesta de HyS"
+              valor={t.respuestaHysDias == null ? '—' : `${t.respuestaHysDias.toLocaleString('es-AR')} días`}
+              detalle="promedio de envío a calificación"
+            />
+            <KpiInspecciones hys={t.inspeccionesPorOrigen.hys} inspectores={t.inspeccionesPorOrigen.inspectores} />
+            <Kpi label="Reportes con punto en el mapa" valor={pct(t.conPunto, totalTodos)} detalle={`${t.conPunto} de ${totalTodos}, por GPS o foto de cámara`} />
+          </div>
+        )}
+      </section>
+
       {t && (
         <details className="group space-y-4 rounded-xl border border-line bg-sand-deep/60 p-4 open:bg-transparent open:p-0 open:border-0">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-1 font-display text-base font-semibold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
+          <summary className={`flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-1 font-display text-base font-semibold text-ink ${FOCO_VISIBLE}`}>
             <span>
               Más detalle
               <span className="ml-2 font-sans text-sm font-normal text-slate">

@@ -6,6 +6,7 @@ import { Button } from '@/components/button';
 import { PillActivo } from '@/features/admin/pill-activo';
 import { CardsSkeleton } from '@/components/skeleton';
 import { ErrorCarga } from './error-carga';
+import { FOCO_VISIBLE } from './tipos';
 import { mensajeDeError } from '@/lib/api/liquidacion';
 import {
   useCatalogoAdmin,
@@ -16,7 +17,7 @@ import {
 } from '@/lib/api/seguridad';
 
 const inputCls =
-  'min-h-11 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
+  `min-h-11 rounded-md border border-line bg-surface px-3 py-2 text-ink focus:border-brand-deep ${FOCO_VISIBLE}`;
 
 function Fila({ catalogo, item }: { catalogo: CatalogoSeguridad; item: ItemCatalogoAdmin }) {
   const editar = useEditarEnCatalogo(catalogo);
@@ -42,7 +43,7 @@ function Fila({ catalogo, item }: { catalogo: CatalogoSeguridad; item: ItemCatal
             disabled={editar.isPending}
             onToggle={() => guardar({ activo: !item.activo }, item.activo ? 'Desactivado' : 'Activado')}
           />
-          <Button variant="secondary" size="sm" onClick={() => setAbierto((v) => !v)}>
+          <Button variant="secondary" size="sm" className="min-h-11" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)}>
             {abierto ? 'Cerrar' : 'Renombrar ▾'}
           </Button>
         </div>
@@ -55,6 +56,7 @@ function Fila({ catalogo, item }: { catalogo: CatalogoSeguridad; item: ItemCatal
           </label>
           <Button
             variant="primary"
+            className="min-h-11"
             disabled={!puedeGuardar}
             onClick={() =>
               guardar({ nombre: nombre.trim() }, 'Nombre actualizado')
@@ -101,7 +103,7 @@ export function CatalogoSeguridadAdmin({ catalogo, titulo, ayuda }: { catalogo: 
           placeholder="Nombre"
           className={`flex-1 ${inputCls}`}
         />
-        <Button variant="primary" disabled={crear.isPending || !nombre.trim()} onClick={agregar}>
+        <Button variant="primary" className="min-h-11" disabled={crear.isPending || !nombre.trim()} onClick={agregar}>
           Agregar
         </Button>
       </div>

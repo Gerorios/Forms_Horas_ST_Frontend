@@ -63,6 +63,13 @@ describe('Ranking y tableros', () => {
     h.refetch.mockReset();
   });
 
+  it('el ranking va antes que los indicadores: es lo que HyS anuncia', () => {
+    render(<RankingPage />);
+    const ranking = screen.getByRole('heading', { name: 'Ranking' });
+    const indicadores = screen.getByRole('heading', { name: 'Indicadores del rango' });
+    expect(ranking.compareDocumentPosition(indicadores) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('quiénes más reportan, por cantidad de envíos', () => {
     render(<RankingPage />);
     const tabla = screen.getByText('Quiénes más reportan').closest('section')!;
@@ -75,7 +82,8 @@ describe('Ranking y tableros', () => {
   it('inspecciones de HyS contra las del resto', () => {
     render(<RankingPage />);
     expect(screen.getByText('Inspecciones: HyS / inspectores')).toBeInTheDocument();
-    expect(screen.getByText(/20% de HyS · 80% del resto/)).toBeInTheDocument();
+    expect(screen.getByText('20% de HyS')).toBeInTheDocument();
+    expect(screen.getByText('80% del resto')).toBeInTheDocument();
   });
 
   it('avisa cuando HyS no cargó ninguna inspección', () => {
