@@ -57,6 +57,10 @@ export function DetalleReporte({ reporte }: { reporte: ReporteSeguridad }) {
           {r.provincia.nombre}
           {r.ubicacion ? ` · ${r.ubicacion}` : ''}
         </Fila>
+        {r.tipo === 'paralizacion' && !r.punto && (
+          // Sin GPS (2026-10-08): el autor no pudo tomar la ubicación y la contó en la referencia.
+          <Fila etiqueta="GPS">Sin ubicación: el autor no pudo tomarla</Fila>
+        )}
         {r.naturaleza && <Fila etiqueta="Naturaleza">{r.naturaleza.nombre}</Fila>}
         {r.motivoParalizacion && <Fila etiqueta="Motivo">{r.motivoParalizacion.nombre}</Fila>}
         {r.involucrados.length > 0 && (

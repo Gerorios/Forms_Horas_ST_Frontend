@@ -33,6 +33,7 @@ export function BotonUbicacion({
   deshabilitado,
   idCampo,
   idError,
+  onFallo,
 }: {
   valor: PuntoGps | null;
   onChange: (p: PuntoGps | null) => void;
@@ -42,6 +43,9 @@ export function BotonUbicacion({
   idCampo?: string;
   /** id del mensaje de error del formulario, si falta el punto. */
   idError?: string;
+  /** No se pudo obtener la ubicación (sin señal, permiso negado): el
+   * formulario ofrece seguir sin punto. */
+  onFallo?: () => void;
 }) {
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +56,7 @@ export function BotonUbicacion({
     const p = await obtenerUbicacion(20_000);
     setBuscando(false);
     if (!p) {
+      onFallo?.();
       setError('No pudimos obtener la ubicación. Revisá que el celular tenga el GPS prendido y que le hayas dado permiso al navegador.');
       return;
     }

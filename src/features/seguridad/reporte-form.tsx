@@ -130,6 +130,9 @@ export function ReporteForm({
       ? { latitud: inicial.punto.latitud, longitud: inicial.punto.longitud, errorMetros: inicial.punto.errorMetros ?? 0 }
       : null,
   );
+  /** Falló el GPS y el autor eligió seguir sin punto (ADR-027, 2026-10-08). */
+  const [gpsFallo, setGpsFallo] = useState(false);
+  const [sinUbicacion, setSinUbicacion] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [intentoEnviar, setIntentoEnviar] = useState(false);
   /** Reporte ya creado en este alta: desde acá solo se completan fotos, nunca
@@ -160,6 +163,18 @@ export function ReporteForm({
   const tipoPorUrl = tipoInicial && tipos.includes(tipoInicial) ? tipoInicial : null;
   const tipo = tipoElegido ?? tipoPorUrl;
   const reglas = tipo ? CAMPOS_POR_TIPO[tipo] : null;
+  // Una foto sacada con la cámara que trae ubicación también sirve como punto
+  // (la de menor error), si no se tomó con el botón.
+  const puntoFoto = useMemo<PuntoGps | null>(() => {
+    const conPunto = fotos
+      .map((f) => f.foto)
+      .filter((f) => f.origen === 'camara' && f.ubicacion != null)
+      .map((f) => f.ubicacion!);
+    if (conPunto.length === 0) return null;
+    const mejor = conPunto.reduce((a, b) => (b.errorMetros < a.errorMetros ? b : a));
+    return { latitud: mejor.latitud, longitud: mejor.longitud, errorMetros: Math.round(mejor.errorMetros) };
+  }, [fotos]);
+  const puntoEf = punto ?? puntoFoto;
   const errores = faltantesPorCampo({
     tipo,
     naturalezaId,
@@ -171,7 +186,9 @@ export function ReporteForm({
     provinciaId,
     contratoId: contratoEf,
     tareaId: tareaEf,
-    tienePunto: correccion ? undefined : punto != null,
+    tienePunto: correccion ? undefined : puntoEf != null,
+    sinUbicacion,
+    ubicacion,
   });
   const mostrarErrores = intentoEnviar && errores.length > 0;
   const errorDe = (c: CampoReporte) => (intentoEnviar ? errores.find((e) => e.campo === c)?.mensaje : undefined);
@@ -297,7 +314,8 @@ export function ReporteForm({
       tareaId: tareaEf!,
       descripcion: descripcion.trim(),
       ...(ubicacion.trim() ? { ubicacion: ubicacion.trim() } : {}),
-      ...(punto ? { latitud: punto.latitud, longitud: punto.longitud, errorMetros: punto.errorMetros } : {}),
+      ...(puntoEf ? { latitud: puntoEf.latitud, longitud: puntoEf.longitud, errorMetros: puntoEf.errorMetros } : {}),
+      ...(!puntoEf && sinUbicacion ? { sinUbicacion: true } : {}),
       ...(reglas?.naturaleza && naturalezaId != null ? { naturalezaId } : {}),
       ...(reglas?.motivoParalizacion && motivoId != null ? { motivoParalizacionId: motivoId } : {}),
       ...(reglas?.controlRiesgo ? { controlRiesgo: controlRiesgo.trim() } : {}),
@@ -581,13 +599,41 @@ export function ReporteForm({
                     deshabilitado={enviando || soloFotos}
                     idCampo={idCampo('punto')}
                     idError={errorDe('punto') ? idError('punto') : undefined}
+                    onFallo={() => setGpsFallo(true)}
                   />
                   {mensajeCampo('punto')}
+                  {!punto && puntoFoto && (
+                    <p className="text-sm text-ink">Se usa la ubicación de tu foto de cámara (±{puntoFoto.errorMetros} m).</p>
+                  )}
+                  {reglas.puntoGps === 'obligatorio' && !puntoEf && gpsFallo && !sinUbicacion && (
+                    <button
+                      type="button"
+                      onClick={() => setSinUbicacion(true)}
+                      className={`inline-flex min-h-11 items-center text-sm font-medium text-ink underline underline-offset-2 ${FOCO_VISIBLE}`}
+                    >
+                      No puedo tomar la ubicación
+                    </button>
+                  )}
+                  {reglas.puntoGps === 'obligatorio' && !puntoEf && sinUbicacion && (
+                    <div className="space-y-1 rounded-lg border border-line bg-sand-deep px-3 py-2 text-sm text-ink">
+                      <p>Se envía sin ubicación GPS. Contá abajo dónde fue: obra, calle o una referencia para encontrarla.</p>
+                      <button
+                        type="button"
+                        onClick={() => setSinUbicacion(false)}
+                        className={`inline-flex min-h-11 items-center underline underline-offset-2 ${FOCO_VISIBLE}`}
+                      >
+                        Volver a intentar con el GPS
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
               <label className={ROTULO}>
                 <span>
-                  Referencia del lugar <span className="font-normal text-slate">(opcional)</span>
+                  Referencia del lugar{' '}
+                  <span className="font-normal text-slate">
+                    {reglas.puntoGps === 'obligatorio' && !puntoEf && sinUbicacion ? '(obligatoria sin GPS)' : '(opcional)'}
+                  </span>
                 </span>
                 <input
                   type="text"
@@ -596,7 +642,9 @@ export function ReporteForm({
                   placeholder="Ej.: Ruta 9 km 1580, depósito Salta"
                   onChange={(e) => setUbicacion(e.target.value)}
                   className={CAMPO}
+                  {...a11y('ubicacion')}
                 />
+                {mensajeCampo('ubicacion')}
               </label>
             </section>
 

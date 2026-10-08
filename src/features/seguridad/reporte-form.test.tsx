@@ -205,6 +205,35 @@ describe('ReporteForm', () => {
     );
   });
 
+  it('si el GPS falla, la paralización se puede enviar sin punto con la referencia del lugar', async () => {
+    const onListo = vi.fn();
+    render(<ReporteForm onListo={onListo} />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Paralización de trabajos' }));
+    await completarComunes();
+    await userEvent.selectOptions(screen.getByLabelText('¿Por qué se detuvo la tarea?'), '7');
+    await userEvent.type(screen.getByLabelText(/controlar el riesgo/), 'Bajamos la cuadrilla');
+
+    // Antes de intentar con el GPS no se ofrece la salida.
+    expect(screen.queryByRole('button', { name: 'No puedo tomar la ubicación' })).not.toBeInTheDocument();
+    h.ubicacion = null; // sin señal / permiso negado
+    await userEvent.click(screen.getByRole('button', { name: 'Tomar mi ubicación' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'No puedo tomar la ubicación' }));
+
+    // Sin referencia del lugar, no se envía.
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar reporte' }));
+    // Hay dos alertas: el aviso del GPS y el resumen de faltantes.
+    expect(screen.getAllByRole('alert').map((e) => e.textContent).join(' ')).toContain('contá en la referencia del lugar dónde fue');
+    expect(h.crear).not.toHaveBeenCalled();
+
+    await userEvent.type(screen.getByLabelText(/Referencia del lugar/), 'Obra K6, Belgrano 1200, dentro del pozo');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar reporte' }));
+    await waitFor(() => expect(onListo).toHaveBeenCalled());
+    expect(h.crear).toHaveBeenCalledWith(
+      expect.objectContaining({ tipo: 'paralizacion', sinUbicacion: true, ubicacion: 'Obra K6, Belgrano 1200, dentro del pozo' }),
+    );
+    expect(h.crear.mock.calls[0][0]).not.toHaveProperty('latitud');
+  });
+
   it('la ayuda del control deja claro que avisar a otro no es gestionar', async () => {
     render(<ReporteForm onListo={vi.fn()} />);
     await userEvent.click(screen.getByRole('radio', { name: 'Incidente' }));

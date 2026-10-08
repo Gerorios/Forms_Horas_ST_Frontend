@@ -54,6 +54,9 @@ export interface FormularioReporte {
   tareaId: number | null;
   /** Si tiene el punto GPS. `undefined` = no se exige (corrección de HyS). */
   tienePunto?: boolean;
+  /** No pudo tomar la ubicación: la referencia del lugar pasa a ser obligatoria. */
+  sinUbicacion?: boolean;
+  ubicacion?: string;
 }
 
 /** Campos del formulario que pueden faltar, en el orden en que aparecen en
@@ -65,6 +68,7 @@ export type CampoReporte =
   | 'contratoId'
   | 'tareaId'
   | 'punto'
+  | 'ubicacion'
   | 'naturalezaId'
   | 'motivoParalizacionId'
   | 'descripcion'
@@ -83,7 +87,9 @@ export function faltantesPorCampo(f: FormularioReporte): { campo: CampoReporte; 
   if (f.contratoId == null) falta('contratoId', 'Falta el contrato');
   if (f.tareaId == null) falta('tareaId', 'Falta la tarea');
   if (reglas.puntoGps === 'obligatorio' && f.tienePunto === false) {
-    falta('punto', 'Falta tomar la ubicación: hay que saber de qué obra se trata');
+    // Sin GPS la paralización no queda trabada: alcanza con decir dónde fue.
+    if (!f.sinUbicacion) falta('punto', 'Falta tomar la ubicación: hay que saber de qué obra se trata');
+    else if (!f.ubicacion?.trim()) falta('ubicacion', 'Sin ubicación GPS, contá en la referencia del lugar dónde fue');
   }
   if (reglas.naturaleza && f.naturalezaId == null) falta('naturalezaId', 'Falta la naturaleza del riesgo');
   if (reglas.motivoParalizacion && f.motivoParalizacionId == null) {
