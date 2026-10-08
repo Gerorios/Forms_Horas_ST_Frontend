@@ -249,6 +249,10 @@ export interface Tableros extends RangoRespuesta {
   porNaturaleza: { nombre: string; reportes: number; inspecciones: number }[];
   porMes: { mes: string; reportes: number; inspecciones: number }[];
   masInspeccionados: { cuil: string; nombre: string; cantidad: number; puntos: number }[];
+  /** Quiénes más reportan (sin inspecciones), por cantidad de envíos. */
+  masReportan: { cuil: string; nombre: string; enviados: number; aprobados: number; puntos: number }[];
+  /** Inspecciones cargadas por HyS vs. por los inspectores habilitados. */
+  inspeccionesPorOrigen: { hys: number; inspectores: number };
 }
 
 export interface CalificacionInput {

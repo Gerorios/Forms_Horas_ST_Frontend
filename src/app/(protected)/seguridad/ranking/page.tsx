@@ -12,6 +12,38 @@ const TARJETA = 'rounded-xl border border-line bg-surface p-4';
 const COLOR_REPORTES = 'bg-[#2f5f8a]';
 const COLOR_INSPECCIONES = 'bg-[#e08a2e]';
 
+/**
+ * Inspecciones de HyS contra las de los inspectores habilitados. Muchas del
+ * resto muestran compromiso de los inspectores; ninguna de HyS es una alerta
+ * para que HyS salga más a campo.
+ */
+function KpiInspecciones({ hys, inspectores }: { hys: number; inspectores: number }) {
+  const total = hys + inspectores;
+  const pctHys = total ? Math.round((hys / total) * 100) : 0;
+  return (
+    <div className={`${TARJETA} space-y-1.5`}>
+      <p className="text-sm text-slate">Inspecciones: HyS / inspectores</p>
+      <p className="font-display text-2xl font-semibold text-ink">
+        {hys} <span className="text-slate">/</span> {inspectores}
+      </p>
+      {total > 0 ? (
+        <>
+          <div className="flex h-2 overflow-hidden rounded-full bg-line" role="img" aria-label={`${pctHys}% de HyS, ${100 - pctHys}% de inspectores`}>
+            <div className="bg-graphite" style={{ width: `${pctHys}%` }} />
+            <div className="bg-brand" style={{ width: `${100 - pctHys}%` }} />
+          </div>
+          <p className="text-xs text-slate">
+            {pctHys}% de HyS · {100 - pctHys}% del resto
+            {hys === 0 && <span className="font-medium text-warn"> · HyS no cargó ninguna</span>}
+          </p>
+        </>
+      ) : (
+        <p className="text-xs text-slate">Ninguna inspección en el rango</p>
+      )}
+    </div>
+  );
+}
+
 function Kpi({ label, valor, detalle }: { label: string; valor: string; detalle: string }) {
   return (
     <div className={`${TARJETA} space-y-1`}>
@@ -105,7 +137,7 @@ export default function RankingPage() {
       )}
 
       {t && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <Kpi label="Participación" valor={`${t.participacion.personas} de ${t.participacion.nominaActiva}`} detalle="personas con al menos un reporte" />
           <Kpi label="Aprobados" valor={pct(t.totales.aprobados, calificados)} detalle={`${t.totales.aprobados} aprobados · ${t.totales.desaprobados} desaprobados`} />
           <Kpi
@@ -113,7 +145,8 @@ export default function RankingPage() {
             valor={t.respuestaHysDias == null ? '—' : `${t.respuestaHysDias.toLocaleString('es-AR')} días`}
             detalle="promedio de envío a calificación"
           />
-          <Kpi label="Reportes con punto en el mapa" valor={pct(t.conPunto, totalTodos)} detalle={`${t.conPunto} de ${totalTodos}, por foto de cámara`} />
+          <KpiInspecciones hys={t.inspeccionesPorOrigen.hys} inspectores={t.inspeccionesPorOrigen.inspectores} />
+          <Kpi label="Reportes con punto en el mapa" valor={pct(t.conPunto, totalTodos)} detalle={`${t.conPunto} de ${totalTodos}, por GPS o foto de cámara`} />
         </div>
       )}
 
@@ -166,7 +199,7 @@ export default function RankingPage() {
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className={`h-2.5 w-2.5 rounded-sm ${COLOR_INSPECCIONES}`} />
-                  Lo que encuentra HyS
+                  Lo que encuentran las inspecciones
                 </span>
               </div>
             }
@@ -187,6 +220,39 @@ export default function RankingPage() {
           </Seccion>
         </div>
       </div>
+
+      {t && (
+        <Seccion titulo="Quiénes más reportan" extra={<span className="text-sm text-slate">por cantidad de reportes enviados, sin inspecciones</span>}>
+          {t.masReportan.length === 0 ? (
+            <p className="text-sm text-slate">Nadie envió reportes en este rango.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[420px] text-sm">
+                <thead>
+                  <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
+                    <th className="py-2 pr-2">#</th>
+                    <th className="px-2 py-2">Persona</th>
+                    <th className="px-2 py-2 text-right">Enviados</th>
+                    <th className="px-2 py-2 text-right">Aprobados</th>
+                    <th className="py-2 pl-2 text-right">Puntos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {t.masReportan.map((p, i) => (
+                    <tr key={p.cuil} className="border-b border-line/60 last:border-0">
+                      <td className="py-2 pr-2 font-mono">{i + 1}</td>
+                      <td className="px-2 py-2 text-ink">{p.nombre || p.cuil}</td>
+                      <td className="px-2 py-2 text-right font-mono font-semibold text-ink">{p.enviados}</td>
+                      <td className="px-2 py-2 text-right font-mono text-slate">{p.aprobados}</td>
+                      <td className="py-2 pl-2 text-right font-mono text-approved">{signo(p.puntos)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Seccion>
+      )}
 
       {t && (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
