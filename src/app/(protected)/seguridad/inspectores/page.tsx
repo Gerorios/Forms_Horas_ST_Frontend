@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/button';
-import { TableSkeleton } from '@/components/skeleton';
+import { CardsSkeleton } from '@/components/skeleton';
 import { mensajeDeError } from '@/lib/api/liquidacion';
 import { useDeshabilitarInspector, useHabilitarInspector, useInspectores } from '@/lib/api/seguridad';
 import { OperariosSelect } from '@/features/reporte/operarios-select';
+import { ConfirmarDialog } from '@/features/seguridad/confirmar-dialog';
+import { ErrorCarga } from '@/features/seguridad/error-carga';
 import type { EmpleadoBusqueda } from '@/types/domain';
 
 function fecha(iso: string) {
@@ -20,7 +22,8 @@ function fecha(iso: string) {
  * algunos supervisores. Sus inspecciones las sigue aprobando HyS.
  */
 export default function InspectoresPage() {
-  const { data: inspectores, isLoading } = useInspectores();
+  const { data: inspectores, isLoading, isError, refetch, isFetching } = useInspectores();
+  const [quitando, setQuitando] = useState<{ cuil: string; nombre: string } | null>(null);
   const habilitar = useHabilitarInspector();
   const deshabilitar = useDeshabilitarInspector();
   const [elegido, setElegido] = useState<EmpleadoBusqueda[]>([]);
@@ -37,6 +40,7 @@ export default function InspectoresPage() {
   }
 
   function quitar(cuil: string, nombre: string) {
+    setQuitando(null);
     toast.promise(deshabilitar.mutateAsync(cuil), {
       loading: 'Quitando…',
       success: `${nombre} ya no puede cargar inspecciones`,
@@ -63,8 +67,10 @@ export default function InspectoresPage() {
 
       <section className="space-y-3">
         <h2 className="font-display text-lg font-semibold text-ink">Habilitados</h2>
-        {isLoading ? (
-          <TableSkeleton />
+        {isError ? (
+          <ErrorCarga que="los inspectores" onReintentar={() => refetch()} reintentando={isFetching} />
+        ) : isLoading ? (
+          <CardsSkeleton count={2} />
         ) : (inspectores ?? []).length === 0 ? (
           <p className="rounded-xl border border-dashed border-line p-5 text-center text-sm text-slate">
             Todavía no habilitaste a nadie: por ahora solo HyS carga inspecciones.
@@ -82,7 +88,13 @@ export default function InspectoresPage() {
                     {i.rol} · habilitado {i.habilitadoPor ? `por ${i.habilitadoPor} ` : ''}el {fecha(i.habilitadoEn)}
                   </p>
                 </div>
-                <Button variant="danger" size="sm" disabled={deshabilitar.isPending} onClick={() => quitar(i.cuil, i.nombre)}>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  disabled={deshabilitar.isPending}
+                  onClick={() => setQuitando({ cuil: i.cuil, nombre: i.nombre })}
+                  className="min-h-10"
+                >
                   Quitar
                 </Button>
               </li>
@@ -90,6 +102,19 @@ export default function InspectoresPage() {
           </ul>
         )}
       </section>
+
+      {quitando && (
+        <ConfirmarDialog
+          titulo={`Quitar a ${quitando.nombre} como inspector`}
+          detalle="Deja de poder cargar inspecciones. Las que ya cargó quedan como están y se siguen calificando."
+          afectados={[quitando.nombre]}
+          verbo="Quitar habilitación"
+          variante="danger-solid"
+          ocupado={deshabilitar.isPending}
+          onCancelar={() => setQuitando(null)}
+          onConfirmar={() => quitar(quitando.cuil, quitando.nombre)}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes } from 'react';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-solid';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-solid' | 'approve';
 type Size = 'xs' | 'sm' | 'md';
 
 const VARIANT_CLS: Record<Variant, string> = {
@@ -10,6 +10,9 @@ const VARIANT_CLS: Record<Variant, string> = {
   ghost: 'text-slate hover:bg-accent/60',
   danger: 'border border-danger text-danger hover:bg-danger/10',
   'danger-solid': 'bg-danger text-white hover:brightness-95',
+  // Aprobar algo que suma (Autogestión de la Seguridad): verde, no el dorado
+  // de la marca, para que "suma puntos" se lea distinto de "acción principal".
+  approve: 'bg-approved text-white hover:brightness-95',
 };
 
 // Los 3 tamaños que ya estaban en uso, copiados y pegados: xs en filas de
@@ -38,7 +41,9 @@ export function Button({
   return (
     <button
       type={type}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition disabled:opacity-50 ${VARIANT_CLS[variant]} ${SIZE_CLS[size]} ${className}`}
+      // Foco de teclado visible: el anillo global (dorado al 50 %) casi no se ve
+      // sobre blanco; acá va sólido y separado del borde.
+      className={`inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-50 ${VARIANT_CLS[variant]} ${SIZE_CLS[size]} ${className}`}
       {...props}
     />
   );
