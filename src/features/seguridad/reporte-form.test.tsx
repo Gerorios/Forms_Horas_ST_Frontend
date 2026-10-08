@@ -11,6 +11,9 @@ const h = vi.hoisted(() => ({
   borrador: null as Borrador | null,
   guardarBorrador: vi.fn(),
   borrarBorrador: vi.fn(),
+  ultimoLugar: null as null | { provinciaId: number; contratoId: number; tareaId: number },
+  guardarUltimoLugar: vi.fn(),
+  quitarFoto: vi.fn(),
 }));
 
 vi.mock('./captura-foto', () => ({
@@ -27,6 +30,8 @@ vi.mock('./borrador', () => ({
   guardarBorrador: h.guardarBorrador,
   borrarBorrador: h.borrarBorrador,
   tieneContenido: (c: { tipo: unknown }) => c.tipo != null,
+  leerUltimoLugar: () => h.ultimoLugar,
+  guardarUltimoLugar: h.guardarUltimoLugar,
 }));
 vi.mock('@/lib/auth/session', () => ({ useSession: () => ({ perfil: { cuil: '20111', rol: { nombre: 'Operario' } } }) }));
 vi.mock('@/lib/api/catalogos', () => ({
@@ -45,11 +50,13 @@ vi.mock('@/lib/api/seguridad', () => ({
   useCorregirReporte: () => ({ mutateAsync: vi.fn() }),
   useCrearReporte: () => ({ mutateAsync: h.crear }),
   useEditarReporte: () => ({ mutateAsync: vi.fn() }),
-  useQuitarFoto: () => ({ mutateAsync: vi.fn() }),
+  useQuitarFoto: () => ({ mutateAsync: h.quitarFoto, isPending: false }),
   useInvalidarSeguridad: () => vi.fn(),
   subirFoto: h.subirFoto,
+  urlFoto: (r: number, f: number) => `/seguridad/reportes/${r}/fotos/${f}`,
 }));
 vi.mock('@/lib/api/empleados', () => ({ useBuscarEmpleados: () => ({ data: [] }) }));
+vi.mock('@/lib/api/client', () => ({ api: { get: async () => ({ data: new Blob(['jpg'], { type: 'image/jpeg' }) }) } }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), message: vi.fn(), promise: vi.fn() } }));
 
 import { ReporteForm } from './reporte-form';
@@ -103,6 +110,9 @@ describe('ReporteForm', () => {
     h.subirFoto.mockReset().mockResolvedValue({});
     h.guardarBorrador.mockReset();
     h.borrarBorrador.mockReset();
+    h.ultimoLugar = null;
+    h.guardarUltimoLugar.mockReset();
+    h.quitarFoto.mockReset().mockResolvedValue({});
   });
 
   it('solo quien puede inspeccionar (HyS o inspector habilitado) ve el tipo Inspección', () => {
@@ -249,5 +259,78 @@ describe('ReporteForm', () => {
     expect(h.subirFoto).toHaveBeenLastCalledWith(99, expect.objectContaining({ grupo: 'riesgo' }));
     // Nunca se crea un segundo reporte.
     expect(h.crear).toHaveBeenCalledTimes(1);
+  });
+
+  it('el tipo es un grupo de opciones: una sola parada de Tab y flechas que eligen', async () => {
+    render(<ReporteForm onListo={vi.fn()} />);
+    const radios = screen.getAllByRole('radio');
+    expect(radios.filter((r) => r.tabIndex === 0)).toHaveLength(1);
+    radios[0].focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByRole('radio', { name: 'Incidente' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Incidente' })).toHaveFocus();
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}');
+    // Da la vuelta: del primero pasa al último.
+    expect(screen.getByRole('radio', { name: 'Propuesta de mejora' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('nombrar involucrados aclara que no les resta puntos', async () => {
+    render(<ReporteForm onListo={vi.fn()} />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Aviso de riesgo' }));
+    expect(screen.getByRole('combobox', { name: /Personas involucradas/ })).toHaveAccessibleDescription(
+      /Nombrarlas no les resta puntos/,
+    );
+  });
+
+  it('precarga provincia, contrato y tarea del último reporte; al enviar los recuerda y devuelve el id para el recibo', async () => {
+    h.ultimoLugar = { provinciaId: 1, contratoId: 2, tareaId: 30 };
+    const onListo = vi.fn();
+    render(<ReporteForm onListo={onListo} />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Aviso de riesgo' }));
+    expect(await screen.findByText(/precargados de tu último reporte/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Provincia donde pasó')).toHaveValue('1');
+    expect(screen.getByLabelText('Contrato')).toHaveValue('2');
+    expect(screen.getByLabelText('Tarea')).toHaveValue('30');
+    expect(screen.getByLabelText('Contrato')).toHaveAccessibleDescription(/elegí OTROS/);
+
+    await userEvent.type(screen.getByLabelText('Contá qué viste'), 'Zanja');
+    await userEvent.selectOptions(screen.getByLabelText('Naturaleza del riesgo'), '5');
+    await userEvent.type(screen.getByLabelText(/controlar el riesgo/), 'Vallé');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar reporte' }));
+    await waitFor(() => expect(onListo).toHaveBeenCalledWith(99));
+    expect(h.guardarUltimoLugar).toHaveBeenCalledWith('20111', { provinciaId: 1, contratoId: 2, tareaId: 30 });
+  });
+
+  it('quitar una foto ya subida pide confirmación', async () => {
+    const inicial = {
+      id: 7,
+      tipo: 'aviso_riesgo',
+      estado: 'pendiente',
+      fechaReporte: '2026-10-06',
+      enviadoEn: '2026-10-07T11:42:00Z',
+      autor: { cuil: '20111', nombre: 'PEREZ' },
+      provincia: { id: 1, nombre: 'Salta' },
+      contrato: { id: 2, codigo: 'K2', nombre: 'K2' },
+      tarea: { id: 30, nombre: 'Conexión' },
+      ubicacion: null,
+      descripcion: 'Zanja',
+      naturaleza: { id: 5, nombre: 'E.P.P' },
+      motivoParalizacion: null,
+      controlRiesgo: 'Vallé',
+      involucrados: [],
+      fotos: [{ id: 41, grupo: 'riesgo', origen: 'galeria', subidoEn: '2026-10-07T11:42:00Z', conUbicacion: false }],
+      punto: null,
+      puntaje: null,
+      comentarioHys: null,
+      calificadoPor: null,
+      calificadoEn: null,
+      motivoAnulacion: null,
+      alarma: false,
+    } as const;
+    render(<ReporteForm inicial={inicial as never} onListo={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Quitar fotos de lo que viste 1' }));
+    expect(h.quitarFoto).not.toHaveBeenCalled();
+    await userEvent.click(await screen.findByRole('button', { name: 'Quitar foto' }));
+    await waitFor(() => expect(h.quitarFoto).toHaveBeenCalledWith({ reporteId: 7, fotoId: 41 }));
   });
 });

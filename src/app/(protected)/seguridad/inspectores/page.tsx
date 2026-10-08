@@ -7,7 +7,7 @@ import { Button } from '@/components/button';
 import { CardsSkeleton } from '@/components/skeleton';
 import { mensajeDeError } from '@/lib/api/liquidacion';
 import { useDeshabilitarInspector, useHabilitarInspector, useInspectores } from '@/lib/api/seguridad';
-import { OperariosSelect } from '@/features/reporte/operarios-select';
+import { PersonasSelect } from '@/features/seguridad/personas-select';
 import { ConfirmarDialog } from '@/features/seguridad/confirmar-dialog';
 import { ErrorCarga } from '@/features/seguridad/error-carga';
 import type { EmpleadoBusqueda } from '@/types/domain';
@@ -58,8 +58,14 @@ export default function InspectoresPage() {
 
       <section className="space-y-3 rounded-xl border border-line bg-surface p-4">
         <h2 className="font-medium text-ink">Habilitar a alguien</h2>
-        <p className="text-xs text-slate">Tiene que tener usuario en el sistema.</p>
-        <OperariosSelect value={elegido} onChange={(v) => setElegido(v.slice(-1))} />
+        <PersonasSelect
+          id="persona-inspector"
+          label="Persona a habilitar"
+          ayuda="Tiene que tener usuario en el sistema."
+          max={1}
+          value={elegido}
+          onChange={setElegido}
+        />
         <Button variant="primary" disabled={elegido.length === 0 || habilitar.isPending} onClick={agregar}>
           Habilitar como inspector
         </Button>

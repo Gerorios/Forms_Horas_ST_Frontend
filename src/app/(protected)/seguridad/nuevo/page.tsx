@@ -16,7 +16,13 @@ function esTipo(v: string | null): v is TipoReporte {
 function Formulario() {
   const router = useRouter();
   const tipo = useSearchParams().get('tipo');
-  return <ReporteForm tipoInicial={esTipo(tipo) ? tipo : undefined} onListo={() => router.push('/seguridad')} />;
+  // Al terminar, Mis reportes resalta el recién enviado como recibo.
+  return (
+    <ReporteForm
+      tipoInicial={esTipo(tipo) ? tipo : undefined}
+      onListo={(id) => router.push(id != null ? `/seguridad?nuevo=${id}` : '/seguridad')}
+    />
+  );
 }
 
 /** Nuevo Reporte de Seguridad: lo usa cualquier rol, pensado para el celular. */

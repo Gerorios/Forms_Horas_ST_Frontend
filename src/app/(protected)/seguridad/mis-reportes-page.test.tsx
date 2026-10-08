@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReporteSeguridad } from '@/lib/api/seguridad';
 
 const h = vi.hoisted(() => ({
   reportes: { data: undefined as unknown, isLoading: false, isError: false, refetch: vi.fn() },
   puntos: { data: undefined as unknown, isLoading: false, isError: false, refetch: vi.fn() },
+  params: new URLSearchParams(),
+  replace: vi.fn(),
 }));
 
 vi.mock('@/lib/api/seguridad', () => ({
@@ -14,6 +16,10 @@ vi.mock('@/lib/api/seguridad', () => ({
   useAnularReporte: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock('sonner', () => ({ toast: { promise: vi.fn() } }));
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => h.params,
+  useRouter: () => ({ replace: h.replace }),
+}));
 
 import MisReportesPage from './page';
 
@@ -57,6 +63,8 @@ const PUNTOS = {
 
 describe('Mis reportes y puntos', () => {
   beforeEach(() => {
+    h.params = new URLSearchParams();
+    h.replace.mockReset();
     h.reportes = { data: [], isLoading: false, isError: false, refetch: vi.fn() };
     h.puntos = { data: PUNTOS, isLoading: false, isError: false, refetch: vi.fn() };
   });
@@ -98,5 +106,34 @@ describe('Mis reportes y puntos', () => {
     render(<MisReportesPage />);
     expect(screen.getByText('¿Cómo se ganan puntos?')).toBeInTheDocument();
     expect(screen.getByText(/Avisarle a otro no suma/)).toBeInTheDocument();
+  });
+
+  it('el rango va dentro de la tarjeta de puntos y las inspecciones que restaron quedan justo debajo', () => {
+    h.puntos = {
+      ...h.puntos,
+      data: { ...PUNTOS, inspecciones: [{ fecha: '2026-10-05', naturaleza: 'E.P.P', contrato: 'K8', descripcion: 'Sin casco', puntos: -6 }] },
+    };
+    h.reportes = { ...h.reportes, data: [reporte(1)] };
+    render(<MisReportesPage />);
+    const tarjeta = screen.getByRole('region', { name: 'Mis puntos' });
+    expect(within(tarjeta).getByLabelText('Rango de los puntos')).toBeInTheDocument();
+    const porQue = screen.getByRole('heading', { name: 'Por qué perdiste puntos' });
+    const lista = screen.getByRole('heading', { name: 'Todos mis reportes' });
+    // "Por qué perdiste puntos" va antes de la lista de reportes.
+    expect(porQue.compareDocumentPosition(lista) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('el reporte recién enviado (?nuevo=) se resalta como recibo y se limpia la URL', () => {
+    h.params = new URLSearchParams('nuevo=2');
+    h.reportes = { ...h.reportes, data: [reporte(2), reporte(1)] };
+    render(<MisReportesPage />);
+    expect(screen.getByText('Recién enviado · Pendiente: HyS lo revisa')).toBeInTheDocument();
+    expect(h.replace).toHaveBeenCalledWith('/seguridad', { scroll: false });
+  });
+
+  it('el comentario de un rechazo no usa el fondo de elogio', () => {
+    h.reportes = { ...h.reportes, data: [reporte(3, { estado: 'desaprobado', comentarioHys: 'No hubo gestión' })] };
+    render(<MisReportesPage />);
+    expect(screen.getByText('No hubo gestión').parentElement?.className).toContain('bg-danger/10');
   });
 });
