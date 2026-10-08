@@ -56,27 +56,76 @@ export interface FormularioReporte {
   tienePunto?: boolean;
 }
 
-/** Qué falta para poder enviar (vacío = listo). Mismos mensajes que el
- * backend, para que el operario lea lo mismo en los dos lados. */
-export function faltantes(f: FormularioReporte): string[] {
-  if (!f.tipo) return ['Elegí qué querés reportar'];
+/** Campos del formulario que pueden faltar, en el orden en que aparecen en
+ * pantalla: el primero es al que se lleva el foco al intentar enviar. */
+export type CampoReporte =
+  | 'tipo'
+  | 'fechaReporte'
+  | 'provinciaId'
+  | 'contratoId'
+  | 'tareaId'
+  | 'punto'
+  | 'naturalezaId'
+  | 'motivoParalizacionId'
+  | 'descripcion'
+  | 'involucrados'
+  | 'controlRiesgo';
+
+/** Qué falta para poder enviar, campo por campo (vacío = listo). Mismos
+ * mensajes que el backend, para que el operario lea lo mismo en los dos lados. */
+export function faltantesPorCampo(f: FormularioReporte): { campo: CampoReporte; mensaje: string }[] {
+  if (!f.tipo) return [{ campo: 'tipo', mensaje: 'Elegí qué querés reportar' }];
   const reglas = CAMPOS_POR_TIPO[f.tipo];
-  const lista: string[] = [];
-  if (!f.fechaReporte) lista.push('Falta la fecha');
-  if (f.provinciaId == null) lista.push('Falta la provincia');
-  if (f.contratoId == null) lista.push('Falta el contrato');
-  if (f.tareaId == null) lista.push('Falta la tarea');
-  if (reglas.naturaleza && f.naturalezaId == null) lista.push('Falta la naturaleza del riesgo');
-  if (reglas.motivoParalizacion && f.motivoParalizacionId == null) lista.push('Falta el motivo de la paralización');
-  if (f.descripcion.trim() === '') lista.push(f.tipo === 'propuesta_mejora' ? 'Falta tu propuesta' : 'Falta contar qué viste');
-  if (reglas.controlRiesgo && f.controlRiesgo.trim() === '') lista.push('Falta lo que hiciste para controlar el riesgo');
-  if (reglas.involucrados === 'obligatorio' && f.involucrados.length === 0) {
-    lista.push('Una inspección necesita al menos una persona observada');
-  }
+  const lista: { campo: CampoReporte; mensaje: string }[] = [];
+  const falta = (campo: CampoReporte, mensaje: string) => lista.push({ campo, mensaje });
+  if (!f.fechaReporte) falta('fechaReporte', 'Falta la fecha');
+  if (f.provinciaId == null) falta('provinciaId', 'Falta la provincia');
+  if (f.contratoId == null) falta('contratoId', 'Falta el contrato');
+  if (f.tareaId == null) falta('tareaId', 'Falta la tarea');
   if (reglas.puntoGps === 'obligatorio' && f.tienePunto === false) {
-    lista.push('Falta tomar la ubicación: hay que saber de qué obra se trata');
+    falta('punto', 'Falta tomar la ubicación: hay que saber de qué obra se trata');
+  }
+  if (reglas.naturaleza && f.naturalezaId == null) falta('naturalezaId', 'Falta la naturaleza del riesgo');
+  if (reglas.motivoParalizacion && f.motivoParalizacionId == null) {
+    falta('motivoParalizacionId', 'Falta el motivo de la paralización');
+  }
+  if (f.descripcion.trim() === '') {
+    falta('descripcion', f.tipo === 'propuesta_mejora' ? 'Falta tu propuesta' : 'Falta contar qué viste');
+  }
+  if (reglas.involucrados === 'obligatorio' && f.involucrados.length === 0) {
+    falta('involucrados', 'Una inspección necesita al menos una persona observada');
+  }
+  if (reglas.controlRiesgo && f.controlRiesgo.trim() === '') {
+    falta('controlRiesgo', 'Falta lo que hiciste para controlar el riesgo');
   }
   return lista;
+}
+
+/** Los mensajes de `faltantesPorCampo`, en orden de pantalla. */
+export function faltantes(f: FormularioReporte): string[] {
+  return faltantesPorCampo(f).map((x) => x.mensaje);
+}
+
+/** Foco de teclado visible en los botones propios del módulo: contorno
+ * sólido con separación, en el dorado oscuro (el dorado claro no llega a 3:1
+ * sobre blanco o arena). */
+export const FOCO_VISIBLE = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-deep';
+
+/** Fecha y hora con año ('08/10/2026 14:32'): con el año en curso por defecto
+ * en los rangos, una fecha sin año es ambigua. */
+export function fechaHoraLarga(iso: string): string {
+  return new Date(iso).toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/** Coordenadas para mostrar: 5 decimales (~1 m) alcanzan. */
+export function coordenada(n: number): string {
+  return n.toFixed(5);
 }
 
 /** 'YYYY-MM-DD' de hoy en hora local (el celular está en Argentina). */

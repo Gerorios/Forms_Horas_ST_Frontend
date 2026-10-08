@@ -28,9 +28,10 @@ describe('faltantes', () => {
     expect(faltantes({ ...completo, tipo: 'propuesta_mejora', naturalezaId: null, controlRiesgo: '' })).toEqual([]);
   });
   it('la paralización pide el motivo y el punto GPS (salvo en la corrección de HyS)', () => {
+    // En el orden de la pantalla: la ubicación está antes que el motivo.
     expect(faltantes({ ...completo, tipo: 'paralizacion', tienePunto: false })).toEqual([
-      'Falta el motivo de la paralización',
       'Falta tomar la ubicación: hay que saber de qué obra se trata',
+      'Falta el motivo de la paralización',
     ]);
     expect(faltantes({ ...completo, tipo: 'paralizacion', motivoParalizacionId: 2, naturalezaId: null })).toEqual([]);
   });
