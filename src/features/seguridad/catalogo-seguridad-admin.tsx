@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/button';
 import { PillActivo } from '@/features/admin/pill-activo';
+import { CardsSkeleton } from '@/components/skeleton';
+import { ErrorCarga } from './error-carga';
 import { mensajeDeError } from '@/lib/api/liquidacion';
 import {
   useCatalogoAdmin,
@@ -14,7 +16,7 @@ import {
 } from '@/lib/api/seguridad';
 
 const inputCls =
-  'rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
+  'min-h-11 rounded-md border border-line bg-surface px-3 py-2 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
 
 function Fila({ catalogo, item }: { catalogo: CatalogoSeguridad; item: ItemCatalogoAdmin }) {
   const editar = useEditarEnCatalogo(catalogo);
@@ -35,6 +37,8 @@ function Fila({ catalogo, item }: { catalogo: CatalogoSeguridad; item: ItemCatal
         <div className="ml-auto flex items-center gap-2">
           <PillActivo
             activo={item.activo}
+            nombre={item.nombre}
+            efecto="Deja de aparecer en el formulario de reportes. Los reportes que ya la usan la conservan."
             disabled={editar.isPending}
             onToggle={() => guardar({ activo: !item.activo }, item.activo ? 'Desactivado' : 'Activado')}
           />
@@ -72,7 +76,7 @@ function Fila({ catalogo, item }: { catalogo: CatalogoSeguridad; item: ItemCatal
  * nunca se borra: los reportes viejos la siguen apuntando.
  */
 export function CatalogoSeguridadAdmin({ catalogo, titulo, ayuda }: { catalogo: CatalogoSeguridad; titulo: string; ayuda: string }) {
-  const { data, isLoading } = useCatalogoAdmin(catalogo);
+  const { data, isLoading, isError, refetch, isFetching } = useCatalogoAdmin(catalogo);
   const crear = useCrearEnCatalogo(catalogo);
   const [nombre, setNombre] = useState('');
 
@@ -101,14 +105,16 @@ export function CatalogoSeguridadAdmin({ catalogo, titulo, ayuda }: { catalogo: 
           Agregar
         </Button>
       </div>
-      {isLoading ? (
-        <p className="text-slate">Cargando…</p>
+      {isError ? (
+        <ErrorCarga que={titulo.toLowerCase()} onReintentar={() => refetch()} reintentando={isFetching} />
+      ) : isLoading ? (
+        <CardsSkeleton count={3} />
       ) : (
         <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
           {(data ?? []).map((i) => (
             <Fila key={i.id} catalogo={catalogo} item={i} />
           ))}
-          {(data ?? []).length === 0 && <li className="px-4 py-2.5 text-sm text-slate">Vacío.</li>}
+          {(data ?? []).length === 0 && <li className="px-4 py-2.5 text-sm text-slate">Todavía no hay ninguna: agregá la primera arriba.</li>}
         </ul>
       )}
     </section>

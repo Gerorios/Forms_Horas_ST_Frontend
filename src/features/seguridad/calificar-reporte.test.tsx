@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReporteSeguridad } from '@/lib/api/seguridad';
 
@@ -96,10 +96,93 @@ describe('CalificarReporte', () => {
     expect(screen.getByRole('button', { name: 'Restar 6 a cada persona' })).toBeEnabled();
   });
 
-  it('un calificado se puede reabrir', async () => {
+  it('restar en una inspección pide confirmar y nombra a las personas observadas', async () => {
+    const insp = reporte({
+      tipo: 'inspeccion',
+      autor: { cuil: HYS1, nombre: 'HYS' },
+      involucrados: [
+        { cuil: '20444', nombre: 'GOMEZ LUIS' },
+        { cuil: '20555', nombre: 'PAZ ANA' },
+      ],
+    });
+    render(<CalificarReporte reporte={insp} miCuil={HYS1} />);
+    await userEvent.click(screen.getByRole('radio', { name: '−5' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Restar 5 a cada persona' }));
+
+    const dialogo = await screen.findByRole('dialog');
+    expect(dialogo).toHaveTextContent('Restar 5 puntos a cada persona observada');
+    expect(within(dialogo).getByText('GOMEZ LUIS')).toBeInTheDocument();
+    expect(within(dialogo).getByText('PAZ ANA')).toBeInTheDocument();
+    expect(h.calificar).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Restar 5' }));
+    expect(h.calificar).toHaveBeenCalledWith({ id: 7, input: { decision: 'aprobar', puntaje: 5 } });
+  });
+
+  it('cancelar la confirmación no califica', async () => {
+    const insp = reporte({ tipo: 'inspeccion', autor: { cuil: HYS1, nombre: 'HYS' }, involucrados: [{ cuil: '20444', nombre: 'GOMEZ LUIS' }] });
+    render(<CalificarReporte reporte={insp} miCuil={HYS1} />);
+    await userEvent.click(screen.getByRole('radio', { name: '−3' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Restar 3 a cada persona' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancelar' }));
+    expect(h.calificar).not.toHaveBeenCalled();
+  });
+
+  it('cambiar el puntaje de un aprobado confirma y nombra al autor', async () => {
     render(<CalificarReporte reporte={reporte({ estado: 'aprobado', puntaje: 8 })} miCuil={HYS1} />);
+    await userEvent.click(screen.getByRole('radio', { name: '5' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Aprobar con +5' }));
+    const dialogo = await screen.findByRole('dialog');
+    expect(dialogo).toHaveTextContent('Cambiar de +8 a +5');
+    expect(within(dialogo).getByText('PEREZ')).toBeInTheDocument();
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Cambiar el puntaje' }));
+    expect(h.calificar).toHaveBeenCalledWith({ id: 7, input: { decision: 'aprobar', puntaje: 5 } });
+  });
+
+  it('reabrir confirma diciendo qué puntos se quitan y a quién', async () => {
+    const onHecho = vi.fn();
+    render(<CalificarReporte reporte={reporte({ estado: 'aprobado', puntaje: 8 })} miCuil={HYS1} onHecho={onHecho} />);
     await userEvent.click(screen.getByRole('button', { name: /Reabrir/ }));
+    const dialogo = await screen.findByRole('dialog');
+    expect(dialogo).toHaveTextContent('Se quitan los +8 puntos');
+    expect(within(dialogo).getByText('PEREZ')).toBeInTheDocument();
+    expect(h.reabrir).not.toHaveBeenCalled();
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Reabrir' }));
     expect(h.reabrir).toHaveBeenCalledWith(7);
+    await vi.waitFor(() => expect(onHecho).toHaveBeenCalled());
+  });
+
+  it('aprobar por primera vez un reporte común es un clic y avisa para pasar al siguiente', async () => {
+    const onHecho = vi.fn();
+    render(<CalificarReporte reporte={reporte()} miCuil={HYS1} onHecho={onHecho} />);
+    await userEvent.click(screen.getByRole('radio', { name: '7' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Aprobar con +7' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await vi.waitFor(() => expect(onHecho).toHaveBeenCalled());
+  });
+
+  it('atajos: un número elige el puntaje, "1" "0" es el 10 y A aprueba', async () => {
+    render(<CalificarReporte reporte={reporte()} miCuil={HYS1} />);
+    fireEvent.keyDown(window, { key: '7' });
+    expect(screen.getByRole('radio', { name: '7' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.keyDown(window, { key: '1' });
+    fireEvent.keyDown(window, { key: '0' });
+    expect(screen.getByRole('radio', { name: '10' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.keyDown(window, { key: 'a' });
+    expect(h.calificar).toHaveBeenCalledWith({ id: 7, input: { decision: 'aprobar', puntaje: 10 } });
+  });
+
+  it('los atajos no actúan mientras se escribe el comentario', async () => {
+    render(<CalificarReporte reporte={reporte()} miCuil={HYS1} />);
+    await userEvent.type(screen.getByLabelText(/Comentario para el autor/), '7a');
+    expect(screen.getByRole('radio', { name: '7' })).toHaveAttribute('aria-checked', 'false');
+    expect(h.calificar).not.toHaveBeenCalled();
+  });
+
+  it('la escala trae la guía de referencia', () => {
+    render(<CalificarReporte reporte={reporte()} miCuil={HYS1} />);
+    expect(screen.getByText('bien gestionado')).toBeInTheDocument();
+    expect(screen.getByText('ejemplar')).toBeInTheDocument();
   });
 
   it('un pendiente no muestra Reabrir', () => {
