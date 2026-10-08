@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
@@ -11,13 +11,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useSession } from '@/lib/auth/session';
 import { usePanelReportes, type EstadoReporte, type FiltrosPanel, type ReporteSeguridad, type TipoReporte } from '@/lib/api/seguridad';
 import { DetalleReporte } from '@/features/seguridad/detalle-reporte';
-import { CalificarReporte, teclaEsParaUnCampo } from '@/features/seguridad/calificar-reporte';
+import { CalificarReporte, teclaEsParaUnCampo, type AtajosCalificar } from '@/features/seguridad/calificar-reporte';
 import { ReporteForm } from '@/features/seguridad/reporte-form';
 import { ConfirmarDialog } from '@/features/seguridad/confirmar-dialog';
 import { ErrorCarga } from '@/features/seguridad/error-carga';
 import { urlMapa } from '@/features/seguridad/boton-ubicacion';
-import { filtrosDeUrl, siguientePendiente, urlDeFiltros } from '@/features/seguridad/panel-filtros';
-import { TIPO_LABEL, fechaCorta, signo } from '@/features/seguridad/tipos';
+import { filtrosDeUrl, filtrosSonLosDeSiempre, siguientePendiente, urlDeFiltros } from '@/features/seguridad/panel-filtros';
+import { FOCO_VISIBLE, TIPO_LABEL, fechaCorta, signo } from '@/features/seguridad/tipos';
 
 const ESTADOS: { valor: EstadoReporte | 'todos'; label: string }[] = [
   { valor: 'pendiente', label: 'Pendientes' },
@@ -27,8 +27,7 @@ const ESTADOS: { valor: EstadoReporte | 'todos'; label: string }[] = [
   { valor: 'todos', label: 'Todos' },
 ];
 
-const CAMPO =
-  'min-h-11 rounded-md border border-line bg-surface px-3 text-sm text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/30';
+const CAMPO = `min-h-11 rounded-md border border-line bg-surface px-3 text-sm text-ink focus:border-brand-deep ${FOCO_VISIBLE}`;
 
 /** "07/10/26 11:42": con año, porque el rango por defecto es el año entero. */
 function enviado(iso: string) {
@@ -177,12 +176,19 @@ export default function PanelReportesPage() {
   const [corrigiendo, setCorrigiendo] = useState<ReporteSeguridad | null>(null);
   const [seleccionadoId, setSeleccionadoId] = useState<number | null>(null);
   const { data, isLoading, isError, refetch, isFetching } = usePanelReportes(filtros);
+  // La cola completa de pendientes, para el contador del chip y la alarma
+  // aunque se esté mirando otro estado (si el filtro ya es "pendientes", es la
+  // misma consulta y react-query no la repite).
+  const { data: pendientesData } = usePanelReportes({ estado: 'pendiente' });
   const reportes = useMemo(() => data ?? [], [data]);
   // Se guarda el id: al calificar, la lista se refresca y el detalle tiene que
   // mostrar el estado nuevo (mismo criterio que /novedades).
   const seleccionado = reportes.find((r) => r.id === seleccionadoId) ?? null;
-  const alarmas = reportes.filter((r) => r.alarma).length;
+  const cantidadPendientes = pendientesData?.length;
+  const alarmas = (pendientesData ?? reportes).filter((r) => r.alarma).length;
   const filaActiva = useRef<HTMLTableRowElement | null>(null);
+  const calificador = useRef<AtajosCalificar>(null);
+  const filas = useRef<Map<number, HTMLTableRowElement>>(new Map());
 
   function cambiar<K extends keyof FiltrosPanel>(clave: K, valor: FiltrosPanel[K]) {
     const nuevos = { ...filtros, [clave]: valor || undefined };
@@ -195,23 +201,48 @@ export default function PanelReportesPage() {
     setSeleccionadoId(siguientePendiente(reportes, seleccionadoId));
   }, [reportes, seleccionadoId]);
 
-  // ↑/↓ recorren la lista (cuando el foco no está en un campo ni hay un
-  // diálogo abierto).
-  useEffect(() => {
-    function oyente(e: KeyboardEvent) {
-      if ((e.key !== 'ArrowDown' && e.key !== 'ArrowUp') || teclaEsParaUnCampo(e) || reportes.length === 0) return;
-      e.preventDefault();
-      const i = reportes.findIndex((r) => r.id === seleccionadoId);
-      const j = e.key === 'ArrowDown' ? Math.min(reportes.length - 1, i + 1) : Math.max(0, i === -1 ? 0 : i - 1);
-      setSeleccionadoId(reportes[j].id);
+  /** ↑/↓ (e Inicio/Fin) recorren la lista SOLO con el foco en una fila: en el
+   * resto de la página las flechas siguen scrolleando, y en la escala de
+   * puntaje eligen el puntaje. */
+  function teclaEnLista(e: ReactKeyboardEvent<HTMLTableRowElement>, id: number) {
+    if (reportes.length === 0) return;
+    const i = reportes.findIndex((r) => r.id === id);
+    const j =
+      e.key === 'ArrowDown'
+        ? Math.min(reportes.length - 1, i + 1)
+        : e.key === 'ArrowUp'
+          ? Math.max(0, i - 1)
+          : e.key === 'Home'
+            ? 0
+            : e.key === 'End'
+              ? reportes.length - 1
+              : null;
+    if (j == null) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setSeleccionadoId(id);
+      }
+      return;
     }
-    window.addEventListener('keydown', oyente);
-    return () => window.removeEventListener('keydown', oyente);
-  }, [reportes, seleccionadoId]);
+    e.preventDefault();
+    const destino = reportes[j].id;
+    setSeleccionadoId(destino);
+    filas.current.get(destino)?.focus();
+  }
+
+  /** 0–9 y A solo con el foco dentro del panel (lista o detalle), nunca en
+   * un campo de texto ni detrás de un diálogo. */
+  function atajosDelPanel(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (seleccionadoId == null || teclaEsParaUnCampo(e.nativeEvent)) return;
+    if (calificador.current?.tecla(e.key)) e.preventDefault();
+  }
 
   useEffect(() => {
     filaActiva.current?.scrollIntoView({ block: 'nearest' });
   }, [seleccionadoId]);
+
+  // El id de la fila que recibe el Tab: la elegida, o la primera.
+  const filaEnfocable = seleccionado?.id ?? reportes[0]?.id ?? null;
 
   const estadoActivo = filtros.estado ?? 'todos';
 
@@ -223,7 +254,7 @@ export default function PanelReportesPage() {
         action={
           <Link
             href={perfil?.rol.nombre === 'HyS' ? '/seguridad/nuevo?tipo=inspeccion' : '/seguridad/nuevo'}
-            className="inline-flex min-h-11 items-center rounded-md bg-brand px-4 text-sm font-semibold text-ink hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className={`inline-flex min-h-11 items-center rounded-md bg-brand px-4 text-sm font-semibold text-ink hover:brightness-95 ${FOCO_VISIBLE}`}
           >
             {perfil?.rol.nombre === 'HyS' ? 'Nueva inspección' : 'Nuevo reporte'}
           </Link>
@@ -240,11 +271,21 @@ export default function PanelReportesPage() {
                 type="button"
                 aria-pressed={activo}
                 onClick={() => cambiar('estado', e.valor === 'todos' ? undefined : e.valor)}
-                className={`min-h-11 rounded-full px-3.5 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
+                className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-sm transition ${FOCO_VISIBLE} ${
                   activo ? 'bg-graphite font-semibold text-white' : 'border border-line bg-surface text-ink hover:bg-accent/60'
                 }`}
               >
                 {e.label}
+                {e.valor === 'pendiente' && cantidadPendientes != null && (
+                  <span
+                    aria-label={`${cantidadPendientes} sin calificar`}
+                    className={`min-w-6 rounded-full px-1.5 text-center font-mono text-xs tabular-nums ${
+                      activo ? 'bg-white/20 text-white' : cantidadPendientes > 0 ? 'bg-warn/15 text-ink' : 'bg-line text-slate'
+                    }`}
+                  >
+                    {cantidadPendientes}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -268,6 +309,11 @@ export default function PanelReportesPage() {
           Hasta
           <input aria-label="Hasta" type="date" value={filtros.hasta ?? ''} onChange={(e) => cambiar('hasta', e.target.value)} className={CAMPO} />
         </label>
+        {!filtrosSonLosDeSiempre(filtros) && (
+          <Button variant="ghost" className="min-h-11 text-ink" onClick={() => router.replace(pathname, { scroll: false })}>
+            Limpiar filtros
+          </Button>
+        )}
       </div>
 
       {alarmas > 0 && (
@@ -277,8 +323,13 @@ export default function PanelReportesPage() {
         </p>
       )}
 
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="min-w-0 flex-[999_1_520px] space-y-2">
+      {/* Dos columnas desde 1024 px: el detalle no se va debajo de la tabla en
+          una notebook (240 px de menú + tabla + detalle de 300–380 px). */}
+      <div
+        className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]"
+        onKeyDown={atajosDelPanel}
+      >
+        <div className="min-w-0 space-y-2">
           {isError ? (
             <ErrorCarga que="los reportes" onReintentar={() => refetch()} reintentando={isFetching} />
           ) : isLoading ? (
@@ -289,7 +340,7 @@ export default function PanelReportesPage() {
             </p>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm" role="grid" aria-label="Reportes" aria-readonly="true">
                 <thead>
                   <tr className="border-b border-line text-left text-xs text-slate">
                     <th className="w-8 px-3 py-2.5 font-medium">
@@ -308,10 +359,16 @@ export default function PanelReportesPage() {
                     return (
                       <tr
                         key={r.id}
-                        ref={activo ? filaActiva : undefined}
+                        ref={(el) => {
+                          if (el) filas.current.set(r.id, el);
+                          else filas.current.delete(r.id);
+                          if (activo) filaActiva.current = el;
+                        }}
                         aria-selected={activo}
+                        tabIndex={r.id === filaEnfocable ? 0 : -1}
                         onClick={() => setSeleccionadoId(r.id)}
-                        className={`cursor-pointer border-b border-line/60 align-top transition last:border-0 ${
+                        onKeyDown={(e) => teclaEnLista(e, r.id)}
+                        className={`cursor-pointer border-b border-line/60 align-top transition last:border-0 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-deep ${
                           activo ? 'bg-accent shadow-[inset_3px_0_0_var(--color-brand-deep)]' : r.alarma ? 'bg-danger/5 hover:bg-danger/10' : 'hover:bg-accent/40'
                         }`}
                       >
@@ -321,13 +378,7 @@ export default function PanelReportesPage() {
                           <span className="block text-xs text-slate">enviado {enviado(r.enviadoEn)}</span>
                         </td>
                         <td className="px-2 py-2.5">
-                          <button
-                            type="button"
-                            onClick={() => setSeleccionadoId(r.id)}
-                            className="text-left font-medium text-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-                          >
-                            {TIPO_LABEL[r.tipo]}
-                          </button>
+                          <span className="font-medium text-ink">{TIPO_LABEL[r.tipo]}</span>
                           <span className="flex items-center gap-1.5 text-xs text-slate">
                             {clasificacion(r) ?? 'Sin clasificación'}
                             <IconoPunto r={r} />
@@ -348,16 +399,17 @@ export default function PanelReportesPage() {
             </div>
           )}
           <p className="text-xs text-slate">
-            Atajos con un reporte elegido: <kbd className="font-mono text-ink">↑</kbd> <kbd className="font-mono text-ink">↓</kbd> cambian
-            de reporte · <kbd className="font-mono text-ink">0</kbd>–<kbd className="font-mono text-ink">9</kbd> eligen el puntaje (
-            <kbd className="font-mono text-ink">1</kbd> <kbd className="font-mono text-ink">0</kbd> para el 10) ·{' '}
-            <kbd className="font-mono text-ink">A</kbd> aprueba.
+            Teclado: con el foco en la lista, <kbd className="font-mono text-ink">↑</kbd> <kbd className="font-mono text-ink">↓</kbd>{' '}
+            cambian de reporte · con un reporte elegido, <kbd className="font-mono text-ink">0</kbd>–
+            <kbd className="font-mono text-ink">9</kbd> eligen el puntaje (<kbd className="font-mono text-ink">1</kbd>{' '}
+            <kbd className="font-mono text-ink">0</kbd> para el 10) y <kbd className="font-mono text-ink">A</kbd> aprueba (se puede
+            deshacer).
           </p>
         </div>
 
         <aside
           aria-label="Detalle del reporte"
-          className="min-w-0 flex-[1_1_360px] space-y-5 rounded-xl border border-line bg-surface p-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto"
+          className="min-w-0 space-y-5 rounded-xl border border-line bg-surface p-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto"
         >
           {seleccionado ? (
             <>
@@ -375,7 +427,7 @@ export default function PanelReportesPage() {
                     </span>
                     {seleccionado.punto.errorMetros != null ? ` · ±${Math.round(seleccionado.punto.errorMetros)} m` : ''}
                     {` (${seleccionado.punto.origen === 'gps' ? 'GPS' : 'foto'}) `}
-                    <a href={urlMapa(seleccionado.punto)} target="_blank" rel="noreferrer" className="font-medium text-brand-deep underline-offset-2 hover:underline">
+                    <a href={urlMapa(seleccionado.punto)} target="_blank" rel="noreferrer" className={`font-medium text-brand-deep underline-offset-2 hover:underline ${FOCO_VISIBLE}`}>
                       ver en el mapa
                     </a>
                   </p>
@@ -395,9 +447,11 @@ export default function PanelReportesPage() {
               <div className="border-t border-line pt-4">
                 <CalificarReporte
                   key={`${seleccionado.id}-${seleccionado.estado}`}
+                  ref={calificador}
                   reporte={seleccionado}
                   miCuil={perfil?.cuil}
                   onHecho={pasarAlSiguiente}
+                  onDeshecho={(id) => setSeleccionadoId(id)}
                 />
               </div>
             </>

@@ -49,10 +49,10 @@ export function ConfirmarDialog({
         )}
         {children}
         <DialogFooter className="bg-sand">
-          <Button variant="ghost" onClick={onCancelar} disabled={ocupado}>
+          <Button variant="ghost" onClick={onCancelar} disabled={ocupado} className="min-h-11">
             Cancelar
           </Button>
-          <Button variant={variante} onClick={onConfirmar} disabled={ocupado}>
+          <Button variant={variante} onClick={onConfirmar} disabled={ocupado} className="min-h-11 font-semibold">
             {verbo}
           </Button>
         </DialogFooter>

@@ -26,6 +26,12 @@ export function urlDeFiltros(f: FiltrosPanel): string {
   return q ? `?${q}` : '';
 }
 
+/** Los filtros con los que abre el panel (Pendientes, sin tipo ni fechas):
+ * cualquier otra cosa muestra "Limpiar filtros". */
+export function filtrosSonLosDeSiempre(f: FiltrosPanel): boolean {
+  return f.estado === 'pendiente' && !f.tipo && !f.desde && !f.hasta;
+}
+
 /**
  * El siguiente pendiente después de `actualId` en el orden de la lista (si no
  * hay más abajo, el primero de arriba). Para que HyS califique de corrido sin
