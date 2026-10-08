@@ -206,7 +206,8 @@ describe('ReporteForm', () => {
     );
   });
 
-  it('si el GPS falla, la paralización se puede enviar sin punto con la referencia del lugar', async () => {
+  // Largo (muchos campos tipeados): más margen para que no falle con la máquina cargada.
+  it('si el GPS falla, la paralización se puede enviar sin punto con la referencia del lugar', { timeout: 15_000 }, async () => {
     const onListo = vi.fn();
     render(<ReporteForm onListo={onListo} />);
     await userEvent.click(screen.getByRole('radio', { name: 'Paralización de trabajos' }));

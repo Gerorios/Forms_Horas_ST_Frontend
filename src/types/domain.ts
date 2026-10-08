@@ -36,6 +36,9 @@ export interface Perfil {
    * usuario no tiene acceso. `ks` son los códigos de contrato habilitados;
    * `inc` habilita ver la incidencia MO aunque el nivel sea 'carga'. */
   cert: { nivel: 'admin' | 'carga' | 'lectura'; ks: string[]; inc: boolean } | null;
+  /** Módulos con lanzamiento (ADR-028): `false` = está en prueba interna y
+   * esta persona no está en el piloto. Un módulo que no figura se ve. */
+  modulos?: Record<string, boolean>;
 }
 
 export interface LoginResponse {

@@ -10,4 +10,5 @@ export const ADMIN_NAV = [
   { label: 'Estaciones de servicio', href: '/admin/estaciones-servicio' },
   { label: 'Tipos de combustible', href: '/admin/tipos-combustible' },
   { label: 'Accesos a Certificaciones', href: '/admin/accesos-certificaciones' },
+  { label: 'Lanzamientos', href: '/admin/lanzamientos' },
 ];

@@ -88,7 +88,10 @@ export default function HomePage() {
   const { data: ausencias } = useNovedades(periodo, undefined, rol === 'HyS');
   const { data: alertas } = useAlertasQuincena(periodo.anio, periodo.mes, periodo.parte, rol === 'Liquidador');
   // Alarmas de seguridad (ADR-027): paralizaciones sin calificar.
-  const { data: paralizaciones } = usePanelReportes({ estado: 'pendiente', tipo: 'paralizacion' }, rol === 'HyS');
+  // Seguridad tiene lanzamiento (ADR-028): si esta persona no lo ve, ni el
+  // acceso directo ni el tile (el backend respondería 403).
+  const veSeguridad = perfil?.modulos?.seguridad !== false;
+  const { data: paralizaciones } = usePanelReportes({ estado: 'pendiente', tipo: 'paralizacion' }, rol === 'HyS' && veSeguridad);
   const { data: misRegistros } = useMisRegistros(cuil, rangoISO, rol === 'Operario' || rol === 'JefeCuadrilla');
 
   if (!perfil) return null;
@@ -119,13 +122,17 @@ export default function HomePage() {
     ).length;
     indicadores = [
       { label: 'Ausencias pendientes', value: pendientes, tone: 'warn', icon: <BellIcon />, href: '/ausencias' },
-      {
-        label: 'Paralizaciones sin calificar',
-        value: (paralizaciones ?? []).length,
-        tone: 'danger',
-        icon: <WarnTriIcon />,
-        href: '/seguridad/panel',
-      },
+      ...(veSeguridad
+        ? [
+            {
+              label: 'Paralizaciones sin calificar',
+              value: (paralizaciones ?? []).length,
+              tone: 'danger' as const,
+              icon: <WarnTriIcon />,
+              href: '/seguridad/panel',
+            },
+          ]
+        : []),
       cierreItem,
     ];
   } else if (rol === 'Liquidador') {
@@ -184,6 +191,7 @@ export default function HomePage() {
         {/* Autogestión de la Seguridad (ADR-027): reportar es lo que más se usa
          * desde el celular, y es de todos los roles, así que va como acceso
          * directo arriba de las áreas. */}
+        {veSeguridad && (
         <Link
           href="/seguridad/nuevo"
           className="flex items-center justify-between gap-4 rounded-xl bg-graphite px-5 py-4 text-white transition hover:brightness-110"
@@ -194,6 +202,7 @@ export default function HomePage() {
           </span>
           <span className="shrink-0 rounded-md bg-brand px-3 py-2 text-sm font-semibold text-ink">Reportar</span>
         </Link>
+        )}
 
         {areas.map(({ area, items }) => (
           <section key={area.id} className="space-y-3">

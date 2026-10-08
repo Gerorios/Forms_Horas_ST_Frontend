@@ -155,6 +155,24 @@ describe('Autogestión de la Seguridad (ADR-027)', () => {
   });
 });
 
+describe('Lanzamiento de módulos (ADR-028)', () => {
+  it('un módulo en prueba interna no aparece a quien no está en el piloto', () => {
+    const fuera = { ...perfil('Operario'), modulos: { seguridad: false } };
+    expect(navForRole(fuera).map((i) => i.href).some((h) => h.startsWith('/seguridad'))).toBe(false);
+    expect(navPorArea(fuera).map((g) => g.area.id)).not.toContain('seguridad');
+  });
+
+  it('en el piloto (o lanzado) se ve; si el perfil no trae el dato, también', () => {
+    expect(navForRole({ ...perfil('Operario'), modulos: { seguridad: true } }).map((i) => i.href)).toContain('/seguridad');
+    expect(navForRole(perfil('Operario')).map((i) => i.href)).toContain('/seguridad');
+  });
+
+  it('el lanzamiento no da más permisos que el rol: un Operario en el piloto no ve el panel', () => {
+    const hrefs = navForRole({ ...perfil('Operario'), modulos: { seguridad: true } }).map((i) => i.href);
+    expect(hrefs).not.toContain('/seguridad/panel');
+  });
+});
+
 describe('canAccess', () => {
   it('Operario no puede entrar a /admin', () => {
     expect(canAccess('Operario', '/admin')).toBe(false);
