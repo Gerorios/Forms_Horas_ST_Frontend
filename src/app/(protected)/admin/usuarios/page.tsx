@@ -137,6 +137,8 @@ export default function UsuariosAdminPage() {
                     <PillActivo
                       activo={u.activo}
                       disabled={editar.isPending}
+                      nombre={u.empleado?.apellido_nombre ?? u.email}
+                      efecto="No va a poder entrar al sistema. Sus registros se mantienen."
                       onToggle={() => cambiarActivo(u.cuil, !u.activo)}
                     />
                   }

@@ -50,9 +50,14 @@ function adj(overrides: Partial<NovedadAdjunto> = {}): NovedadAdjunto {
 
 const useNovedadesMock = vi.fn((_periodo?: unknown) => ({ data: [nov()] as Novedad[], isLoading: false }));
 const useResumenAusenciasMock = vi.fn((_periodo?: unknown) => ({ data: [] as unknown[], isLoading: false }));
+// Pendientes de TODAS las quincenas (hotfix 2026-10-07, revisión B2). Por
+// defecto devuelve lo mismo que useNovedades, así los tests existentes siguen
+// viendo las mismas pendientes.
+const usePorEstadoMock = vi.fn((_estadoHys?: unknown) => useNovedadesMock());
 
 vi.mock('@/lib/api/novedades', () => ({
   useNovedades: (periodo?: unknown) => useNovedadesMock(periodo),
+  useNovedadesPorEstado: (estadoHys?: unknown) => usePorEstadoMock(estadoHys),
   useResolverHys: () => ({ mutateAsync: resolver, isPending: false }),
   useReabrirNovedad: () => ({ mutateAsync: reabrir, isPending: false }),
   useActualizarNovedad: () => ({ mutateAsync: actualizar, isPending: false }),
@@ -87,6 +92,30 @@ describe('AusenciasPage', () => {
     useNovedadesMock.mockReturnValue({ data: [nov()], isLoading: false });
     useResumenAusenciasMock.mockReset();
     useResumenAusenciasMock.mockReturnValue({ data: [], isLoading: false });
+    usePorEstadoMock.mockReset();
+    usePorEstadoMock.mockImplementation(() => useNovedadesMock());
+  });
+
+  it('si falla la consulta de pendientes, muestra el error con Reintentar y no "Sin ausencias" (hotfix R1)', async () => {
+    const refetch = vi.fn();
+    usePorEstadoMock.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch } as never);
+    render(<AusenciasPage />);
+    expect(screen.queryByText('Sin ausencias en este estado.')).not.toBeInTheDocument();
+    expect(screen.getByText(/no se pudieron cargar/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it('Pendientes muestra las de quincenas anteriores aunque el selector esté en la actual (hotfix B2)', () => {
+    // La quincena elegida (la actual) no tiene nada; hay una pendiente de julio.
+    useNovedadesMock.mockReturnValue({ data: [], isLoading: false });
+    usePorEstadoMock.mockReturnValue({
+      data: [nov({ id: 9, fechaInicio: '2026-07-25', operario: { cuil: '20333333333', apellido_nombre: 'ALBERO JUAN', legajo: 1009 } })],
+      isLoading: false,
+    });
+    render(<AusenciasPage />);
+    expect(screen.getByText('ALBERO JUAN')).toBeInTheDocument();
+    expect(usePorEstadoMock).toHaveBeenCalledWith('pendiente');
   });
 
   it('muestra el área Personas en el encabezado', () => {
