@@ -1,9 +1,10 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { StatusBadge } from '@/components/status-badge';
 import type { ReporteSeguridad } from '@/lib/api/seguridad';
 import { FotoProtegida } from './fotos-grupo';
+import { VisorFotos } from './visor-fotos';
 import { TIPO_LABEL, fechaCorta, signo } from './tipos';
 
 function Fila({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
@@ -25,6 +26,10 @@ export function DetalleReporte({ reporte }: { reporte: ReporteSeguridad }) {
   const r = reporte;
   const puntos = r.estado === 'aprobado' && r.puntaje != null ? (r.tipo === 'inspeccion' ? -r.puntaje : r.puntaje) : null;
   const fotos = (grupo: 'riesgo' | 'control') => r.fotos.filter((f) => f.grupo === grupo);
+  const etiqueta = (g: 'riesgo' | 'control') => (g === 'riesgo' ? 'Foto de lo que se vio' : 'Foto de lo que se hizo');
+  // El visor recorre todas las fotos del reporte: primero las del riesgo.
+  const todas = [...fotos('riesgo'), ...fotos('control')];
+  const [abierta, setAbierta] = useState<number | null>(null);
 
   return (
     <div className="space-y-4">
@@ -87,13 +92,26 @@ export function DetalleReporte({ reporte }: { reporte: ReporteSeguridad }) {
               </p>
               <div className="grid grid-cols-3 gap-2">
                 {fotos(g).map((f) => (
-                  <div key={f.id} className="aspect-square overflow-hidden rounded-lg border border-line">
-                    <FotoProtegida reporteId={r.id} fotoId={f.id} alt={g === 'riesgo' ? 'Foto del riesgo' : 'Foto del control'} />
-                  </div>
+                  <button
+                    key={f.id}
+                    type="button"
+                    aria-label={`Ampliar: ${etiqueta(g).toLowerCase()}`}
+                    onClick={() => setAbierta(todas.indexOf(f))}
+                    className="aspect-square cursor-zoom-in overflow-hidden rounded-lg border border-line"
+                  >
+                    <FotoProtegida reporteId={r.id} fotoId={f.id} alt={etiqueta(g)} />
+                  </button>
                 ))}
               </div>
             </div>
           ),
+      )}
+      {abierta != null && (
+        <VisorFotos
+          fotos={todas.map((f) => ({ reporteId: r.id, fotoId: f.id, alt: etiqueta(f.grupo) }))}
+          inicio={abierta}
+          onCerrar={() => setAbierta(null)}
+        />
       )}
     </div>
   );

@@ -2,32 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { api } from '@/lib/api/client';
-import { urlFoto, type FotoParaSubir, type FotoReporte, type GrupoFoto } from '@/lib/api/seguridad';
+import type { FotoParaSubir, FotoReporte, GrupoFoto } from '@/lib/api/seguridad';
 import { capturar } from './captura-foto';
 import { MAX_FOTOS_POR_GRUPO } from './tipos';
+import { VisorFotos, useFotoProtegida, type FotoVisor } from './visor-fotos';
 
-/** Foto ya subida: se pide con el token (no sirve un <img src> directo), mismo
- * patrón que FotoTicketView. */
+/** Miniatura de una foto ya subida (se pide con el token). */
 export function FotoProtegida({ reporteId, fotoId, alt }: { reporteId: number; fotoId: number; alt: string }) {
-  const [src, setSrc] = useState<string | null>(null);
-  const [error, setError] = useState(false);
-  useEffect(() => {
-    let url: string | null = null;
-    let cancelado = false;
-    api
-      .get(urlFoto(reporteId, fotoId), { responseType: 'blob' })
-      .then((r) => {
-        if (cancelado) return;
-        url = URL.createObjectURL(r.data);
-        setSrc(url);
-      })
-      .catch(() => !cancelado && setError(true));
-    return () => {
-      cancelado = true;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [reporteId, fotoId]);
+  const { src, error } = useFotoProtegida(reporteId, fotoId);
   if (error) return <div className="flex h-full items-center justify-center p-2 text-xs text-slate">No se pudo cargar</div>;
   if (!src) return <div className="h-full w-full animate-pulse bg-line/60" />;
   // eslint-disable-next-line @next/next/no-img-element
@@ -91,6 +73,7 @@ export function FotosGrupo({
   const camaraRef = useRef<HTMLInputElement>(null);
   const galeriaRef = useRef<HTMLInputElement>(null);
   const [procesando, setProcesando] = useState(false);
+  const [abierta, setAbierta] = useState<number | null>(null);
   const total = existentes.length + nuevas.length;
   const lleno = total >= MAX_FOTOS_POR_GRUPO;
 
@@ -115,6 +98,13 @@ export function FotosGrupo({
   }
 
   const casilla = 'relative aspect-square overflow-hidden rounded-lg border border-line bg-graphite/10';
+  // Tocar una miniatura la abre a pantalla completa; el orden es el de la grilla.
+  const paraVisor: FotoVisor[] = [
+    ...(reporteId != null ? existentes.map((f) => ({ reporteId, fotoId: f.id, alt: titulo })) : []),
+    ...nuevas.map((f) => ({ blob: f.blob, alt: titulo })),
+  ];
+  const offsetNuevas = reporteId != null ? existentes.length : 0;
+  const ampliar = 'absolute inset-0 h-full w-full cursor-zoom-in';
 
   return (
     <div className="space-y-2">
@@ -123,9 +113,13 @@ export function FotosGrupo({
       </p>
       {total > 0 && (
         <div className="grid grid-cols-3 gap-2">
-          {existentes.map((f) => (
+          {existentes.map((f, i) => (
             <div key={`e${f.id}`} className={casilla}>
-              {reporteId != null && <FotoProtegida reporteId={reporteId} fotoId={f.id} alt={titulo} />}
+              {reporteId != null && (
+                <button type="button" aria-label={`Ampliar ${titulo.toLowerCase()}`} onClick={() => setAbierta(i)} className={ampliar}>
+                  <FotoProtegida reporteId={reporteId} fotoId={f.id} alt={titulo} />
+                </button>
+              )}
               <RotuloOrigen origen={f.origen} conUbicacion={f.conUbicacion} />
               {onQuitarExistente && (
                 <button type="button" aria-label="Quitar foto" disabled={deshabilitado} onClick={() => onQuitarExistente(f.id)} className={BOTON_QUITAR}>
@@ -136,7 +130,9 @@ export function FotosGrupo({
           ))}
           {nuevas.map((f, i) => (
             <div key={`n${i}`} className={casilla}>
-              <FotoLocal blob={f.blob} alt={titulo} />
+              <button type="button" aria-label={`Ampliar ${titulo.toLowerCase()}`} onClick={() => setAbierta(offsetNuevas + i)} className={ampliar}>
+                <FotoLocal blob={f.blob} alt={titulo} />
+              </button>
               <RotuloOrigen origen={f.origen} conUbicacion={f.ubicacion != null} />
               <button type="button" aria-label="Quitar foto" disabled={deshabilitado} onClick={() => onQuitarNueva(i)} className={BOTON_QUITAR}>
                 <IconoQuitar />
@@ -145,6 +141,7 @@ export function FotosGrupo({
           ))}
         </div>
       )}
+      {abierta != null && <VisorFotos fotos={paraVisor} inicio={abierta} onCerrar={() => setAbierta(null)} />}
       {!lleno && (
         <div className="grid grid-cols-2 gap-2">
           {/* `capture` abre la cámara directo: solo esta foto guarda ubicación. */}
