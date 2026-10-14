@@ -445,6 +445,19 @@ describe('ControlGeneralPage', () => {
       });
     });
 
+    it('al elegir un contrato, se suelta la tarea que no existe en él (no queda "Tarea (1)" sin filtrar)', { timeout: 20000 }, async () => {
+      render(<ControlGeneralPage />);
+      await userEvent.click(screen.getByLabelText('Filtrar por tarea'));
+      await userEvent.click(screen.getByLabelText('Zanjeo')); // es solo de K5
+      await userEvent.keyboard('{Escape}');
+      expect(screen.getByText('Tarea (1)')).toBeInTheDocument();
+      await userEvent.click(screen.getByLabelText('Filtrar por contrato'));
+      await userEvent.click(screen.getByLabelText('K7 — Gasnor K7'));
+      await userEvent.keyboard('{Escape}');
+      expect(screen.queryByText('Tarea (1)')).not.toBeInTheDocument();
+      expect(vi.mocked(useDetalleDiario)).toHaveBeenLastCalledWith(expect.anything(), { contratoIds: [2] });
+    });
+
     it('"Mes completo" consulta el mes sin quincena y deja +88hs y sin carga para la quincena', async () => {
       render(<ControlGeneralPage />);
       await userEvent.selectOptions(screen.getByLabelText('Quincena'), '');

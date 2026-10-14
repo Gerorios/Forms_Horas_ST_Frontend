@@ -314,6 +314,19 @@ export default function ControlGeneralPage() {
       ),
     [misTareas, contratosSel],
   );
+  // Al cambiar de contrato se sueltan las tareas que no existen en los nuevos:
+  // si no, el filtro diría "Tarea (1)" sin mandar ningún id y la pantalla (y el
+  // Excel) traerían todas las tareas.
+  const cambiarContratos = (sel: string[]) => {
+    setContratosSel(sel);
+    if (!misTareas) return;
+    const nombres = new Set(
+      misTareas
+        .filter((t) => sel.length === 0 || sel.includes(String(t.contratoId)))
+        .map((t) => t.nombre),
+    );
+    setTareasSel((prev) => prev.filter((n) => nombres.has(n)));
+  };
   const tareaIds = useMemo(
     () => tareasDisponibles.filter((t) => tareasSel.includes(t.nombre)).map((t) => t.id),
     [tareasDisponibles, tareasSel],
@@ -488,7 +501,7 @@ export default function ControlGeneralPage() {
           ariaLabel="Filtrar por contrato"
           opciones={opcionesContrato}
           seleccionados={contratosSel}
-          onChange={setContratosSel}
+          onChange={cambiarContratos}
         />
         <MultiFiltro
           label="Provincia"
