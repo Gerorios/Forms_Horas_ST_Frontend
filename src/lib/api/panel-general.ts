@@ -1,6 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from './client';
 import type { Quincena } from '@/lib/quincena';
+import { filenameDeContentDisposition } from './liquidacion';
+
+/** Período que consulta el panel (ADR-030): año y mes con quincena opcional
+ * (null = mes completo), o un rango desde/hasta (YYYY-MM-DD) que manda sobre
+ * el mes. El back lo valida (tope de 12 meses). */
+export interface PeriodoPanel {
+  anio: number;
+  mes: number;
+  parte: 1 | 2 | null;
+  desde?: string;
+  hasta?: string;
+}
+
+/** El período como query params: el rango solo si están las dos fechas. */
+export function paramsPeriodo(p: PeriodoPanel) {
+  if (p.desde && p.hasta) return { desde: p.desde, hasta: p.hasta };
+  return { anio: p.anio, mes: p.mes, ...(p.parte ? { quincena: p.parte } : {}) };
+}
 
 export interface ResumenOperario {
   cuil: string;
@@ -26,11 +44,13 @@ export interface ResumenOperario {
    * que el badge de /aprobaciones. */
   tieneAlertaCruzada: boolean;
   /** Horas aprobadas (de mis contratos) en la quincena anterior — para
-   * comparar contra `aprobado`/`totalHoras` de esta quincena. */
-  horasAprobadasAnterior: number;
+   * comparar contra `aprobado`/`totalHoras` de esta quincena. null si el
+   * período no es una quincena (ADR-030). */
+  horasAprobadasAnterior: number | null;
   /** horasAprobadas de esta quincena menos horasAprobadasAnterior. Positivo =
-   * le estoy aprobando más que la vez pasada (revisar si es real). */
-  deltaHorasAprobadas: number;
+   * le estoy aprobando más que la vez pasada (revisar si es real). null si el
+   * período no es una quincena. */
+  deltaHorasAprobadas: number | null;
 }
 
 /** Filtros server-side del panel Control general (contrato y provincia del
@@ -41,6 +61,16 @@ export interface FiltrosPanel {
   /** CUILs de operarios. Solo lo consumen histórico y detalle (server-side);
    * el resumen se filtra por operario en el cliente. */
   operarioCuils?: string[];
+  /** Ids del catálogo de tareas: un registro pasa si tiene alguna. */
+  tareaIds?: number[];
+}
+
+/** Una tarea del catálogo de mis contratos. El mismo nombre puede repetirse
+ * en varios contratos con distinto id. */
+export interface MiTarea {
+  id: number;
+  nombre: string;
+  contratoId: number;
 }
 
 export interface MisContrato {
@@ -116,22 +146,18 @@ function paramsFiltros(f: FiltrosPanel = {}) {
     ...(f.contratoIds?.length ? { contratoIds: f.contratoIds.join(',') } : {}),
     ...(f.provinciaIds?.length ? { provinciaIds: f.provinciaIds.join(',') } : {}),
     ...(f.operarioCuils?.length ? { operarioCuils: f.operarioCuils.join(',') } : {}),
+    ...(f.tareaIds?.length ? { tareaIds: f.tareaIds.join(',') } : {}),
   };
 }
 
-export function useResumenOperarios(quincena: Quincena, filtros: FiltrosPanel = {}, enabled = true) {
+export function useResumenOperarios(periodo: PeriodoPanel, filtros: FiltrosPanel = {}, enabled = true) {
   return useQuery({
-    queryKey: ['resumen-operarios', quincena, filtros],
+    queryKey: ['resumen-operarios', periodo, filtros],
     enabled,
     queryFn: async () =>
       (
         await api.get<ResumenOperario[]>('/registros-horas/resumen-operarios', {
-          params: {
-            anio: quincena.anio,
-            mes: quincena.mes,
-            quincena: quincena.parte,
-            ...paramsFiltros(filtros),
-          },
+          params: { ...paramsPeriodo(periodo), ...paramsFiltros(filtros) },
         })
       ).data,
   });
@@ -167,21 +193,44 @@ export interface DiaControlDiario {
   registros: RegistroControlDiario[];
 }
 
-export function useControlDiario(quincena: Quincena, filtros: FiltrosPanel = {}) {
+export function useControlDiario(periodo: PeriodoPanel, filtros: FiltrosPanel = {}) {
   return useQuery({
-    queryKey: ['control-diario', quincena, filtros],
+    queryKey: ['control-diario', periodo, filtros],
     queryFn: async () =>
       (
         await api.get<DiaControlDiario[]>('/registros-horas/control-diario', {
-          params: {
-            anio: quincena.anio,
-            mes: quincena.mes,
-            quincena: quincena.parte,
-            ...paramsFiltros(filtros),
-          },
+          params: { ...paramsPeriodo(periodo), ...paramsFiltros(filtros) },
         })
       ).data,
   });
+}
+
+/** Tareas de mis contratos (incluidas las inactivas) — opciones del filtro
+ * por tarea del panel Control general. */
+export function useMisTareas() {
+  return useQuery({
+    queryKey: ['mis-tareas'],
+    queryFn: async () => (await api.get<MiTarea[]>('/registros-horas/mis-tareas')).data,
+  });
+}
+
+/** Descarga el Excel del Detalle diario con el período y los filtros de la
+ * pantalla. El back exporta solo las filas que cumplen los filtros, en mis
+ * contratos (ADR-030). */
+export async function descargarExcelDetalle(periodo: PeriodoPanel, filtros: FiltrosPanel): Promise<void> {
+  const response = await api.get('/registros-horas/detalle-diario/excel', {
+    params: { ...paramsPeriodo(periodo), ...paramsFiltros(filtros) },
+    responseType: 'blob',
+  });
+  const filename = filenameDeContentDisposition(response.headers['content-disposition']) ?? 'detalle-diario.xlsx';
+  const objectUrl = URL.createObjectURL(response.data as Blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
 }
 
 /** Contratos donde soy jefe (Admin: todos los activos) — opciones del
@@ -214,31 +263,27 @@ export function useHistoricoQuincenas(quincena: Quincena, filtros: FiltrosPanel 
 
 /** Detalle plano de la quincena: una fila por registro, orden fecha desc
  * + nombre asc (lo garantiza el back). */
-export function useDetalleDiario(quincena: Quincena, filtros: FiltrosPanel = {}) {
+export function useDetalleDiario(periodo: PeriodoPanel, filtros: FiltrosPanel = {}) {
   return useQuery({
-    queryKey: ['detalle-diario', quincena, filtros],
+    queryKey: ['detalle-diario', periodo, filtros],
     queryFn: async () =>
       (
         await api.get<DiaDetalleDiario[]>('/registros-horas/detalle-diario', {
-          params: {
-            anio: quincena.anio,
-            mes: quincena.mes,
-            quincena: quincena.parte,
-            ...paramsFiltros(filtros),
-          },
+          params: { ...paramsPeriodo(periodo), ...paramsFiltros(filtros) },
         })
       ).data,
   });
 }
 
-export function useSinCarga(quincena: Quincena, enabled = true) {
+/** Solo por quincena: con un mes o un rango no se pide (`quincena` null). */
+export function useSinCarga(quincena: Quincena | null, enabled = true) {
   return useQuery({
     queryKey: ['sin-carga', quincena],
-    enabled,
+    enabled: enabled && quincena !== null,
     queryFn: async () =>
       (
         await api.get<OperarioSinCarga[]>('/registros-horas/sin-carga', {
-          params: { anio: quincena.anio, mes: quincena.mes, quincena: quincena.parte },
+          params: { anio: quincena!.anio, mes: quincena!.mes, quincena: quincena!.parte },
         })
       ).data,
   });

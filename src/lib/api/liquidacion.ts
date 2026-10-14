@@ -669,7 +669,7 @@ export function useCrearCierre() {
  * `attachment; filename="cierre.xlsx"` (con o sin comillas). Si no hay
  * match usable, devuelve null para que el caller aplique su fallback.
  */
-function filenameDeContentDisposition(header: string | undefined): string | null {
+export function filenameDeContentDisposition(header: string | undefined): string | null {
   if (!header) return null;
   const conComillas = /filename="([^"]+)"/i.exec(header);
   if (conComillas?.[1]) return conComillas[1];

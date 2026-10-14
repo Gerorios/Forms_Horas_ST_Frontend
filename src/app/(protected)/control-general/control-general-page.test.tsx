@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {
   ResumenOperario,
@@ -164,6 +164,16 @@ vi.mock('@/lib/api/panel-general', () => ({
   useHistoricoQuincenas: vi.fn(() => ({ data: HISTORICO, isLoading: false })),
   useDetalleDiario: vi.fn(() => ({ data: DETALLE, isLoading: false })),
   useControlDiario: vi.fn(() => ({ data: CONTROL_DIARIO, isLoading: false })),
+  // "Poda" existe en K5 y en K7 con distinto id: el filtro es por nombre.
+  useMisTareas: vi.fn(() => ({
+    data: [
+      { id: 70, nombre: 'Poda', contratoId: 1 },
+      { id: 71, nombre: 'Poda', contratoId: 2 },
+      { id: 80, nombre: 'Zanjeo', contratoId: 1 },
+    ],
+    isLoading: false,
+  })),
+  descargarExcelDetalle: vi.fn(() => Promise.resolve()),
 }));
 
 // Los gráficos (Recharts) necesitan medidas reales que jsdom no da:
@@ -192,7 +202,13 @@ vi.mock('@/lib/api/catalogos', () => ({
 }));
 
 import ControlGeneralPage from './page';
-import { useResumenOperarios, useHistoricoQuincenas, useDetalleDiario } from '@/lib/api/panel-general';
+import {
+  useResumenOperarios,
+  useHistoricoQuincenas,
+  useDetalleDiario,
+  useSinCarga,
+  descargarExcelDetalle,
+} from '@/lib/api/panel-general';
 import { quincenaDeFecha } from '@/lib/quincena';
 
 describe('ControlGeneralPage', () => {
@@ -402,5 +418,110 @@ describe('ControlGeneralPage', () => {
   it('muestra el área Operación en el encabezado', () => {
     render(<ControlGeneralPage />);
     expect(screen.getAllByText('Operación')[0]).toBeInTheDocument();
+  });
+
+  describe('período, tarea y exportación (ADR-030)', () => {
+    it('el filtro por tarea elige por nombre y manda los ids de todos los contratos', async () => {
+      render(<ControlGeneralPage />);
+      await userEvent.click(screen.getByLabelText('Filtrar por tarea'));
+      await userEvent.click(screen.getByLabelText('Poda'));
+      await userEvent.keyboard('{Escape}');
+      expect(vi.mocked(useResumenOperarios)).toHaveBeenLastCalledWith(expect.anything(), { tareaIds: [70, 71] });
+      expect(vi.mocked(useDetalleDiario)).toHaveBeenLastCalledWith(expect.anything(), { tareaIds: [70, 71] });
+    });
+
+    it('con un contrato elegido, la tarea solo manda los ids de ese contrato', async () => {
+      render(<ControlGeneralPage />);
+      await userEvent.click(screen.getByLabelText('Filtrar por contrato'));
+      await userEvent.click(screen.getByLabelText('K7 — Gasnor K7'));
+      await userEvent.keyboard('{Escape}');
+      await userEvent.click(screen.getByLabelText('Filtrar por tarea'));
+      expect(screen.queryByLabelText('Zanjeo')).not.toBeInTheDocument(); // es solo de K5
+      await userEvent.click(screen.getByLabelText('Poda'));
+      await userEvent.keyboard('{Escape}');
+      expect(vi.mocked(useDetalleDiario)).toHaveBeenLastCalledWith(expect.anything(), {
+        contratoIds: [2],
+        tareaIds: [71],
+      });
+    });
+
+    it('"Mes completo" consulta el mes sin quincena y deja +88hs y sin carga para la quincena', async () => {
+      render(<ControlGeneralPage />);
+      await userEvent.selectOptions(screen.getByLabelText('Quincena'), '');
+      const actual = quincenaDeFecha(new Date());
+      expect(vi.mocked(useDetalleDiario)).toHaveBeenLastCalledWith(
+        { anio: actual.anio, mes: actual.mes, parte: null },
+        {},
+      );
+      expect(vi.mocked(useSinCarga)).toHaveBeenLastCalledWith(null);
+      expect(screen.getByText('Horas del período')).toBeInTheDocument();
+      expect(screen.getAllByText('se mide por quincena')).toHaveLength(2);
+      expect(screen.getByText('Elegí una quincena para ver quién no cargó horas.')).toBeInTheDocument();
+    });
+
+    it('con desde y hasta, el rango manda sobre el mes', async () => {
+      render(<ControlGeneralPage />);
+      fireEvent.change(screen.getByLabelText('Fecha desde'), { target: { value: '2026-03-05' } });
+      fireEvent.change(screen.getByLabelText('Fecha hasta'), { target: { value: '2026-06-20' } });
+      expect(vi.mocked(useDetalleDiario)).toHaveBeenLastCalledWith(
+        expect.objectContaining({ desde: '2026-03-05', hasta: '2026-06-20' }),
+        {},
+      );
+      expect(vi.mocked(useSinCarga)).toHaveBeenLastCalledWith(null);
+    });
+
+    it('un rango que es exactamente una quincena se trata como quincena', async () => {
+      render(<ControlGeneralPage />);
+      fireEvent.change(screen.getByLabelText('Fecha desde'), { target: { value: '2026-03-16' } });
+      fireEvent.change(screen.getByLabelText('Fecha hasta'), { target: { value: '2026-03-31' } });
+      expect(vi.mocked(useSinCarga)).toHaveBeenLastCalledWith({ anio: 2026, mes: 3, parte: 2 });
+      expect(screen.getByText('Horas de la quincena')).toBeInTheDocument();
+    });
+
+    it('un rango inválido avisa y sigue mostrando el mes elegido', async () => {
+      render(<ControlGeneralPage />);
+      fireEvent.change(screen.getByLabelText('Fecha desde'), { target: { value: '2025-01-01' } });
+      fireEvent.change(screen.getByLabelText('Fecha hasta'), { target: { value: '2026-06-20' } });
+      expect(screen.getByRole('alert')).toHaveTextContent('El rango no puede superar los 12 meses.');
+      const llamada = vi.mocked(useDetalleDiario).mock.lastCall![0];
+      expect(llamada.desde).toBeUndefined();
+    });
+
+    it('"Limpiar filtros" vuelve a la quincena en curso sin filtros', async () => {
+      render(<ControlGeneralPage />);
+      expect(screen.queryByText('Limpiar filtros')).not.toBeInTheDocument();
+      await userEvent.click(screen.getByLabelText('Filtrar por provincia'));
+      await userEvent.click(screen.getByLabelText('Salta'));
+      await userEvent.keyboard('{Escape}');
+      fireEvent.change(screen.getByLabelText('Fecha desde'), { target: { value: '2026-03-05' } });
+      await userEvent.click(screen.getByText('Limpiar filtros'));
+      const actual = quincenaDeFecha(new Date());
+      expect(vi.mocked(useDetalleDiario)).toHaveBeenLastCalledWith(
+        { anio: actual.anio, mes: actual.mes, parte: actual.parte },
+        {},
+      );
+      expect((screen.getByLabelText('Fecha desde') as HTMLInputElement).value).toBe('');
+      expect(screen.queryByText('Limpiar filtros')).not.toBeInTheDocument();
+    });
+
+    it('"Exportar Excel" descarga con el período y los filtros de la pantalla', async () => {
+      render(<ControlGeneralPage />);
+      await userEvent.click(screen.getByLabelText('Filtrar por operario'));
+      await userEvent.click(screen.getByLabelText('GOMEZ ANA'));
+      await userEvent.keyboard('{Escape}');
+      await userEvent.click(screen.getByRole('button', { name: 'Exportar Excel' }));
+      const actual = quincenaDeFecha(new Date());
+      expect(vi.mocked(descargarExcelDetalle)).toHaveBeenLastCalledWith(
+        { anio: actual.anio, mes: actual.mes, parte: actual.parte },
+        { operarioCuils: ['20222222222'] },
+      );
+    });
+
+    it('si la descarga falla, lo avisa', async () => {
+      vi.mocked(descargarExcelDetalle).mockRejectedValueOnce(new Error('500'));
+      render(<ControlGeneralPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'Exportar Excel' }));
+      expect(await screen.findByText('No se pudo generar el Excel. Probá de nuevo.')).toBeInTheDocument();
+    });
   });
 });
