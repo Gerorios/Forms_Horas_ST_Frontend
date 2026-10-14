@@ -4,8 +4,13 @@ import { useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { PageHeader } from '@/components/page-header';
 import { StatTile } from '@/components/stat-tile';
-import { QuincenaSelect } from '@/features/mis-registros/quincena-select';
-import { MultiFiltro } from '@/components/ui/barra-filtros';
+import { BarraFiltros, MultiFiltro } from '@/components/ui/barra-filtros';
+import {
+  PeriodoCampos,
+  errorRango,
+  periodoEfectivo,
+  quincenaDelPeriodo,
+} from '@/features/control-general/periodo-campos';
 import { opcionesFacetadas } from '@/lib/facetado';
 import { redondearHoras } from '@/lib/horas';
 
@@ -26,11 +31,14 @@ import {
   useHistoricoQuincenas,
   useDetalleDiario,
   useControlDiario,
+  useMisTareas,
+  descargarExcelDetalle,
   type OperarioSinCarga,
   type FiltrosPanel,
+  type PeriodoPanel,
 } from '@/lib/api/panel-general';
 import { useProvincias } from '@/lib/api/catalogos';
-import { quincenaDeFecha, type Quincena } from '@/lib/quincena';
+import { quincenaDeFecha } from '@/lib/quincena';
 import {
   ClockIcon,
   UsersIcon,
@@ -269,12 +277,21 @@ function FragmentoControlDiario({
   );
 }
 
+/** Quincena EN CURSO, sin rango: el período por defecto (pedido 2026-08-14:
+ * mismo criterio en toda la app) y al que vuelve "Limpiar filtros". */
+function periodoInicial(): PeriodoPanel {
+  return { ...quincenaDeFecha(new Date()), desde: '', hasta: '' };
+}
+
 export default function ControlGeneralPage() {
-  // Quincena EN CURSO por defecto (pedido 2026-08-14: mismo criterio en toda la app).
-  const [quincena, setQuincena] = useState<Quincena>(() => quincenaDeFecha(new Date()));
+  // Período del panel (ADR-030): quincena, mes completo o rango desde/hasta.
+  const [periodoSel, setPeriodoSel] = useState<PeriodoPanel>(periodoInicial);
   const [contratosSel, setContratosSel] = useState<string[]>([]);
   const [provinciasSel, setProvinciasSel] = useState<string[]>([]);
+  const [tareasSel, setTareasSel] = useState<string[]>([]);
   const [operariosSel, setOperariosSel] = useState<string[]>([]);
+  const [exportando, setExportando] = useState(false);
+  const [errorExportar, setErrorExportar] = useState<string | null>(null);
   const [sinCargaSel, setSinCargaSel] = useState<string[]>([]);
   const [visiblesDetalle, setVisiblesDetalle] = useState(PAGINA_DETALLE);
   const sinCargaRef = useRef<HTMLDivElement>(null);
@@ -286,12 +303,42 @@ export default function ControlGeneralPage() {
   // ranking se filtran por operario en el cliente. Histórico y detalle sí
   // reciben el filtro completo. Sin carga no recibe ninguno: es una vista
   // compartida entre todos los jefes, no scopeada a contratos.
+  const { data: misTareas } = useMisTareas();
+  // Tareas: el catálogo es por contrato y el mismo nombre se repite con
+  // distinto id, así que se elige por NOMBRE (de los contratos filtrados, si
+  // hay) y al server van todos los ids de ese nombre.
+  const tareasDisponibles = useMemo(
+    () =>
+      (misTareas ?? []).filter(
+        (t) => contratosSel.length === 0 || contratosSel.includes(String(t.contratoId)),
+      ),
+    [misTareas, contratosSel],
+  );
+  // Al cambiar de contrato se sueltan las tareas que no existen en los nuevos:
+  // si no, el filtro diría "Tarea (1)" sin mandar ningún id y la pantalla (y el
+  // Excel) traerían todas las tareas.
+  const cambiarContratos = (sel: string[]) => {
+    setContratosSel(sel);
+    if (!misTareas) return;
+    const nombres = new Set(
+      misTareas
+        .filter((t) => sel.length === 0 || sel.includes(String(t.contratoId)))
+        .map((t) => t.nombre),
+    );
+    setTareasSel((prev) => prev.filter((n) => nombres.has(n)));
+  };
+  const tareaIds = useMemo(
+    () => tareasDisponibles.filter((t) => tareasSel.includes(t.nombre)).map((t) => t.id),
+    [tareasDisponibles, tareasSel],
+  );
+
   const filtrosBase = useMemo<FiltrosPanel>(
     () => ({
       ...(contratosSel.length ? { contratoIds: contratosSel.map(Number) } : {}),
       ...(provinciasSel.length ? { provinciaIds: provinciasSel.map(Number) } : {}),
+      ...(tareaIds.length ? { tareaIds } : {}),
     }),
-    [contratosSel, provinciasSel],
+    [contratosSel, provinciasSel, tareaIds],
   );
   const filtros = useMemo<FiltrosPanel>(
     () => ({
@@ -301,8 +348,16 @@ export default function ControlGeneralPage() {
     [filtrosBase, operariosSel],
   );
 
-  const { data: resumen, isLoading: cargandoResumen } = useResumenOperarios(quincena, filtrosBase);
-  const { data: sinCarga, isLoading: cargandoSinCarga } = useSinCarga(quincena);
+  // Un rango incompleto o inválido no se consulta: queda el mes elegido y el
+  // error se muestra debajo de la barra.
+  const avisoRango = errorRango(periodoSel.desde, periodoSel.hasta);
+  const periodo = useMemo(() => periodoEfectivo(periodoSel), [periodoSel]);
+  // Lo que es por quincena (+88hs, sin carga) solo con una quincena elegida.
+  const quincenaSel = useMemo(() => quincenaDelPeriodo(periodo), [periodo]);
+  const textoPeriodo = quincenaSel ? 'esta quincena' : 'este período';
+
+  const { data: resumen, isLoading: cargandoResumen } = useResumenOperarios(periodo, filtrosBase);
+  const { data: sinCarga, isLoading: cargandoSinCarga } = useSinCarga(quincenaSel);
   const { data: misContratos } = useMisContratos();
   const { data: provincias } = useProvincias();
   // El histórico es contexto, no revisión: siempre llega hasta la quincena
@@ -310,8 +365,33 @@ export default function ControlGeneralPage() {
   // si no, agosto desaparecía del gráfico al revisar julio.
   const quincenaActual = useMemo(() => quincenaDeFecha(new Date()), []);
   const { data: historico, isLoading: cargandoHistorico } = useHistoricoQuincenas(quincenaActual, filtros);
-  const { data: detalle, isLoading: cargandoDetalle } = useDetalleDiario(quincena, filtros);
-  const { data: controlDiario, isLoading: cargandoControl } = useControlDiario(quincena, filtros);
+  const { data: detalle, isLoading: cargandoDetalle } = useDetalleDiario(periodo, filtros);
+  const { data: controlDiario, isLoading: cargandoControl } = useControlDiario(periodo, filtros);
+
+  const hayFiltros =
+    contratosSel.length + provinciasSel.length + tareasSel.length + operariosSel.length > 0 ||
+    Boolean(periodoSel.desde || periodoSel.hasta) ||
+    JSON.stringify(periodoSel) !== JSON.stringify(periodoInicial());
+
+  function limpiarFiltros() {
+    setPeriodoSel(periodoInicial());
+    setContratosSel([]);
+    setProvinciasSel([]);
+    setTareasSel([]);
+    setOperariosSel([]);
+  }
+
+  async function exportarDetalle() {
+    setExportando(true);
+    setErrorExportar(null);
+    try {
+      await descargarExcelDetalle(periodo, filtros);
+    } catch {
+      setErrorExportar('No se pudo generar el Excel. Probá de nuevo.');
+    } finally {
+      setExportando(false);
+    }
+  }
   // Días expandidos de la zona de revisión (clave operarioCuil|fecha).
   const [diasExpandidos, setDiasExpandidos] = useState<Set<string>>(new Set());
 
@@ -343,6 +423,14 @@ export default function ControlGeneralPage() {
   const opcionesProvincia = useMemo(
     () => (provincias ?? []).map((p) => ({ value: String(p.id), label: p.nombre })),
     [provincias],
+  );
+
+  const opcionesTarea = useMemo(
+    () =>
+      [...new Set(tareasDisponibles.map((t) => t.nombre))]
+        .sort((a, b) => a.localeCompare(b))
+        .map((nombre) => ({ value: nombre, label: nombre })),
+    [tareasDisponibles],
   );
 
   // Los operarios elegibles son los que tienen carga en la quincena (según
@@ -406,13 +494,14 @@ export default function ControlGeneralPage() {
   return (
     <section className="space-y-6">
       <PageHeader area="operacion" title="Control general" />
-      <QuincenaSelect value={quincena} onChange={setQuincena}>
+      <BarraFiltros hayFiltros={hayFiltros} onLimpiar={limpiarFiltros}>
+        <PeriodoCampos value={periodoSel} onChange={setPeriodoSel} />
         <MultiFiltro
           label="Contrato"
           ariaLabel="Filtrar por contrato"
           opciones={opcionesContrato}
           seleccionados={contratosSel}
-          onChange={setContratosSel}
+          onChange={cambiarContratos}
         />
         <MultiFiltro
           label="Provincia"
@@ -422,17 +511,29 @@ export default function ControlGeneralPage() {
           onChange={setProvinciasSel}
         />
         <MultiFiltro
+          label="Tarea"
+          ariaLabel="Filtrar por tarea"
+          opciones={opcionesTarea}
+          seleccionados={tareasSel}
+          onChange={setTareasSel}
+        />
+        <MultiFiltro
           label="Operario"
           ariaLabel="Filtrar por operario"
           opciones={opcionesOperario}
           seleccionados={operariosSel}
           onChange={setOperariosSel}
         />
-      </QuincenaSelect>
+      </BarraFiltros>
+      {avisoRango && (
+        <p role="alert" className="-mt-4 text-xs text-danger">
+          {avisoRango} Mientras tanto se muestra el mes elegido.
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatTile
-          label="Horas de la quincena"
+          label={quincenaSel ? 'Horas de la quincena' : 'Horas del período'}
           value={horasQuincena}
           icon={<ClockIcon />}
           animar
@@ -441,7 +542,8 @@ export default function ControlGeneralPage() {
         <StatTile label="Operarios con carga" value={resumenFiltrado.length} icon={<UsersIcon />} animar />
         <StatTile
           label="Con horas extra (+88hs)"
-          value={conHorasExtra}
+          value={quincenaSel ? conHorasExtra : '—'}
+          sub={quincenaSel ? undefined : 'se mide por quincena'}
           tone="warn"
           colorearSoloSiPositivo
           icon={<TrendIcon />}
@@ -457,11 +559,12 @@ export default function ControlGeneralPage() {
         />
         <StatTile
           label="Sin carga"
-          value={(sinCarga ?? []).length}
+          value={quincenaSel ? (sinCarga ?? []).length : '—'}
+          sub={quincenaSel ? undefined : 'se mide por quincena'}
           tone="danger"
           colorearSoloSiPositivo
           icon={<AlertUserIcon />}
-          onClick={irASinCarga}
+          onClick={quincenaSel ? irASinCarga : undefined}
           animar
         />
       </div>
@@ -538,7 +641,7 @@ export default function ControlGeneralPage() {
                 {(controlDiario ?? []).length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-4 py-3 text-sm text-slate">
-                      Ningún operario superó las 13hs en un día esta quincena.
+                      Ningún operario superó las 13hs en un día {textoPeriodo}.
                     </td>
                   </tr>
                 )}
@@ -562,12 +665,28 @@ export default function ControlGeneralPage() {
               abrí el día para ver el detalle completo.
             </span>
           )}
-          {(detalle ?? []).length > 0 && (
-            <span className="text-xs text-slate">
-              mostrando {detalleVisible.length} de {(detalle ?? []).length}
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {(detalle ?? []).length > 0 && (
+              <span className="text-xs text-slate">
+                mostrando {detalleVisible.length} de {(detalle ?? []).length}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={exportarDetalle}
+              disabled={exportando || cargandoDetalle || (detalle ?? []).length === 0}
+              title="Descarga lo filtrado de tus contratos, un renglón por registro, con móviles y observaciones"
+              className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink transition hover:border-brand hover:text-brand-deep disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {exportando ? 'Generando…' : 'Exportar Excel'}
+            </button>
+          </div>
         </div>
+        {errorExportar && (
+          <p role="alert" className="text-xs text-danger">
+            {errorExportar}
+          </p>
+        )}
         {cargandoDetalle ? (
           <TableSkeleton rows={6} cols={5} />
         ) : (
@@ -597,7 +716,7 @@ export default function ControlGeneralPage() {
                 {detalleVisible.length === 0 && (
                   <tr>
                     <td colSpan={7} className="px-4 py-3 text-sm text-slate">
-                      Sin registros en esta quincena.
+                      Sin registros en {textoPeriodo}.
                     </td>
                   </tr>
                 )}
@@ -639,7 +758,11 @@ export default function ControlGeneralPage() {
           alguien que trabajó bajo otro contrato. Compartido entre todos los Jefes de Contrato y
           Admin, no está limitado a tus contratos.
         </p>
-        {cargandoSinCarga ? (
+        {!quincenaSel ? (
+          <p className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-slate">
+            Elegí una quincena para ver quién no cargó horas.
+          </p>
+        ) : cargandoSinCarga ? (
           <TableSkeleton rows={5} cols={4} />
         ) : (
           <div className="overflow-hidden rounded-xl border border-line bg-surface">
