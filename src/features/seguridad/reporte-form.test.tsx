@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   ultimoLugar: null as null | { provinciaId: number; contratoId: number; tareaId: number },
   guardarUltimoLugar: vi.fn(),
   quitarFoto: vi.fn(),
+  editar: vi.fn(),
 }));
 
 vi.mock('./captura-foto', () => ({
@@ -49,7 +50,7 @@ vi.mock('@/lib/api/seguridad', () => ({
   }),
   useCorregirReporte: () => ({ mutateAsync: vi.fn() }),
   useCrearReporte: () => ({ mutateAsync: h.crear }),
-  useEditarReporte: () => ({ mutateAsync: vi.fn() }),
+  useEditarReporte: () => ({ mutateAsync: h.editar }),
   useQuitarFoto: () => ({ mutateAsync: h.quitarFoto, isPending: false }),
   useInvalidarSeguridad: () => vi.fn(),
   subirFoto: h.subirFoto,
@@ -330,6 +331,40 @@ describe('ReporteForm', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Enviar reporte' }));
     await waitFor(() => expect(onListo).toHaveBeenCalledWith(99));
     expect(h.guardarUltimoLugar).toHaveBeenCalledWith('20111', { provinciaId: 1, contratoId: 2, tareaId: 30 });
+  });
+
+  it('editar una paralización enviada sin GPS no pide la ubicación de nuevo', { timeout: 20000 }, async () => {
+    const inicial = {
+      id: 8,
+      tipo: 'paralizacion',
+      estado: 'pendiente',
+      fechaReporte: '2026-10-06',
+      enviadoEn: '2026-10-07T11:42:00Z',
+      autor: { cuil: '20111', nombre: 'PEREZ' },
+      provincia: { id: 1, nombre: 'Salta' },
+      contrato: { id: 2, codigo: 'K2', nombre: 'K2' },
+      tarea: { id: 30, nombre: 'Conexión' },
+      ubicacion: 'Obra calle Güemes 120',
+      descripcion: 'Viento fuerte',
+      naturaleza: null,
+      motivoParalizacion: { id: 7, nombre: 'Viento / clima' },
+      controlRiesgo: 'Señalicé y frené la tarea',
+      involucrados: [],
+      fotos: [],
+      punto: null,
+      puntaje: null,
+      comentarioHys: null,
+      calificadoPor: null,
+      calificadoEn: null,
+      motivoAnulacion: null,
+      alarma: true,
+    } as const;
+    h.editar.mockResolvedValue({});
+    render(<ReporteForm inicial={inicial as never} onListo={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    await waitFor(() => expect(h.editar).toHaveBeenCalled());
+    expect(h.editar.mock.calls[0][0].input).toEqual(expect.objectContaining({ sinUbicacion: true }));
+    expect(screen.queryByText(/Falta tomar la ubicación/)).not.toBeInTheDocument();
   });
 
   it('quitar una foto ya subida pide confirmación', async () => {

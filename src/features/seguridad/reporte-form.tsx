@@ -132,7 +132,12 @@ export function ReporteForm({
   );
   /** Falló el GPS y el autor eligió seguir sin punto (ADR-027, 2026-10-08). */
   const [gpsFallo, setGpsFallo] = useState(false);
-  const [sinUbicacion, setSinUbicacion] = useState(false);
+  // El back no guarda "sin ubicación": una paralización ya enviada sin punto de
+  // GPS se mandó así, y al editarla no se le vuelve a pedir el GPS (desde otro
+  // lugar guardaría un punto que no es el de la obra).
+  const [sinUbicacion, setSinUbicacion] = useState(
+    !esAlta && inicial?.tipo === 'paralizacion' && inicial.punto?.origen !== 'gps',
+  );
   const [enviando, setEnviando] = useState(false);
   const [intentoEnviar, setIntentoEnviar] = useState(false);
   /** Reporte ya creado en este alta: desde acá solo se completan fotos, nunca
