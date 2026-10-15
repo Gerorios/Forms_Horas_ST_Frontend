@@ -15,7 +15,7 @@ import { CalificarReporte, teclaEsParaUnCampo, type AtajosCalificar } from '@/fe
 import { ReporteForm } from '@/features/seguridad/reporte-form';
 import { ConfirmarDialog } from '@/features/seguridad/confirmar-dialog';
 import { ErrorCarga } from '@/features/seguridad/error-carga';
-import { urlMapa } from '@/features/seguridad/boton-ubicacion';
+import { ORIGEN_PUNTO_LABEL, urlMapa } from '@/features/seguridad/boton-ubicacion';
 import { filtrosDeUrl, filtrosSonLosDeSiempre, siguientePendiente, urlDeFiltros } from '@/features/seguridad/panel-filtros';
 import { FOCO_VISIBLE, TIPO_LABEL, fechaCorta, signo } from '@/features/seguridad/tipos';
 
@@ -153,7 +153,7 @@ function IconoAlarma() {
 
 function IconoPunto({ r }: { r: ReporteSeguridad }) {
   if (!r.punto) return null;
-  const origen = r.punto.origen === 'gps' ? 'GPS' : 'foto de cámara';
+  const origen = ORIGEN_PUNTO_LABEL[r.punto.origen];
   const error = r.punto.errorMetros != null ? `, ±${Math.round(r.punto.errorMetros)} m` : '';
   return (
     <svg role="img" aria-label={`Con punto en el mapa (${origen}${error})`} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate">
@@ -426,7 +426,7 @@ export default function PanelReportesPage() {
                       {seleccionado.punto.latitud.toFixed(5)}, {seleccionado.punto.longitud.toFixed(5)}
                     </span>
                     {seleccionado.punto.errorMetros != null ? ` · ±${Math.round(seleccionado.punto.errorMetros)} m` : ''}
-                    {` (${seleccionado.punto.origen === 'gps' ? 'GPS' : 'foto'}) `}
+                    {` (${ORIGEN_PUNTO_LABEL[seleccionado.punto.origen]}) `}
                     <a href={urlMapa(seleccionado.punto)} target="_blank" rel="noreferrer" className={`font-medium text-brand-deep underline-offset-2 hover:underline ${FOCO_VISIBLE}`}>
                       ver en el mapa
                     </a>
