@@ -10,7 +10,7 @@ import { navPorArea, type Area, type NavItem } from '@/components/layout/nav';
 import { NavIcon } from '@/components/layout/nav-icons';
 
 /** Rutas cuyas tablas necesitan todo el ancho de pantalla (el resto usa max-w-5xl). */
-const RUTAS_ANCHAS = ['/liquidacion', '/control-general', '/combustible', '/admin/usuarios'];
+const RUTAS_ANCHAS = ['/liquidacion', '/control-general', '/combustible', '/admin/usuarios', '/seguridad/panel', '/seguridad/ranking'];
 
 /**
  * Rutas que se dibujan a sangre: el shell no les pone margen, ancho máximo ni
@@ -61,6 +61,17 @@ function Monograma() {
   );
 }
 
+/**
+ * Un ítem está activo en su ruta y en sus subrutas, salvo que otro ítem
+ * visible sea más específico: en `/seguridad/panel` se marca "Panel de
+ * reportes", no también "Mis reportes y puntos" (`/seguridad`).
+ */
+export function esItemActivo(href: string, pathname: string, grupos: { items: NavItem[] }[]): boolean {
+  const coincide = (h: string) => pathname === h || pathname.startsWith(`${h}/`);
+  if (!coincide(href)) return false;
+  return !grupos.some((g) => g.items.some((i) => i.href.length > href.length && coincide(i.href)));
+}
+
 function NavLinks({
   grupos,
   pathname,
@@ -92,7 +103,7 @@ function NavLinks({
               </p>
             )}
           {grupo.items.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const active = esItemActivo(item.href, pathname, grupos);
             return (
               <Link
                 key={item.href}
