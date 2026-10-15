@@ -316,6 +316,31 @@ export function useTableros(rango: RangoConsulta) {
   });
 }
 
+/** Un reporte en el mapa de HyS: su punto (propio o de foto) y lo justo para
+ * la ficha, sin texto libre ni nombres de personas. */
+export interface PuntoMapa {
+  id: number;
+  tipo: TipoReporte;
+  estado: EstadoReporte;
+  fechaReporte: string;
+  puntaje: number | null;
+  provincia: string;
+  contrato: string;
+  tarea: string;
+  naturaleza: string | null;
+  motivoParalizacion: string | null;
+  punto: { latitud: number; longitud: number; errorMetros: number | null; origen: OrigenPunto | 'foto' };
+}
+
+/** Mapa de reportes del rango (HyS y Admin). Se pide recién al abrir el mapa. */
+export function useMapaReportes(rango: RangoConsulta, habilitado: boolean) {
+  return useQuery({
+    queryKey: [...CLAVE, 'mapa', rango],
+    queryFn: async () => (await api.get<PuntoMapa[]>('/seguridad/mapa', { params: limpiar(rango) })).data,
+    enabled: habilitado,
+  });
+}
+
 export function useCatalogoAdmin(catalogo: CatalogoSeguridad) {
   return useQuery({
     queryKey: [...CLAVE, 'admin', catalogo],
