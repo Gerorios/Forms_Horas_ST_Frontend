@@ -2,6 +2,8 @@ const MAP: Record<string, { label: string; cls: string }> = {
   pendiente: { label: 'Pendiente', cls: 'bg-warn/10 text-warn ring-warn/25' },
   aprobado: { label: 'Aprobado', cls: 'bg-approved/10 text-approved ring-approved/25' },
   desaprobado: { label: 'Desaprobado', cls: 'bg-danger/10 text-danger ring-danger/25' },
+  // Reportes de seguridad: el autor lo retiró mientras estaba pendiente.
+  anulado: { label: 'Anulado', cls: 'bg-slate/10 text-slate ring-slate/25' },
   aprobada: { label: 'Aprobada', cls: 'bg-approved/10 text-approved ring-approved/25' },
   desaprobada: { label: 'Desaprobada', cls: 'bg-danger/10 text-danger ring-danger/25' },
   no_aplica: { label: 'No aplica', cls: 'bg-slate/10 text-slate ring-slate/25' },

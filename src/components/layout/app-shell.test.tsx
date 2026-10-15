@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { AppShell } from './app-shell';
+import { AppShell, esItemActivo } from './app-shell';
 import { navPorArea } from './nav';
 import type { Perfil } from '@/types/domain';
 
@@ -143,7 +143,7 @@ describe('AppShell — consola Central Sertec (ADR-025)', () => {
 
   it('desplegado: muestra el título de cada área visible del perfil', () => {
     const titulos = navPorArea(PERFIL_ADMIN).map((g) => g.area.label);
-    expect(titulos).toEqual(['Operación', 'Personas', 'Resultados operativos', 'Administración']);
+    expect(titulos).toEqual(['Operación', 'Personas', 'Seguridad', 'Resultados operativos', 'Administración']);
     render(<AppShell><p>contenido</p></AppShell>);
     for (const titulo of titulos) {
       expect(screen.getByText(titulo)).toBeInTheDocument();
@@ -161,7 +161,7 @@ describe('AppShell — consola Central Sertec (ADR-025)', () => {
 
   it('un perfil de HyS no ve el área Operación', () => {
     h.perfil = PERFIL_HYS;
-    expect(navPorArea(PERFIL_HYS).map((g) => g.area.label)).toEqual(['Personas']);
+    expect(navPorArea(PERFIL_HYS).map((g) => g.area.label)).toEqual(['Personas', 'Seguridad']);
     render(<AppShell><p>contenido</p></AppShell>);
     expect(screen.getByText('Personas')).toBeInTheDocument();
     expect(screen.queryByText('Operación')).not.toBeInTheDocument();
@@ -227,5 +227,27 @@ describe('AppShell — el inicio va sin contenedor (2.2)', () => {
     const div = wrapper(container);
     expect(div).toHaveAttribute('data-contenedor', 'normal');
     expect(div.className).toContain('max-w-none');
+  });
+});
+
+describe('esItemActivo', () => {
+  const grupos = [
+    {
+      items: [
+        { label: 'Nuevo reporte', href: '/seguridad/nuevo', roles: [], area: 'seguridad' as const },
+        { label: 'Mis reportes y puntos', href: '/seguridad', roles: [], area: 'seguridad' as const },
+        { label: 'Panel de reportes', href: '/seguridad/panel', roles: [], area: 'seguridad' as const },
+      ],
+    },
+  ];
+
+  it('en una subruta con ítem propio se marca solo el más específico', () => {
+    expect(esItemActivo('/seguridad/panel', '/seguridad/panel', grupos)).toBe(true);
+    expect(esItemActivo('/seguridad', '/seguridad/panel', grupos)).toBe(false);
+    expect(esItemActivo('/seguridad', '/seguridad/nuevo', grupos)).toBe(false);
+  });
+
+  it('una subruta sin ítem propio (el detalle de un reporte) marca al padre', () => {
+    expect(esItemActivo('/seguridad', '/seguridad/12', grupos)).toBe(true);
   });
 });

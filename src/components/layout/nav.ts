@@ -3,7 +3,7 @@ import type { Perfil, Rol } from '@/types/domain';
 // Central Sertec (ADR-025): los módulos se agrupan en cuatro áreas para que la
 // barra y el inicio cuenten el mismo relato. El área es solo presentación: los
 // roles siguen decidiendo qué se ve (ver `navForRole`).
-export type AreaId = 'operacion' | 'personas' | 'resultados' | 'administracion';
+export type AreaId = 'operacion' | 'personas' | 'seguridad' | 'resultados' | 'administracion';
 
 export interface Area {
   id: AreaId;
@@ -14,6 +14,7 @@ export interface Area {
 export const AREAS: Area[] = [
   { id: 'operacion', label: 'Operación' },
   { id: 'personas', label: 'Personas' },
+  { id: 'seguridad', label: 'Seguridad' },
   { id: 'resultados', label: 'Resultados operativos' },
   { id: 'administracion', label: 'Administración' },
 ];
@@ -23,7 +24,14 @@ export interface NavItem {
   href: string;
   roles: Rol[];
   area: AreaId;
+  /** Módulo con lanzamiento (ADR-028): mientras esté interno, solo lo ven
+   * Admin y el piloto (`perfil.modulos`). */
+  modulo?: string;
 }
+
+/** Todos los roles: Autogestión de la Seguridad es el primer módulo abierto a
+ * cualquier usuario (ADR-027). */
+const TODOS_LOS_ROLES: Rol[] = ['Operario', 'JefeCuadrilla', 'JefeContrato', 'Supervisor', 'HyS', 'Admin', 'Liquidador'];
 
 // Ordenados por área y, dentro de cada área, en el orden del ADR-025
 // (en Operación, Combustible va al final por ser el módulo más lateral).
@@ -47,6 +55,14 @@ export const NAV_ITEMS: NavItem[] = [
     area: 'personas',
   },
   { label: 'Ausencias', href: '/ausencias', roles: ['HyS', 'Admin'], area: 'personas' },
+  // Autogestión de la Seguridad (ADR-027): reportar y ver los puntos propios es de todos.
+  { label: 'Nuevo reporte', href: '/seguridad/nuevo', roles: TODOS_LOS_ROLES, area: 'seguridad', modulo: 'seguridad' },
+  { label: 'Mis reportes y puntos', href: '/seguridad', roles: TODOS_LOS_ROLES, area: 'seguridad', modulo: 'seguridad' },
+  // Calificar, medir y definir los períodos es de HyS (y Admin).
+  { label: 'Panel de reportes', href: '/seguridad/panel', roles: ['HyS', 'Admin'], area: 'seguridad', modulo: 'seguridad' },
+  { label: 'Ranking y tableros', href: '/seguridad/ranking', roles: ['HyS', 'Admin'], area: 'seguridad', modulo: 'seguridad' },
+  // Quiénes, además de HyS, pueden cargar inspecciones (ADR-027, 2026-10-08).
+  { label: 'Inspectores', href: '/seguridad/inspectores', roles: ['HyS', 'Admin'], area: 'seguridad', modulo: 'seguridad' },
   // Perfiles no es un ítem propio: sigue siendo pestaña de Liquidación
   // (decisión del usuario, ADR-025).
   { label: 'Liquidación', href: '/liquidacion', roles: ['Liquidador', 'Admin'], area: 'resultados' },
@@ -55,9 +71,12 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 export function navForRole(
-  perfil: Pick<Perfil, 'rol' | 'tiposNovedadHabilitados' | 'puedeCargarKmPorTantos' | 'cert'>,
+  perfil: Pick<Perfil, 'rol' | 'tiposNovedadHabilitados' | 'puedeCargarKmPorTantos' | 'cert' | 'modulos'>,
 ): NavItem[] {
   return NAV_ITEMS.filter((item) => {
+    // Lanzamiento (ADR-028): un módulo en prueba interna no se muestra a quien
+    // no está en el piloto. Si el perfil no lo trae, se muestra.
+    if (item.modulo && perfil.modulos?.[item.modulo] === false) return false;
     // Certificaciones no depende del rol de Horas: cualquier usuario con
     // claim `cert` (portal FastAPI, ver Task 3) la ve, sea o no Admin.
     if (item.href === '/certificaciones') return perfil.cert != null;
@@ -82,7 +101,7 @@ export function navForRole(
  * no muestran títulos vacíos.
  */
 export function navPorArea(
-  perfil: Pick<Perfil, 'rol' | 'tiposNovedadHabilitados' | 'puedeCargarKmPorTantos' | 'cert'>,
+  perfil: Pick<Perfil, 'rol' | 'tiposNovedadHabilitados' | 'puedeCargarKmPorTantos' | 'cert' | 'modulos'>,
 ): { area: Area; items: NavItem[] }[] {
   const visibles = navForRole(perfil);
   return AREAS.map((area) => ({ area, items: visibles.filter((item) => item.area === area.id) })).filter(

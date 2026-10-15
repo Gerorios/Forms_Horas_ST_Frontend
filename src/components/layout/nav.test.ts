@@ -58,7 +58,15 @@ describe('navForRole', () => {
 
   it('HyS ve Ausencias y Novedades', () => {
     const hrefs = navForRole(perfil('HyS')).map((i) => i.href);
-    expect(hrefs).toEqual(['/novedades', '/ausencias']);
+    expect(hrefs).toEqual([
+      '/novedades',
+      '/ausencias',
+      '/seguridad/nuevo',
+      '/seguridad',
+      '/seguridad/panel',
+      '/seguridad/ranking',
+      '/seguridad/inspectores',
+    ]);
   });
 
   it('JefeContrato, Liquidador y Admin ven Novedades (lectura, no solo carga)', () => {
@@ -123,6 +131,48 @@ describe('navForRole', () => {
   });
 });
 
+describe('Autogestión de la Seguridad (ADR-027)', () => {
+  it('todos los roles ven Nuevo reporte y Mis reportes y puntos', () => {
+    for (const rol of ['Operario', 'JefeCuadrilla', 'JefeContrato', 'Supervisor', 'HyS', 'Admin', 'Liquidador'] as const) {
+      const hrefs = navForRole(perfil(rol)).map((i) => i.href);
+      expect(hrefs, rol).toEqual(expect.arrayContaining(['/seguridad/nuevo', '/seguridad']));
+      expect(canAccess(rol, '/seguridad')).toBe(true);
+    }
+  });
+
+  it('panel, ranking y períodos son solo de HyS y Admin', () => {
+    for (const rol of ['HyS', 'Admin'] as const) {
+      const hrefs = navForRole(perfil(rol)).map((i) => i.href);
+      expect(hrefs, rol).toEqual(expect.arrayContaining(['/seguridad/panel', '/seguridad/ranking', '/seguridad/inspectores']));
+    }
+    for (const rol of ['Operario', 'JefeCuadrilla', 'JefeContrato', 'Supervisor', 'Liquidador'] as const) {
+      expect(canAccess(rol, '/seguridad/panel'), rol).toBe(false);
+      expect(canAccess(rol, '/seguridad/ranking'), rol).toBe(false);
+      expect(canAccess(rol, '/seguridad/inspectores'), rol).toBe(false);
+      // Lo de todos sigue abierto.
+      expect(canAccess(rol, '/seguridad'), rol).toBe(true);
+    }
+  });
+});
+
+describe('Lanzamiento de módulos (ADR-028)', () => {
+  it('un módulo en prueba interna no aparece a quien no está en el piloto', () => {
+    const fuera = { ...perfil('Operario'), modulos: { seguridad: false } };
+    expect(navForRole(fuera).map((i) => i.href).some((h) => h.startsWith('/seguridad'))).toBe(false);
+    expect(navPorArea(fuera).map((g) => g.area.id)).not.toContain('seguridad');
+  });
+
+  it('en el piloto (o lanzado) se ve; si el perfil no trae el dato, también', () => {
+    expect(navForRole({ ...perfil('Operario'), modulos: { seguridad: true } }).map((i) => i.href)).toContain('/seguridad');
+    expect(navForRole(perfil('Operario')).map((i) => i.href)).toContain('/seguridad');
+  });
+
+  it('el lanzamiento no da más permisos que el rol: un Operario en el piloto no ve el panel', () => {
+    const hrefs = navForRole({ ...perfil('Operario'), modulos: { seguridad: true } }).map((i) => i.href);
+    expect(hrefs).not.toContain('/seguridad/panel');
+  });
+});
+
 describe('canAccess', () => {
   it('Operario no puede entrar a /admin', () => {
     expect(canAccess('Operario', '/admin')).toBe(false);
@@ -157,10 +207,11 @@ describe('canAccess', () => {
 });
 
 describe('AREAS', () => {
-  it('son las cuatro del ADR-025, en orden y con sus etiquetas', () => {
+  it('son las cuatro del ADR-025 más Seguridad (ADR-027), en orden y con sus etiquetas', () => {
     expect(AREAS).toEqual([
       { id: 'operacion', label: 'Operación' },
       { id: 'personas', label: 'Personas' },
+      { id: 'seguridad', label: 'Seguridad' },
       { id: 'resultados', label: 'Resultados operativos' },
       { id: 'administracion', label: 'Administración' },
     ]);
@@ -175,21 +226,21 @@ describe('AREAS', () => {
 });
 
 describe('navPorArea', () => {
-  it('HyS ve solo Personas, con Novedades y Ausencias en ese orden', () => {
+  it('HyS ve Personas (Novedades y Ausencias, en ese orden) y Seguridad', () => {
     const grupos = navPorArea(perfil('HyS'));
-    expect(grupos.map((g) => g.area.id)).toEqual(['personas']);
+    expect(grupos.map((g) => g.area.id)).toEqual(['personas', 'seguridad']);
     expect(grupos[0].items.map((i) => i.href)).toEqual(['/novedades', '/ausencias']);
   });
 
-  it('Operario ve solo Operación, con Mis registros', () => {
+  it('Operario ve Operación (Mis registros) y Seguridad', () => {
     const grupos = navPorArea(perfil('Operario'));
-    expect(grupos.map((g) => g.area.id)).toEqual(['operacion']);
+    expect(grupos.map((g) => g.area.id)).toEqual(['operacion', 'seguridad']);
     expect(grupos[0].items.map((i) => i.href)).toEqual(['/mis-registros']);
   });
 
   it('Admin con claim cert ve las cuatro áreas, con Liquidación y Certificaciones en Resultados', () => {
     const grupos = navPorArea(perfil('Admin', [], false, { nivel: 'admin', ks: [], inc: true }));
-    expect(grupos.map((g) => g.area.id)).toEqual(['operacion', 'personas', 'resultados', 'administracion']);
+    expect(grupos.map((g) => g.area.id)).toEqual(['operacion', 'personas', 'seguridad', 'resultados', 'administracion']);
     const resultados = grupos.find((g) => g.area.id === 'resultados')!;
     expect(resultados.items.map((i) => i.href)).toEqual(['/liquidacion', '/certificaciones']);
   });
