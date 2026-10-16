@@ -24,6 +24,9 @@ export interface CatalogosSeguridad {
   puedeInspeccionar: boolean;
 }
 
+/** De dónde salió el punto propio del reporte (ADR-027, revisión 2026-10-15). */
+export type OrigenPunto = 'gps' | 'mapa';
+
 export interface FotoReporte {
   id: number;
   grupo: GrupoFoto;
@@ -51,8 +54,9 @@ export interface ReporteSeguridad {
   controlRiesgo: string | null;
   involucrados: { cuil: string; nombre: string }[];
   fotos: FotoReporte[];
-  /** `gps`: tomado con "Tomar mi ubicación"; `foto`: de la foto de cámara con menor error. */
-  punto: { latitud: number; longitud: number; errorMetros: number | null; origen: 'gps' | 'foto' } | null;
+  /** `gps`: tomado con "Tomar mi ubicación"; `mapa`: marcado a mano en el
+   * mapa (sin error); `foto`: de la foto de cámara con menor error. */
+  punto: { latitud: number; longitud: number; errorMetros: number | null; origen: OrigenPunto | 'foto' } | null;
   puntaje: number | null;
   comentarioHys: string | null;
   /** Solo para HyS y Admin; el autor no ve quién lo calificó. */
@@ -69,10 +73,12 @@ export interface ReporteInput {
   contratoId: number;
   tareaId: number;
   ubicacion?: string;
-  /** Punto GPS propio del reporte (obligatorio en la paralización). */
+  /** Punto propio del reporte (obligatorio en la paralización): GPS o
+   * marcado en el mapa. El del mapa no lleva `errorMetros`. */
   latitud?: number;
   longitud?: number;
   errorMetros?: number;
+  origenPunto?: OrigenPunto;
   descripcion: string;
   naturalezaId?: number;
   motivoParalizacionId?: number;
@@ -307,6 +313,31 @@ export function useTableros(rango: RangoConsulta) {
   return useQuery({
     queryKey: [...CLAVE, 'tableros', rango],
     queryFn: async () => (await api.get<Tableros>('/seguridad/tableros', { params: limpiar(rango) })).data,
+  });
+}
+
+/** Un reporte en el mapa de HyS: su punto (propio o de foto) y lo justo para
+ * la ficha, sin texto libre ni nombres de personas. */
+export interface PuntoMapa {
+  id: number;
+  tipo: TipoReporte;
+  estado: EstadoReporte;
+  fechaReporte: string;
+  puntaje: number | null;
+  provincia: string;
+  contrato: string;
+  tarea: string;
+  naturaleza: string | null;
+  motivoParalizacion: string | null;
+  punto: { latitud: number; longitud: number; errorMetros: number | null; origen: OrigenPunto | 'foto' };
+}
+
+/** Mapa de reportes del rango (HyS y Admin). Se pide recién al abrir el mapa. */
+export function useMapaReportes(rango: RangoConsulta, habilitado: boolean) {
+  return useQuery({
+    queryKey: [...CLAVE, 'mapa', rango],
+    queryFn: async () => (await api.get<PuntoMapa[]>('/seguridad/mapa', { params: limpiar(rango) })).data,
+    enabled: habilitado,
   });
 }
 

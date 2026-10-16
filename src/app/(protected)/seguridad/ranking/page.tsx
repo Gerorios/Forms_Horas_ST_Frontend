@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
 import { TableSkeleton, TilesSkeleton } from '@/components/skeleton';
@@ -9,6 +9,7 @@ import { FOCO_VISIBLE, TIPO_LABEL, signo } from '@/features/seguridad/tipos';
 import { FiltroRango, rangoDe, textoRango, type FiltroRangoValor } from '@/features/seguridad/filtro-rango';
 import { ErrorCarga } from '@/features/seguridad/error-carga';
 import { rangoDeUrl, urlDeRango } from '@/features/seguridad/ranking-url';
+import { MapaReportesSeccion } from '@/features/seguridad/mapa-reportes-seccion';
 
 const TARJETA = 'rounded-xl border border-line bg-surface p-4';
 /** Series de la paleta de gráficos del tema (globals.css, --color-chart-*),
@@ -59,12 +60,13 @@ function KpiInspecciones({ hys, inspectores }: { hys: number; inspectores: numbe
   );
 }
 
-function Kpi({ label, valor, detalle }: { label: string; valor: string; detalle: string }) {
+function Kpi({ label, valor, detalle, accion }: { label: string; valor: string; detalle: string; accion?: ReactNode }) {
   return (
     <div className={`${TARJETA} space-y-1`}>
       <p className="text-sm text-slate">{label}</p>
       <p className="font-display text-2xl font-semibold text-ink">{valor}</p>
       <p className="text-xs text-slate">{detalle}</p>
+      {accion}
     </div>
   );
 }
@@ -208,6 +210,13 @@ export default function RankingPage() {
   const maxNaturaleza = Math.max(0, ...(t?.porNaturaleza ?? []).flatMap((n) => [n.reportes, n.inspecciones]));
   const calificados = (t?.totales.aprobados ?? 0) + (t?.totales.desaprobados ?? 0);
   const totalTodos = (t?.totales.reportes ?? 0) + (t?.totales.inspecciones ?? 0);
+  const [mapaAbierto, setMapaAbierto] = useState(false);
+  const seccionMapa = useRef<HTMLElement>(null);
+
+  function verMapa() {
+    setMapaAbierto(true);
+    seccionMapa.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   function cambiarRango(v: FiltroRangoValor) {
     router.replace(`${pathname}${urlDeRango(v)}`, { scroll: false });
@@ -325,10 +334,27 @@ export default function RankingPage() {
               detalle="promedio de envío a calificación"
             />
             <KpiInspecciones hys={t.inspeccionesPorOrigen.hys} inspectores={t.inspeccionesPorOrigen.inspectores} />
-            <Kpi label="Reportes con punto en el mapa" valor={pct(t.conPunto, totalTodos)} detalle={`${t.conPunto} de ${totalTodos}, por GPS o foto de cámara`} />
+            <Kpi
+              label="Reportes con punto en el mapa"
+              valor={pct(t.conPunto, totalTodos)}
+              detalle={`${t.conPunto} de ${totalTodos}, por GPS, mapa o foto de cámara`}
+              accion={
+                t.conPunto > 0 && (
+                  <button
+                    type="button"
+                    onClick={verMapa}
+                    className={`-mx-1 inline-flex min-h-11 items-center px-1 text-sm font-semibold text-brand-deep underline-offset-2 hover:underline ${FOCO_VISIBLE}`}
+                  >
+                    Ver en el mapa
+                  </button>
+                )
+              }
+            />
           </div>
         )}
       </section>
+
+      <MapaReportesSeccion ref={seccionMapa} rango={rango} abierto={mapaAbierto} onAbrir={setMapaAbierto} />
 
       {t && (
         <details className="group space-y-4 rounded-xl border border-line bg-sand-deep/60 p-4 open:bg-transparent open:p-0 open:border-0">

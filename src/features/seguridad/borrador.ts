@@ -1,6 +1,6 @@
 import type { FotoParaSubir, TipoReporte } from '@/lib/api/seguridad';
 import type { EmpleadoBusqueda } from '@/types/domain';
-import type { PuntoGps } from './boton-ubicacion';
+import type { PuntoReporte } from './boton-ubicacion';
 
 /**
  * Borrador local del alta de un Reporte de Seguridad. En celulares con poca
@@ -25,7 +25,7 @@ export interface CamposBorrador {
   descripcion: string;
   controlRiesgo: string;
   involucrados: EmpleadoBusqueda[];
-  punto: PuntoGps | null;
+  punto: PuntoReporte | null;
 }
 
 export interface Borrador {
@@ -50,7 +50,7 @@ const ALMACEN = 'borradores';
  * guardado días antes de un deploy). Es un DATO del navegador, no código: no
  * tiene nada que ver con el caché de la app.
  */
-export const VERSION_BORRADOR = 1;
+export const VERSION_BORRADOR = 2; // 2: el punto guarda su origen (GPS o mapa)
 
 /** Un borrador abandonado no se ofrece para siempre. */
 export const VENCE_DIAS = 7;

@@ -23,7 +23,9 @@ import type { EmpleadoBusqueda } from '@/types/domain';
 import { PersonasSelect } from './personas-select';
 import { ConfirmarDialog } from './confirmar-dialog';
 import { FotosGrupo, type FotoNueva } from './fotos-grupo';
-import { BotonUbicacion, urlMapa, type PuntoGps } from './boton-ubicacion';
+import { BotonUbicacion, ORIGEN_PUNTO_LABEL, urlMapa, type PuntoReporte } from './boton-ubicacion';
+import { MarcarEnMapaDialog } from './marcar-en-mapa-dialog';
+import { centroDeProvincia } from './centro-provincia';
 import {
   borrarBorrador,
   guardarBorrador,
@@ -48,7 +50,8 @@ import {
 
 /** `autor`: alta o edición del propio reporte pendiente. `correccion`: HyS
  * (o Admin) corrige uno ajeno en cualquier estado (ADR-027, 2026-10-08); no
- * toca fotos ni el punto GPS, y si estaba aprobado el backend recalcula. */
+ * toca fotos, puede corregir el punto en el mapa (revisión 2026-10-15), y si
+ * estaba aprobado el backend recalcula. */
 export type ModoFormulario = 'autor' | 'correccion';
 
 const CAMPO =
@@ -123,20 +126,22 @@ export function ReporteForm({
     (inicial?.involucrados ?? []).map((i) => ({ cuil: i.cuil, apellido_nombre: i.nombre, legajo: 0, cargo: '' })),
   );
   const [fotos, setFotos] = useState<FotoNueva[]>([]);
-  // Solo el punto tomado con el botón es del reporte; el que sale de una foto
-  // se sigue derivando de la foto.
-  const [punto, setPunto] = useState<PuntoGps | null>(
-    inicial?.punto?.origen === 'gps'
-      ? { latitud: inicial.punto.latitud, longitud: inicial.punto.longitud, errorMetros: inicial.punto.errorMetros ?? 0 }
+  // Solo el punto tomado con el botón o marcado en el mapa es del reporte; el
+  // que sale de una foto se sigue derivando de la foto.
+  const [punto, setPunto] = useState<PuntoReporte | null>(
+    inicial?.punto && inicial.punto.origen !== 'foto'
+      ? { latitud: inicial.punto.latitud, longitud: inicial.punto.longitud, errorMetros: inicial.punto.errorMetros, origen: inicial.punto.origen }
       : null,
   );
+  /** HyS corrigiendo el punto en el mapa. */
+  const [corrigiendoPunto, setCorrigiendoPunto] = useState(false);
   /** Falló el GPS y el autor eligió seguir sin punto (ADR-027, 2026-10-08). */
   const [gpsFallo, setGpsFallo] = useState(false);
   // El back no guarda "sin ubicación": una paralización ya enviada sin punto de
   // GPS se mandó así, y al editarla no se le vuelve a pedir el GPS (desde otro
   // lugar guardaría un punto que no es el de la obra).
   const [sinUbicacion, setSinUbicacion] = useState(
-    !esAlta && inicial?.tipo === 'paralizacion' && inicial.punto?.origen !== 'gps',
+    !esAlta && inicial?.tipo === 'paralizacion' && (!inicial.punto || inicial.punto.origen === 'foto'),
   );
   const [enviando, setEnviando] = useState(false);
   const [intentoEnviar, setIntentoEnviar] = useState(false);
@@ -170,16 +175,17 @@ export function ReporteForm({
   const reglas = tipo ? CAMPOS_POR_TIPO[tipo] : null;
   // Una foto sacada con la cámara que trae ubicación también sirve como punto
   // (la de menor error), si no se tomó con el botón.
-  const puntoFoto = useMemo<PuntoGps | null>(() => {
+  const puntoFoto = useMemo<PuntoReporte | null>(() => {
     const conPunto = fotos
       .map((f) => f.foto)
       .filter((f) => f.origen === 'camara' && f.ubicacion != null)
       .map((f) => f.ubicacion!);
     if (conPunto.length === 0) return null;
     const mejor = conPunto.reduce((a, b) => (b.errorMetros < a.errorMetros ? b : a));
-    return { latitud: mejor.latitud, longitud: mejor.longitud, errorMetros: Math.round(mejor.errorMetros) };
+    return { latitud: mejor.latitud, longitud: mejor.longitud, errorMetros: Math.round(mejor.errorMetros), origen: 'gps' };
   }, [fotos]);
   const puntoEf = punto ?? puntoFoto;
+  const centroMapa = centroDeProvincia(provincias?.find((p) => p.id === provinciaId)?.nombre);
   const errores = faltantesPorCampo({
     tipo,
     naturalezaId,
@@ -319,7 +325,14 @@ export function ReporteForm({
       tareaId: tareaEf!,
       descripcion: descripcion.trim(),
       ...(ubicacion.trim() ? { ubicacion: ubicacion.trim() } : {}),
-      ...(puntoEf ? { latitud: puntoEf.latitud, longitud: puntoEf.longitud, errorMetros: puntoEf.errorMetros } : {}),
+      ...(puntoEf
+        ? {
+            latitud: puntoEf.latitud,
+            longitud: puntoEf.longitud,
+            origenPunto: puntoEf.origen,
+            ...(puntoEf.errorMetros != null ? { errorMetros: puntoEf.errorMetros } : {}),
+          }
+        : {}),
       ...(!puntoEf && sinUbicacion ? { sinUbicacion: true } : {}),
       ...(reglas?.naturaleza && naturalezaId != null ? { naturalezaId } : {}),
       ...(reglas?.motivoParalizacion && motivoId != null ? { motivoParalizacionId: motivoId } : {}),
@@ -587,19 +600,57 @@ export function ReporteForm({
                 </label>
               </div>
               {correccion ? (
-                inicial?.punto && (
-                  <p className="text-sm text-slate">
-                    Punto en el mapa: ±{inicial.punto.errorMetros ?? '?'} m ({inicial.punto.origen === 'gps' ? 'GPS' : 'foto'}) ·{' '}
-                    <a href={urlMapa(inicial.punto)} target="_blank" rel="noreferrer" className="text-brand-deep underline">
-                      ver
-                    </a>
-                  </p>
-                )
+                <div className="flex flex-wrap items-center gap-x-1 text-sm text-slate">
+                  {(() => {
+                    // El punto propio (quizá ya corregido acá) o, si no hay, el de la foto.
+                    const actual = punto ?? inicial?.punto ?? null;
+                    return actual ? (
+                      <span>
+                        Punto en el mapa:{' '}
+                        {actual.errorMetros != null ? `±${Math.round(actual.errorMetros)} m, ` : ''}
+                        {ORIGEN_PUNTO_LABEL[actual.origen]} ·{' '}
+                        <a href={urlMapa(actual)} target="_blank" rel="noreferrer" className="text-brand-deep underline">
+                          ver
+                        </a>
+                      </span>
+                    ) : (
+                      <span>Sin punto en el mapa.</span>
+                    );
+                  })()}
+                  <button
+                    type="button"
+                    disabled={enviando}
+                    onClick={() => setCorrigiendoPunto(true)}
+                    className={`inline-flex min-h-11 items-center px-1 font-medium text-ink underline underline-offset-2 ${FOCO_VISIBLE}`}
+                  >
+                    {punto ?? inicial?.punto ? 'Corregir en el mapa' : 'Marcar en el mapa'}
+                  </button>
+                  {corrigiendoPunto && (
+                    <MarcarEnMapaDialog
+                      titulo="Corregir el punto del reporte"
+                      inicial={punto ?? inicial?.punto ?? null}
+                      centro={centroMapa}
+                      onCancelar={() => setCorrigiendoPunto(false)}
+                      onConfirmar={(c) => {
+                        setCorrigiendoPunto(false);
+                        setPunto({
+                          latitud: Number(c.latitud.toFixed(6)),
+                          longitud: Number(c.longitud.toFixed(6)),
+                          errorMetros: null,
+                          origen: 'mapa',
+                        });
+                      }}
+                    />
+                  )}
+                </div>
               ) : (
                 <div className="space-y-1">
                   <BotonUbicacion
                     valor={punto}
                     onChange={setPunto}
+                    // El pin del mapa se marca al crear; una vez enviado, lo corrige HyS.
+                    conMapa={esAlta}
+                    centroMapa={centroMapa}
                     obligatorio={reglas.puntoGps === 'obligatorio'}
                     deshabilitado={enviando || soloFotos}
                     idCampo={idCampo('punto')}

@@ -15,6 +15,9 @@ const h = vi.hoisted(() => ({
   guardarUltimoLugar: vi.fn(),
   quitarFoto: vi.fn(),
   editar: vi.fn(),
+  corregir: vi.fn(),
+  /** Props con las que se abrió el mapa (mock): dónde arrancó la vista. */
+  mapa: null as null | { centro: { latitud: number }; titulo?: string },
 }));
 
 vi.mock('./captura-foto', () => ({
@@ -48,13 +51,24 @@ vi.mock('@/lib/api/seguridad', () => ({
       puedeInspeccionar: h.puedeInspeccionar,
     },
   }),
-  useCorregirReporte: () => ({ mutateAsync: vi.fn() }),
+  useCorregirReporte: () => ({ mutateAsync: h.corregir }),
   useCrearReporte: () => ({ mutateAsync: h.crear }),
   useEditarReporte: () => ({ mutateAsync: h.editar }),
   useQuitarFoto: () => ({ mutateAsync: h.quitarFoto, isPending: false }),
   useInvalidarSeguridad: () => vi.fn(),
   subirFoto: h.subirFoto,
   urlFoto: (r: number, f: number) => `/seguridad/reportes/${r}/fotos/${f}`,
+}));
+// Leaflet no corre en jsdom: el mapa se reemplaza por un botón que "toca" un punto.
+vi.mock('./marcar-en-mapa-dialog', () => ({
+  MarcarEnMapaDialog: (p: { centro: { latitud: number }; titulo?: string; onConfirmar: (c: { latitud: number; longitud: number }) => void }) => {
+    h.mapa = { centro: p.centro, titulo: p.titulo };
+    return (
+      <button type="button" onClick={() => p.onConfirmar({ latitud: -24.8012345678, longitud: -65.4198765432 })}>
+        Tocar el mapa
+      </button>
+    );
+  },
 }));
 vi.mock('@/lib/api/empleados', () => ({ useBuscarEmpleados: () => ({ data: [] }) }));
 vi.mock('@/lib/api/client', () => ({ api: { get: async () => ({ data: new Blob(['jpg'], { type: 'image/jpeg' }) }) } }));
@@ -83,7 +97,7 @@ async function avisoCompleto() {
 }
 
 const BORRADOR: Borrador = {
-  version: 1,
+  version: 2,
   guardadoEn: '2026-10-08T14:32:00.000Z',
   reporteId: null,
   fotos: [],
@@ -115,6 +129,9 @@ describe('ReporteForm', () => {
     h.ultimoLugar = null;
     h.guardarUltimoLugar.mockReset();
     h.quitarFoto.mockReset().mockResolvedValue({});
+    h.editar.mockReset().mockResolvedValue({});
+    h.corregir.mockReset().mockResolvedValue({});
+    h.mapa = null;
   });
 
   it('solo quien puede inspeccionar (HyS o inspector habilitado) ve el tipo Inspección', () => {
@@ -203,8 +220,29 @@ describe('ReporteForm', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Enviar reporte' }));
     await waitFor(() => expect(onListo).toHaveBeenCalled());
     expect(h.crear).toHaveBeenCalledWith(
-      expect.objectContaining({ tipo: 'paralizacion', latitud: -24.785912, longitud: -65.411646, errorMetros: 8 }),
+      expect.objectContaining({ tipo: 'paralizacion', latitud: -24.785912, longitud: -65.411646, errorMetros: 8, origenPunto: 'gps' }),
     );
+  });
+
+  it('quien carga más tarde marca la paralización en el mapa, que arranca en la provincia', { timeout: 15_000 }, async () => {
+    const onListo = vi.fn();
+    render(<ReporteForm onListo={onListo} />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Paralización de trabajos' }));
+    await completarComunes();
+    await userEvent.selectOptions(screen.getByLabelText('¿Por qué se detuvo la tarea?'), '7');
+    await userEvent.type(screen.getByLabelText(/controlar el riesgo/), 'Bajamos la cuadrilla');
+    expect(screen.getByText(/Marcá dónde pasó, no dónde estás ahora/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Marcarla en el mapa' }));
+    expect(h.mapa?.centro.latitud).toBeCloseTo(-24.78, 1); // Salta capital
+    await userEvent.click(screen.getByRole('button', { name: 'Tocar el mapa' }));
+    expect(await screen.findByText('Ubicación marcada en el mapa')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar reporte' }));
+    await waitFor(() => expect(onListo).toHaveBeenCalled());
+    const enviado = h.crear.mock.calls[0][0];
+    expect(enviado).toEqual(expect.objectContaining({ latitud: -24.801235, longitud: -65.419877, origenPunto: 'mapa' }));
+    expect(enviado).not.toHaveProperty('errorMetros');
   });
 
   // Largo (muchos campos tipeados): más margen para que no falle con la máquina cargada.
@@ -331,6 +369,49 @@ describe('ReporteForm', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Enviar reporte' }));
     await waitFor(() => expect(onListo).toHaveBeenCalledWith(99));
     expect(h.guardarUltimoLugar).toHaveBeenCalledWith('20111', { provinciaId: 1, contratoId: 2, tareaId: 30 });
+  });
+
+  it('el autor no mueve el pin del mapa al editar; HyS sí lo corrige', { timeout: 20000 }, async () => {
+    const inicial = {
+      id: 8,
+      tipo: 'propuesta_mejora',
+      estado: 'pendiente',
+      fechaReporte: '2026-10-06',
+      enviadoEn: '2026-10-07T11:42:00Z',
+      autor: { cuil: '20111', nombre: 'PEREZ' },
+      provincia: { id: 1, nombre: 'Salta' },
+      contrato: { id: 2, codigo: 'K2', nombre: 'K2' },
+      tarea: { id: 30, nombre: 'Conexión' },
+      ubicacion: null,
+      descripcion: 'Poner barandas',
+      naturaleza: null,
+      motivoParalizacion: null,
+      controlRiesgo: null,
+      involucrados: [],
+      fotos: [],
+      punto: { latitud: -24.78, longitud: -65.41, errorMetros: null, origen: 'mapa' },
+      puntaje: null,
+      comentarioHys: null,
+      calificadoPor: null,
+      calificadoEn: null,
+      motivoAnulacion: null,
+      alarma: false,
+    } as const;
+    const { unmount } = render(<ReporteForm inicial={inicial as never} onListo={vi.fn()} />);
+    expect(screen.getByText('Ubicación marcada en el mapa')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /en el mapa/ })).not.toBeInTheDocument();
+    unmount();
+
+    render(<ReporteForm inicial={inicial as never} modo="correccion" onListo={vi.fn()} />);
+    expect(screen.getByText(/marcado en el mapa/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Corregir en el mapa' }));
+    expect(h.mapa?.titulo).toBe('Corregir el punto del reporte');
+    await userEvent.click(screen.getByRole('button', { name: 'Tocar el mapa' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar corrección' }));
+    await waitFor(() => expect(h.corregir).toHaveBeenCalled());
+    expect(h.corregir.mock.calls[0][0].input).toEqual(
+      expect.objectContaining({ latitud: -24.801235, longitud: -65.419877, origenPunto: 'mapa' }),
+    );
   });
 
   it('editar una paralización enviada sin GPS no pide la ubicación de nuevo', { timeout: 20000 }, async () => {
