@@ -52,6 +52,11 @@ vi.mock('@/lib/api/seguridad', () => ({
         },
 }));
 
+// El mapa (Leaflet) no corre en jsdom: queda su título, para ver que está.
+vi.mock('@/features/seguridad/mapa-reportes-seccion', () => ({
+  MapaReportesSeccion: () => <h2>Mapa de reportes</h2>,
+}));
+
 import RankingPage from './page';
 
 describe('Ranking y tableros', () => {
